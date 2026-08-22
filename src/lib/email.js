@@ -19,9 +19,7 @@ function formatItems(items) {
     .join("\n");
 }
 
-// EmailJS rejects any template param that is not a string (numbers,
-// booleans and null all cause a 400 response), so every value we hand
-// to a template is coerced to a string here.
+
 function stringifyParams(params) {
   const out = {};
   for (const [key, value] of Object.entries(params || {})) {
