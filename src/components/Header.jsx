@@ -109,7 +109,7 @@ export default function Header({ theme, categories = [] }) {
      STORE NAME
   ============================================================ */
 
-  const storeName = theme?.logo_text || theme?.store_name || "MHFood";
+  const storeName = theme?.store_name || "Your Store";
 
   /* ============================================================
      LOGO
@@ -121,7 +121,7 @@ export default function Header({ theme, categories = [] }) {
       <img src="/mhfood.png" alt={storeName} className="h-9 sm:h-10 w-auto" />
 
       <span className="text-lg sm:text-xl font-semibold tracking-tight text-ink">
-        {storeName.split(" ")[0]}
+        {storeName}
       </span>
     </Link>
   );
@@ -176,84 +176,84 @@ export default function Header({ theme, categories = [] }) {
 
   return (
     <>
-    <header className="bg-surface/90 backdrop-blur-md border-b border-line">
-      {/* ========================================================
+      <header className="bg-surface/90 backdrop-blur-md border-b border-line">
+        {/* ========================================================
           ANNOUNCEMENT BAR
       ========================================================= */}
 
-      {theme?.show_announcement_bar && theme?.announcement_text && (
-        <div className="bg-primary text-white text-center text-xs sm:text-sm font-medium px-4 py-2">
-          {theme.announcement_text}
-        </div>
-      )}
+        {theme?.show_announcement_bar && theme?.announcement_text && (
+          <div className="bg-primary text-white text-center text-xs sm:text-sm font-medium px-4 py-2">
+            {theme.announcement_text}
+          </div>
+        )}
 
-      {/* ========================================================
+        {/* ========================================================
           MAIN HEADER
       ========================================================= */}
 
-      <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 h-16 lg:h-20 grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-6">
-        {/* Logo */}
-        {logo}
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 h-16 lg:h-20 grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-6">
+          {/* Logo */}
+          {logo}
 
-        {/* ======================================================
+          {/* ======================================================
             DESKTOP SEARCH (center, always visible)
         ======================================================= */}
 
-        <form
-          onSubmit={submitSearch}
-          className="hidden md:flex items-center max-w-lg w-full mx-auto overflow-hidden rounded-full border border-line bg-surface focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25 transition-shadow"
-        >
-          <Search size={16} className="ml-4 text-muted shrink-0" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search for food..."
-            className="w-full px-3 py-2.5 bg-transparent text-sm outline-none text-ink placeholder-muted"
-          />
-          <button
-            type="submit"
-            aria-label="Submit search"
-            className="shrink-0 m-1 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+          <form
+            onSubmit={submitSearch}
+            className="hidden md:flex items-center max-w-lg w-full mx-auto overflow-hidden rounded-full border border-line bg-surface focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25 transition-shadow"
           >
-            Search
-          </button>
-        </form>
+            <Search size={16} className="ml-4 text-muted shrink-0" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search for food..."
+              className="w-full px-3 py-2.5 bg-transparent text-sm outline-none text-ink placeholder-muted"
+            />
+            <button
+              type="submit"
+              aria-label="Submit search"
+              className="shrink-0 m-1 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+            >
+              Search
+            </button>
+          </form>
 
-        {/* ======================================================
+          {/* ======================================================
             RIGHT SIDE BUTTONS
         ======================================================= */}
 
-        <div className="flex items-center gap-1 justify-end shrink-0">
-          <div className="hidden lg:flex items-center">
-            <Link
-              href="/shop"
-              className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
+          <div className="flex items-center gap-1 justify-end shrink-0">
+            <div className="hidden lg:flex items-center">
+              <Link
+                href="/shop"
+                className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
+              >
+                Shop
+              </Link>
+              <Link
+                href="/track"
+                className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
+              >
+                Track Order
+              </Link>
+            </div>
+
+            {actions}
+
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+              className="lg:hidden p-2.5 rounded-full text-muted hover:text-ink hover:bg-primary/5 transition-colors"
             >
-              Shop
-            </Link>
-            <Link
-              href="/track"
-              className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
-            >
-              Track Order
-            </Link>
+              <Menu size={20} />
+            </button>
           </div>
-
-          {actions}
-
-          <button
-            type="button"
-            onClick={() => setMenuOpen(true)}
-            aria-label="Open menu"
-            className="lg:hidden p-2.5 rounded-full text-muted hover:text-ink hover:bg-primary/5 transition-colors"
-          >
-            <Menu size={20} />
-          </button>
         </div>
-      </div>
-    </header>
+      </header>
 
       {/* ========================================================
           BOTTOM NAV - CATEGORY MENU (Desktop only, sticky)
