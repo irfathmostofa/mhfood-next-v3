@@ -3,6 +3,7 @@
 
 const SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID;
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
+const PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY; // server-only, never NEXT_PUBLIC_
 const TEMPLATE_CONFIRM = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_CONFIRM;
 const TEMPLATE_DELIVERED = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_DELIVERED;
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
@@ -31,7 +32,10 @@ function stringifyParams(params) {
 
 async function sendEmail({ templateId, toEmail, params }) {
   if (!SERVICE_ID || !PUBLIC_KEY || !templateId) {
-    throw new Error("EmailJS is not configured.");
+    throw new Error(
+      "EmailJS is not configured. Check NEXT_PUBLIC_EMAILJS_SERVICE_ID, " +
+        "NEXT_PUBLIC_EMAILJS_PUBLIC_KEY, and the template id env vars.",
+    );
   }
   if (!toEmail) {
     throw new Error("A recipient email is required.");
@@ -44,6 +48,10 @@ async function sendEmail({ templateId, toEmail, params }) {
       service_id: SERVICE_ID,
       template_id: templateId,
       user_id: PUBLIC_KEY,
+      // Required once "strict mode" / private key auth is on in EmailJS.
+      // Also needed for server-side (non-browser) calls in some account
+      // configurations. Safe to omit if EMAILJS_PRIVATE_KEY isn't set.
+      ...(PRIVATE_KEY ? { accessToken: PRIVATE_KEY } : {}),
       template_params: stringifyParams({
         from_name: "MHFood",
         to_email: toEmail,
@@ -53,7 +61,18 @@ async function sendEmail({ templateId, toEmail, params }) {
   });
 
   const text = await res.text();
-  if (!res.ok) throw new Error(`EmailJS error (${res.status}): ${text}`);
+
+  if (!res.ok) {
+    if (res.status === 403) {
+      throw new Error(
+        `EmailJS blocked this request (403): ${text}. This almost always means ` +
+          `"Allow EmailJS API for non-browser applications" is disabled — enable it ` +
+          `in the EmailJS dashboard under Account -> Security.`,
+      );
+    }
+    throw new Error(`EmailJS error (${res.status}): ${text}`);
+  }
+
   return text;
 }
 
@@ -68,7 +87,8 @@ export async function sendOrderPlacedEmails({
   totalAmount,
   origin,
 }) {
-  const baseOrigin = origin || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseOrigin =
+    origin || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   const trackingLink = `${baseOrigin}/track/${trackingCode}`;
 
   const base = {
@@ -103,11 +123,23 @@ export async function sendOrderPlacedEmails({
         heading: "New Order Received",
         intro_text: "A new order just came in. Details below:",
         button_text: "View Order",
-        footer_text:
-          "Open the admin panel to confirm and process this order.",
+        footer_text: "Open the admin panel to confirm and process this order.",
       },
     }),
   ]);
+
+  // Surface individual failures instead of only relying on the caller's
+  // top-level .catch() (which only sees a rejected outer promise, never
+  // reached here since Promise.allSettled always resolves).
+  results.forEach((result, i) => {
+    if (result.status === "rejected") {
+      const label = i === 0 ? "customer confirmation" : "admin notification";
+      console.error(
+        `Order placed email (${label}) failed:`,
+        result.reason?.message || result.reason,
+      );
+    }
+  });
 
   return results;
 }
@@ -121,7 +153,8 @@ export async function sendOrderDeliveredEmail({
   items,
   origin,
 }) {
-  const baseOrigin = origin || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const baseOrigin =
+    origin || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
   const reviewLink = `${baseOrigin}/review/${orderId}`;
 
   return sendEmail({

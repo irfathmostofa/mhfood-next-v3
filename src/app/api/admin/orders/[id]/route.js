@@ -55,13 +55,21 @@ export async function PATCH(req, { params }) {
           orderId: id,
           items: items || [],
           origin,
-        }).catch(() => {});
+        }).catch((err) => {
+          console.error("Order delivered email failed:", err.message);
+        });
+      } else {
+        console.warn(
+          `Order ${current.tracking_code} has no email on file — skipping delivered email.`,
+        );
       }
       sendOrderDeliveredSMS({
         phone: current.phone,
         customerName: current.customer_name,
         trackingCode: current.tracking_code,
-      }).catch(() => {});
+      }).catch((err) => {
+        console.error("Order delivered SMS failed:", err.message);
+      });
     }
 
     return NextResponse.json({ ok: true, order: updated });
