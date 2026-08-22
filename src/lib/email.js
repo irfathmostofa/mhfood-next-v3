@@ -66,9 +66,10 @@ export async function sendOrderPlacedEmails({
   items,
   delivery,
   totalAmount,
+  origin,
 }) {
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const trackingLink = `${origin}/track/${trackingCode}`;
+  const baseOrigin = origin || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const trackingLink = `${baseOrigin}/track/${trackingCode}`;
 
   const base = {
     customer_name: customerName,
@@ -118,9 +119,10 @@ export async function sendOrderDeliveredEmail({
   delivery,
   orderId,
   items,
+  origin,
 }) {
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  const reviewLink = `${origin}/review/${orderId}`;
+  const baseOrigin = origin || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const reviewLink = `${baseOrigin}/review/${orderId}`;
 
   return sendEmail({
     templateId: TEMPLATE_DELIVERED,

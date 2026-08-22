@@ -19,7 +19,9 @@ class StockError extends Error {
 
 class VariantStockError extends Error {
   constructor() {
-    super("A product option changed while placing your order. Please try again.");
+    super(
+      "A product option changed while placing your order. Please try again.",
+    );
     this.status = 400;
     this.rollback = true;
   }
@@ -49,26 +51,23 @@ export async function POST(req) {
     }
 
     // ---- Pricing data ----
-    const [{ data: zones }, { data: settings }, { data: rules }, { data: coupon }] =
-      await Promise.all([
-        supabase
-          .from("delivery_zones")
-          .select("*")
-          .eq("is_active", true),
-        supabase
-          .from("site_settings")
-          .select("*")
-          .eq("id", 1)
-          .maybeSingle(),
-        supabase.from("discount_rules").select("*").eq("is_active", true),
-        couponCode
-          ? supabase
-              .from("coupons")
-              .select("*")
-              .eq("code", String(couponCode).trim().toUpperCase())
-              .maybeSingle()
-          : Promise.resolve({ data: null }),
-      ]);
+    const [
+      { data: zones },
+      { data: settings },
+      { data: rules },
+      { data: coupon },
+    ] = await Promise.all([
+      supabase.from("delivery_zones").select("*").eq("is_active", true),
+      supabase.from("site_settings").select("*").eq("id", 1).maybeSingle(),
+      supabase.from("discount_rules").select("*").eq("is_active", true),
+      couponCode
+        ? supabase
+            .from("coupons")
+            .select("*")
+            .eq("code", String(couponCode).trim().toUpperCase())
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+    ]);
 
     const selectedZone = zones?.find((z) => z.id === zoneId) || null;
     if (zones && zones.length > 0 && !selectedZone) {
@@ -89,14 +88,18 @@ export async function POST(req) {
       (productRows || []).map((p) => [p.id, p]),
     );
 
-    const variantIds = [...new Set(cartItems.flatMap((i) => i.variant_ids || []))];
+    const variantIds = [
+      ...new Set(cartItems.flatMap((i) => i.variant_ids || [])),
+    ];
     let variantMap = {};
     if (variantIds.length > 0) {
       const { data: variantRows } = await supabase
         .from("product_variants")
         .select("id, product_id, name, value, price_adjustment, stock")
         .in("id", variantIds);
-      variantMap = Object.fromEntries((variantRows || []).map((v) => [v.id, v]));
+      variantMap = Object.fromEntries(
+        (variantRows || []).map((v) => [v.id, v]),
+      );
     }
 
     // ---- Build item rows + subtotal (server-side pricing) ----
@@ -118,7 +121,9 @@ export async function POST(req) {
         const v = variantMap[vid];
         if (!v) {
           return NextResponse.json(
-            { error: `A selected option for ${product.name} is no longer available.` },
+            {
+              error: `A selected option for ${product.name} is no longer available.`,
+            },
             { status: 400 },
           );
         }
@@ -171,7 +176,10 @@ export async function POST(req) {
       }
     }
 
-    const totalDiscount = Math.min(autoDiscount + couponDiscountAmount, subtotal);
+    const totalDiscount = Math.min(
+      autoDiscount + couponDiscountAmount,
+      subtotal,
+    );
 
     // ---- Delivery ----
     const freeDeliveryApplies =
@@ -233,7 +241,8 @@ export async function POST(req) {
     const variantQtyMap = {};
     for (const item of cartItems) {
       productQtyMap[item.product_id] =
-        (productQtyMap[item.product_id] || 0) + Math.max(1, Number(item.quantity) || 1);
+        (productQtyMap[item.product_id] || 0) +
+        Math.max(1, Number(item.quantity) || 1);
       for (const vid of item.variant_ids || []) {
         variantQtyMap[vid] =
           (variantQtyMap[vid] || 0) + Math.max(1, Number(item.quantity) || 1);
@@ -241,15 +250,20 @@ export async function POST(req) {
     }
 
     for (const [productId, qty] of Object.entries(productQtyMap)) {
-      const { data: ok, error } = await supabase
-        .rpc("decrement_stock", { p_product_id: productId, p_quantity: qty });
+      const { data: ok, error } = await supabase.rpc("decrement_stock", {
+        p_product_id: productId,
+        p_quantity: qty,
+      });
       if (error) {
         if (error.message?.includes("Could not find the function")) {
           const next = Math.max(
             0,
             Number(productMap[productId]?.stock || 0) - qty,
           );
-          await supabase.from("products").update({ stock: next }).eq("id", productId);
+          await supabase
+            .from("products")
+            .update({ stock: next })
+            .eq("id", productId);
           continue;
         }
         throw error;
@@ -261,15 +275,20 @@ export async function POST(req) {
     }
 
     for (const [variantId, qty] of Object.entries(variantQtyMap)) {
-      const { data: ok, error } = await supabase
-        .rpc("decrement_variant_stock", { p_variant_id: variantId, p_quantity: qty });
+      const { data: ok, error } = await supabase.rpc(
+        "decrement_variant_stock",
+        { p_variant_id: variantId, p_quantity: qty },
+      );
       if (error) {
         if (error.message?.includes("Could not find the function")) {
           const next = Math.max(
             0,
             Number(variantMap[variantId]?.stock || 0) - qty,
           );
-          await supabase.from("product_variants").update({ stock: next }).eq("id", variantId);
+          await supabase
+            .from("product_variants")
+            .update({ stock: next })
+            .eq("id", variantId);
           continue;
         }
         throw error;
@@ -293,6 +312,8 @@ export async function POST(req) {
       ? `${selectedZone.name} (${freeDeliveryApplies ? "FREE" : `৳${deliveryCharge}`})`
       : "N/A";
 
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
+
     sendOrderPlacedEmails({
       toEmail: customer.email,
       customerName: customer.name,
@@ -302,6 +323,7 @@ export async function POST(req) {
       items: itemRows,
       delivery: deliveryLabel,
       totalAmount: grandTotal,
+      origin,
     }).catch((err) => {
       console.error("Order confirmation email failed:", err.message);
     });
@@ -325,12 +347,18 @@ export async function POST(req) {
       // Best-effort undo of successful decrements (negative qty re-adds stock).
       await Promise.all(
         decrementedProducts.map(([id, qty]) =>
-          supabase.rpc("decrement_stock", { p_product_id: id, p_quantity: -qty }),
+          supabase.rpc("decrement_stock", {
+            p_product_id: id,
+            p_quantity: -qty,
+          }),
         ),
       );
       await Promise.all(
         decrementedVariants.map(([id, qty]) =>
-          supabase.rpc("decrement_variant_stock", { p_variant_id: id, p_quantity: -qty }),
+          supabase.rpc("decrement_variant_stock", {
+            p_variant_id: id,
+            p_quantity: -qty,
+          }),
         ),
       );
       // Remove the partially-created order (order_items cascade).

@@ -45,6 +45,8 @@ export async function PATCH(req, { params }) {
         .eq("order_id", id);
 
       if (current.email) {
+        const origin =
+          process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
         sendOrderDeliveredEmail({
           toEmail: current.email,
           customerName: current.customer_name,
@@ -52,6 +54,7 @@ export async function PATCH(req, { params }) {
           delivery: "Delivered",
           orderId: id,
           items: items || [],
+          origin,
         }).catch(() => {});
       }
       sendOrderDeliveredSMS({
