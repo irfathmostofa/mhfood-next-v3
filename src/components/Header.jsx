@@ -10,6 +10,7 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 
@@ -32,6 +33,55 @@ export default function Header({ theme, categories = [] }) {
   const [expandedCategory, setExpandedCategory] = useState(null);
 
   const inputRef = useRef(null);
+
+  /* ============================================================
+     CATEGORY NAV SCROLL / OVERFLOW
+  ============================================================ */
+
+  const navScrollRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkNavOverflow = () => {
+    const el = navScrollRef.current;
+    if (!el) return;
+
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+
+  useEffect(() => {
+    const el = navScrollRef.current;
+    if (!el) return;
+
+    // Run once on mount / whenever categories change
+    checkNavOverflow();
+
+    el.addEventListener("scroll", checkNavOverflow, { passive: true });
+    window.addEventListener("resize", checkNavOverflow);
+
+    // Catch cases where fonts/images load late and change width
+    const resizeObserver = new ResizeObserver(checkNavOverflow);
+    resizeObserver.observe(el);
+
+    return () => {
+      el.removeEventListener("scroll", checkNavOverflow);
+      window.removeEventListener("resize", checkNavOverflow);
+      resizeObserver.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories]);
+
+  const scrollNav = (direction) => {
+    const el = navScrollRef.current;
+    if (!el) return;
+
+    const amount = Math.max(el.clientWidth * 0.7, 200);
+    el.scrollBy({
+      left: direction === "left" ? -amount : amount,
+      behavior: "smooth",
+    });
+  };
 
   /* ============================================================
      HYDRATION FIX
@@ -261,8 +311,35 @@ export default function Header({ theme, categories = [] }) {
 
       {parentCategories.length > 0 && (
         <div className="hidden lg:block sticky top-0 z-40 border-b border-line bg-primary shadow-sm">
-          <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex items-center gap-0 h-12">
+          <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+            {/* Left scroll button */}
+            {canScrollLeft && (
+              <button
+                type="button"
+                onClick={() => scrollNav("left")}
+                aria-label="Scroll categories left"
+                className="absolute left-0 top-0 h-12 w-10 z-10 flex items-center justify-center bg-gradient-to-r from-primary via-primary/95 to-transparent text-white"
+              >
+                <span className="flex items-center justify-center h-7 w-7 rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+                  <ChevronLeft size={16} />
+                </span>
+              </button>
+            )}
+
+            <nav
+              ref={navScrollRef}
+              className="flex items-center gap-0 h-12 overflow-x-auto scroll-smooth"
+              style={{
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
+            >
+              <style jsx>{`
+                nav::-webkit-scrollbar {
+                  display: none;
+                }
+              `}</style>
+
               {parentCategories.map((cat) => {
                 const childCategories = getChildCategories(cat.id);
                 const hasChildren = childCategories.length > 0;
@@ -270,7 +347,7 @@ export default function Header({ theme, categories = [] }) {
                 return (
                   <div
                     key={cat.id}
-                    className="relative group h-full flex items-center gap-2"
+                    className="relative group h-full flex items-center gap-2 shrink-0"
                   >
                     <Link
                       href={`/shop?category=${cat.id}`}
@@ -300,6 +377,20 @@ export default function Header({ theme, categories = [] }) {
                 );
               })}
             </nav>
+
+            {/* Right scroll button */}
+            {canScrollRight && (
+              <button
+                type="button"
+                onClick={() => scrollNav("right")}
+                aria-label="Scroll categories right"
+                className="absolute right-0 top-0 h-12 w-10 z-10 flex items-center justify-center bg-gradient-to-l from-primary via-primary/95 to-transparent text-white"
+              >
+                <span className="flex items-center justify-center h-7 w-7 rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+                  <ChevronRight size={16} />
+                </span>
+              </button>
+            )}
           </div>
         </div>
       )}

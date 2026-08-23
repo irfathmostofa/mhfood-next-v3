@@ -69,7 +69,7 @@ export default async function Footer({ theme }) {
               <span className="text-accent">
                 {storeName.split(" ").slice(1).join(" ")
                   ? ` ${storeName.split(" ").slice(1).join(" ")}`
-                  : " Food"}
+                  : ""}
               </span>
             </span>
             <p className="mt-3 text-sm text-white/60 max-w-[240px] leading-relaxed">
