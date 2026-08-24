@@ -168,17 +168,17 @@ export default function Header({ theme, categories = [] }) {
   const logo = (
     <Link href="/" className="flex items-center gap-2 shrink-0">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      {theme?.logo_image && (
+      {theme?.logo_image ? (
         <img
           src={theme?.logo_image || "/mhfood.png"}
           alt={storeName}
           className="h-9 sm:h-10 w-auto"
         />
+      ) : (
+        <span className="text-lg sm:text-xl font-semibold tracking-tight text-ink">
+          {storeName}
+        </span>
       )}
-
-      <span className="text-lg sm:text-xl font-semibold tracking-tight text-ink">
-        {storeName}
-      </span>
     </Link>
   );
 
