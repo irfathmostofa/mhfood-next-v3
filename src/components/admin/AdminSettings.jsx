@@ -305,6 +305,17 @@ function ThemeForm({ theme, setTheme }) {
 
   return (
     <Section title="Appearance">
+      <div className="border-b border-line pb-4 mb-2">
+        <ImageUploader
+          value={theme.logo_image || ""}
+          onChange={(v) => set("logo_image", v)}
+          folder="logo"
+          aspect="square"
+          label="Logo"
+          hint="Shown in the header, footer, favicon and SEO. Recommended 512x512px transparent PNG or WebP."
+        />
+      </div>
+
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         {colors.map(([key, label]) => (
           <div key={key}>

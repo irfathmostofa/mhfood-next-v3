@@ -1,12 +1,12 @@
 import { Suspense } from "react";
-import { getSeoSettings, getCategories } from "@/lib/site";
+import { getSeoSettings, getCategories, getTheme } from "@/lib/site";
 import { buildMetadata } from "@/lib/seo";
 import { getProductsWithRatings } from "@/lib/products";
 import ShopClient from "@/components/ShopClient";
 
 export async function generateMetadata() {
-  const seo = await getSeoSettings();
-  return buildMetadata({ seo, path: "/shop" });
+  const [seo, theme] = await Promise.all([getSeoSettings(), getTheme()]);
+  return buildMetadata({ seo, theme, path: "/shop" });
 }
 
 export default async function ShopPage({ searchParams }) {
@@ -38,7 +38,13 @@ export default async function ShopPage({ searchParams }) {
       : products || [];
 
   return (
-    <Suspense fallback={<div className="py-24 text-center text-sm text-muted">Loading shop...</div>}>
+    <Suspense
+      fallback={
+        <div className="py-24 text-center text-sm text-muted">
+          Loading shop...
+        </div>
+      }
+    >
       <ShopClient categories={categories} products={sortedProducts} />
     </Suspense>
   );

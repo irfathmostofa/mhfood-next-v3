@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getProductBySlug } from "@/lib/products";
-import { getSeoSettings, getSiteSettings } from "@/lib/site";
+import { getSeoSettings, getSiteSettings, getTheme } from "@/lib/site";
 import { buildMetadata } from "@/lib/seo";
 import { getProductsWithRatings } from "@/lib/products";
 import { stripHtml } from "@/lib/richtext";
@@ -8,15 +8,17 @@ import ProductView from "@/components/ProductView";
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const [product, seo] = await Promise.all([
+  const [product, seo, theme] = await Promise.all([
     getProductBySlug(slug),
     getSeoSettings(),
+    getTheme(),
   ]);
 
   if (!product) return {};
 
   return buildMetadata({
     seo,
+    theme,
     title: product.name,
     description: stripHtml(product.description).slice(0, 160),
     keywords: `${product.name}, ${product.categories?.name || ""}, ${seo.home_keywords}`,

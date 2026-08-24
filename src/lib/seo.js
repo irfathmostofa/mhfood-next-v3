@@ -1,7 +1,8 @@
-import { DEFAULT_SEO } from "./site";
+import { DEFAULT_SEO, DEFAULT_THEME } from "./site";
 
 export function buildMetadata({
   seo,
+  theme,
   title,
   description,
   keywords,
@@ -9,16 +10,22 @@ export function buildMetadata({
   path,
 }) {
   const s = seo || DEFAULT_SEO;
+  const t = theme || DEFAULT_THEME;
   const finalTitle = title
     ? `${title} | ${s.site_name || s.site_title || "Store"}`
     : s.home_title || s.site_name || "Store";
   const finalDescription = description || s.home_description || "";
   const finalKeywords = keywords || s.home_keywords || "";
+  const logo = t.logo_image || "/mhfood.png";
 
   return {
     title: finalTitle,
     description: finalDescription,
     keywords: finalKeywords,
+    icons: {
+      icon: logo,
+      apple: logo,
+    },
     openGraph: {
       title: finalTitle,
       description: finalDescription,

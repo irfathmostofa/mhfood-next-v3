@@ -64,14 +64,23 @@ export default async function Footer({ theme }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 sm:gap-6">
           {/* Brand */}
           <div className="flex flex-col items-center sm:items-start text-center sm:text-left">
-            <span className="text-xl font-semibold tracking-tight">
-              {storeName.split(" ")[0]}
-              <span className="text-accent">
-                {storeName.split(" ").slice(1).join(" ")
-                  ? ` ${storeName.split(" ").slice(1).join(" ")}`
-                  : ""}
+            {theme?.logo_image ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={theme.logo_image}
+                alt={storeName}
+                className="h-10 w-auto mb-3 object-contain"
+              />
+            ) : (
+              <span className="text-xl font-semibold tracking-tight">
+                {storeName.split(" ")[0]}
+                <span className="text-accent">
+                  {storeName.split(" ").slice(1).join(" ")
+                    ? ` ${storeName.split(" ").slice(1).join(" ")}`
+                    : ""}
+                </span>
               </span>
-            </span>
+            )}
             <p className="mt-3 text-sm text-white/60 max-w-[240px] leading-relaxed">
               {description}
             </p>

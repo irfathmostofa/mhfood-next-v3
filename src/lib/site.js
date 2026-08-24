@@ -15,6 +15,7 @@ export const DEFAULT_THEME = {
   announcement_text: "",
   font_family: "fraunces",
   logo_text: "MHFood",
+  logo_image: "",
   store_name: "MHFood",
 };
 

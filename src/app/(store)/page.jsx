@@ -1,4 +1,10 @@
-import { getHomeSections, getSeoSettings, getCategories, getCategoryCounts } from "@/lib/site";
+import {
+  getHomeSections,
+  getSeoSettings,
+  getCategories,
+  getCategoryCounts,
+  getTheme,
+} from "@/lib/site";
 import { getProductsWithRatings, getBestsellers } from "@/lib/products";
 import { buildMetadata } from "@/lib/seo";
 import HeroSection from "@/components/HeroSection";
@@ -10,8 +16,8 @@ import HowItWorks from "@/components/HowItWorks";
 import CtaBand from "@/components/CtaBand";
 
 export async function generateMetadata() {
-  const seo = await getSeoSettings();
-  return buildMetadata({ seo, path: "/" });
+  const [seo, theme] = await Promise.all([getSeoSettings(), getTheme()]);
+  return buildMetadata({ seo, theme, path: "/" });
 }
 
 export default async function HomePage() {
