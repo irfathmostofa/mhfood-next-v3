@@ -142,7 +142,7 @@ export default function CategoriesGrid({
   };
 
   return (
-    <section className="max-w-[97%] mx-auto px-5 py-10">
+    <section className="max-w-[94%] mx-auto px-2 py-10">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl sm:text-3xl font-medium text-ink">

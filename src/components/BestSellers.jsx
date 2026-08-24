@@ -26,7 +26,7 @@ export default function BestSellers({ title, subtitle, products = [] }) {
   if (products.length === 0) return null;
 
   return (
-    <section className="max-w-[97%] mx-auto px-5 py-10">
+    <section className="max-w-[97%] mx-auto px-2 py-10">
       <div className="flex items-end justify-between mb-6">
         <div className="px-1.5">
           <h2 className="font-display text-2xl sm:text-3xl text-ink">
