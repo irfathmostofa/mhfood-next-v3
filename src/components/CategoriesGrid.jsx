@@ -2,13 +2,23 @@
 
 import Link from "next/link";
 import { ChevronRight, ChevronLeft } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
-export default function CategoriesGrid({ title, subtitle, limit, categories = [], countMap = {} }) {
+export default function CategoriesGrid({
+  title,
+  subtitle,
+  limit,
+  categories = [],
+  countMap = {},
+}) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [itemsPerView, setItemsPerView] = useState(4);
   const sliderRef = useRef(null);
+  const autoPlayTimerRef = useRef(null);
+  const [isHovering, setIsHovering] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
+  // Update items per view based on screen size
   useEffect(() => {
     function updateItemsPerView() {
       if (window.innerWidth < 640) {
@@ -25,33 +35,101 @@ export default function CategoriesGrid({ title, subtitle, limit, categories = []
     return () => window.removeEventListener("resize", updateItemsPerView);
   }, []);
 
-  useEffect(() => {
-    // Reset to first slide when categories change
-    setCurrentIndex(0);
+  // Create extended array for infinite loop (duplicate items)
+  const getExtendedCategories = useCallback(() => {
+    if (categories.length === 0) return [];
+    // Duplicate items to create seamless loop
+    return [...categories, ...categories, ...categories];
   }, [categories]);
 
-  const goToNext = () => {
-    const maxIndex = Math.max(0, categories.length - itemsPerView);
-    if (currentIndex < maxIndex) {
-      setCurrentIndex(Math.min(currentIndex + itemsPerView, maxIndex));
-    }
-  };
+  const extendedCategories = getExtendedCategories();
+  const totalSlides = categories.length;
 
-  const goToPrev = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex(Math.max(currentIndex - itemsPerView, 0));
+  // Calculate max index for infinite scroll
+  const getMaxIndex = useCallback(() => {
+    return extendedCategories.length - itemsPerView;
+  }, [extendedCategories.length, itemsPerView]);
+
+  // Handle smooth infinite scrolling
+  const handleTransitionEnd = useCallback(() => {
+    setIsTransitioning(false);
+
+    // If we're at the end of the first set, jump to the middle
+    if (currentIndex >= totalSlides * 2) {
+      setIsTransitioning(true);
+      setCurrentIndex(currentIndex - totalSlides);
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 50);
     }
-  };
+    // If we're at the beginning of the first set, jump to the middle
+    else if (currentIndex < totalSlides && currentIndex > 0) {
+      setIsTransitioning(true);
+      setCurrentIndex(currentIndex + totalSlides);
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 50);
+    }
+  }, [currentIndex, totalSlides]);
+
+  // Navigation functions - slide one item at a time
+  const goToNext = useCallback(() => {
+    if (categories.length <= itemsPerView) return;
+
+    const maxIndex = getMaxIndex();
+    const nextIndex = currentIndex + 1;
+
+    if (nextIndex > maxIndex) {
+      // If we're at the end, jump to start (seamless loop)
+      setCurrentIndex(0);
+    } else {
+      setCurrentIndex(nextIndex);
+    }
+  }, [currentIndex, getMaxIndex, categories.length, itemsPerView]);
+
+  const goToPrev = useCallback(() => {
+    if (categories.length <= itemsPerView) return;
+
+    const prevIndex = currentIndex - 1;
+
+    if (prevIndex < 0) {
+      // If we're at the start, jump to end (seamless loop)
+      setCurrentIndex(getMaxIndex());
+    } else {
+      setCurrentIndex(prevIndex);
+    }
+  }, [currentIndex, getMaxIndex, categories.length, itemsPerView]);
+
+  // Auto-play functionality - slide one at a time
+  useEffect(() => {
+    if (!isHovering && categories.length > itemsPerView && !isTransitioning) {
+      autoPlayTimerRef.current = setInterval(() => {
+        goToNext();
+      }, 3000); // Change slide every 3 seconds
+    }
+
+    return () => {
+      if (autoPlayTimerRef.current) {
+        clearInterval(autoPlayTimerRef.current);
+      }
+    };
+  }, [isHovering, goToNext, categories.length, itemsPerView, isTransitioning]);
+
+  // Reset to middle when categories change
+  useEffect(() => {
+    if (categories.length > 0) {
+      setCurrentIndex(totalSlides);
+    }
+  }, [categories, totalSlides]);
 
   if (categories.length === 0) {
     return null;
   }
 
-  const maxIndex = Math.max(0, categories.length - itemsPerView);
   const canGoPrev = currentIndex > 0;
-  const canGoNext = currentIndex < maxIndex;
+  const canGoNext = currentIndex < getMaxIndex();
 
-  // Calculate translateX properly
+  // Calculate translateX properly - slide one item at a time
   const getTranslateX = () => {
     if (!sliderRef.current) return 0;
     const firstChild = sliderRef.current.children[0];
@@ -64,7 +142,7 @@ export default function CategoriesGrid({ title, subtitle, limit, categories = []
   };
 
   return (
-    <section className="max-w-8xl mx-auto px-5 py-10">
+    <section className="max-w-[97%] mx-auto px-5 py-10">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h2 className="text-2xl sm:text-3xl font-medium text-ink">
@@ -108,15 +186,25 @@ export default function CategoriesGrid({ title, subtitle, limit, categories = []
         )}
       </div>
 
-      <div className="relative overflow-hidden">
+      <div
+        className="relative overflow-hidden"
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+      >
         <div
           ref={sliderRef}
-          className="flex gap-4 sm:gap-6 transition-transform duration-500 ease-in-out"
-          style={{ transform: `translateX(${getTranslateX()}px)` }}
+          className="flex gap-4 sm:gap-6 transition-transform duration-700 ease-in-out"
+          style={{
+            transform: `translateX(${getTranslateX()}px)`,
+            transition: isTransitioning
+              ? "none"
+              : "transform 700ms ease-in-out",
+          }}
+          onTransitionEnd={handleTransitionEnd}
         >
-          {categories.map((cat) => (
+          {extendedCategories.map((cat, index) => (
             <Link
-              key={cat.id}
+              key={`${cat.id}-${index}`}
               href={`/shop?category=${cat.id}`}
               className="group flex-shrink-0 w-[calc(50%-8px)] sm:w-[calc(25%-18px)] lg:w-[calc(12.5%-21px)]"
             >
@@ -133,7 +221,7 @@ export default function CategoriesGrid({ title, subtitle, limit, categories = []
                 />
               </div>
               <div className="mt-2 text-center">
-                <p className="font-medium text-sm sm:text-base text-ink group-hover:text-accent transition-colors trancate max-w-full overflow-hidden whitespace-nowrap text-ellipsis">
+                <p className="font-medium text-sm sm:text-base text-ink group-hover:text-accent transition-colors truncate max-w-full overflow-hidden whitespace-nowrap text-ellipsis">
                   {cat.name}
                 </p>
               </div>
@@ -141,26 +229,6 @@ export default function CategoriesGrid({ title, subtitle, limit, categories = []
           ))}
         </div>
       </div>
-
-      {/* Slide indicators */}
-      {categories.length > itemsPerView && (
-        <div className="flex justify-center gap-1.5 mt-6">
-          {Array.from({
-            length: Math.ceil(categories.length / itemsPerView),
-          }).map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setCurrentIndex(i * itemsPerView)}
-              className={`h-1.5 rounded-full transition-all ${
-                Math.floor(currentIndex / itemsPerView) === i
-                  ? "bg-ink w-6"
-                  : "bg-ink/20 w-4 hover:bg-ink/40"
-              }`}
-              aria-label={`Go to slide ${i + 1}`}
-            />
-          ))}
-        </div>
-      )}
     </section>
   );
 }

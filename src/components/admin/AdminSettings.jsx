@@ -429,6 +429,45 @@ function SeoForm({ seo, setSeo }) {
           hint="Shared image for social shares. Recommended 1200x630px."
         />
       </div>
+
+      <div className="border-t border-line pt-4">
+        <h3 className="text-sm font-semibold text-ink mb-1">
+          Analytics &amp; Tracking
+        </h3>
+        <p className="text-xs text-muted mb-4">
+          Paste your tracking IDs. Scripts load automatically on every
+          storefront page.
+        </p>
+        <div className="space-y-4">
+          <div>
+            <label className="label">Google Analytics 4 (Measurement ID)</label>
+            <input
+              value={seo.ga_measurement_id || ""}
+              onChange={(e) => set("ga_measurement_id", e.target.value)}
+              placeholder="G-XXXXXXXXXX"
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label">Meta (Facebook) Pixel ID</label>
+            <input
+              value={seo.facebook_pixel_id || ""}
+              onChange={(e) => set("facebook_pixel_id", e.target.value)}
+              placeholder="1234567890123456"
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label">TikTok Pixel ID</label>
+            <input
+              value={seo.tiktok_pixel_id || ""}
+              onChange={(e) => set("tiktok_pixel_id", e.target.value)}
+              placeholder="CXXXXXXXXXXXXXXXXXXXXXXX"
+              className="input"
+            />
+          </div>
+        </div>
+      </div>
     </Section>
   );
 }
@@ -1311,7 +1350,10 @@ function usePagedList(items, defaultPageSize = 10) {
   const [pageSize, setPageSize] = useState(defaultPageSize);
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
   const currentPage = Math.min(page, pageCount);
-  const paged = items.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paged = items.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
   const pagination = (
     <Pagination
       page={currentPage}

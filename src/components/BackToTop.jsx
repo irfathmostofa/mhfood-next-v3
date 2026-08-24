@@ -1,9 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { ArrowUp } from "lucide-react";
 
 export default function BackToTop({ settings }) {
+  const pathname = usePathname();
+  const isProductPage = /^\/product\/.+/.test(pathname || "");
+
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -26,8 +30,12 @@ export default function BackToTop({ settings }) {
     <button
       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
       aria-label="Back to top"
-      style={{ bottom: bottomOffset }}
+      style={{ "--bb": `${bottomOffset}px` }}
       className={`fixed right-5 z-40 group flex items-center transition-all duration-300 ${
+        isProductPage
+          ? "bottom-[calc(var(--bb)+76px)] lg:bottom-[var(--bb)]"
+          : "bottom-[var(--bb)]"
+      } ${
         visible
           ? "opacity-100 translate-y-0"
           : "opacity-0 translate-y-4 pointer-events-none"

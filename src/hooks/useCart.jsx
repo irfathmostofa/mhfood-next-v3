@@ -5,13 +5,14 @@ import { createContext, useContext, useEffect, useState } from "react";
 const CartContext = createContext(null);
 
 export function variantText(selection = []) {
-  return selection
-    .map((v) => `${v.name}: ${v.value}`)
-    .join(" · ");
+  return selection.map((v) => `${v.name}: ${v.value}`).join(" · ");
 }
 
 export function cartItemKey(productId, selection = []) {
-  const ids = selection.map((v) => v.variant_id).sort().join("|");
+  const ids = selection
+    .map((v) => v.variant_id)
+    .sort()
+    .join("|");
   return `${productId}::${ids}`;
 }
 
@@ -90,8 +91,14 @@ export function CartProvider({ children }) {
     setIsOpen(false);
   }
 
+  // Total number of unique items in cart (not quantity)
+  const uniqueItemCount = items.length;
+
+  // Total quantity of all items (sum of all quantities)
+  const totalQuantity = items.reduce((sum, i) => sum + i.quantity, 0);
+
+  // Total amount
   const totalAmount = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
 
   return (
     <CartContext.Provider
@@ -102,7 +109,9 @@ export function CartProvider({ children }) {
         updateQuantity,
         clearCart,
         totalAmount,
-        itemCount,
+        uniqueItemCount, // Number of unique items in cart
+        totalQuantity, // Total quantity of all items
+        itemCount: totalQuantity, // Keep for backward compatibility
         isOpen,
         openCart,
         closeCart,

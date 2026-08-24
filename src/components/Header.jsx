@@ -24,7 +24,7 @@ export default function Header({ theme, categories = [] }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const { itemCount, openCart } = useCart();
+  const { uniqueItemCount, totalQuantity, openCart } = useCart();
 
   const [mounted, setMounted] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -201,10 +201,10 @@ export default function Header({ theme, categories = [] }) {
       >
         <ShoppingBag size={20} />
 
-        {/* Hydration-safe cart count */}
-        {mounted && itemCount > 0 && (
+        {/* Hydration-safe cart count - shows unique items */}
+        {mounted && uniqueItemCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full bg-accent text-white">
-            {itemCount > 99 ? "99+" : itemCount}
+            {uniqueItemCount > 99 ? "99+" : uniqueItemCount}
           </span>
         )}
       </button>
@@ -241,7 +241,7 @@ export default function Header({ theme, categories = [] }) {
           MAIN HEADER
       ========================================================= */}
 
-        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 h-16 lg:h-20 grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-6">
+        <div className="max-w-[97%] mx-auto px-4 sm:px-6 lg:px-8 h-16 lg:h-20 grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-6">
           {/* Logo */}
           {logo}
 
@@ -311,7 +311,7 @@ export default function Header({ theme, categories = [] }) {
 
       {parentCategories.length > 0 && (
         <div className="hidden lg:block sticky top-0 z-40 border-b border-line bg-primary shadow-sm">
-          <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+          <div className="max-w-[97%] mx-auto px-4 sm:px-6 lg:px-8 relative">
             {/* Left scroll button */}
             {canScrollLeft && (
               <button
@@ -546,7 +546,7 @@ export default function Header({ theme, categories = [] }) {
             )}
           </nav>
 
-          {/* Cart */}
+          {/* Cart - Shows total quantity in button */}
           <div className="border-t border-line px-5 py-4 shrink-0">
             <button
               type="button"
@@ -554,10 +554,15 @@ export default function Header({ theme, categories = [] }) {
                 setMenuOpen(false);
                 openCart();
               }}
-              className="btn btn-primary w-full"
+              className="btn btn-primary w-full flex items-center justify-center gap-2"
             >
               <ShoppingBag size={16} />
-              View Cart ({mounted ? itemCount : 0})
+              View Cart
+              {mounted && totalQuantity > 0 && (
+                <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+                  {totalQuantity}
+                </span>
+              )}
             </button>
           </div>
         </aside>

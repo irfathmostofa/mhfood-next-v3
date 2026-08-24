@@ -1,13 +1,22 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+
 export default function FloatingContactButtons({ settings }) {
+  const pathname = usePathname();
+  const isProductPage = /^\/product\/.+/.test(pathname || "");
+
   if (!settings) return null;
 
   const showWhatsapp = settings.whatsapp_enabled && settings.whatsapp_number;
   const showMessenger = settings.messenger_enabled && settings.messenger_link;
 
   return (
-    <div className="fixed bottom-5 right-5 z-40 flex flex-col gap-3 items-end">
+    <div
+      className={`fixed right-5 z-40 flex flex-col gap-3 items-end transition-all duration-300 ${
+        isProductPage ? "bottom-[88px] lg:bottom-5" : "bottom-5"
+      }`}
+    >
       {showWhatsapp && (
         <a
           href={`https://wa.me/${settings.whatsapp_number}`}

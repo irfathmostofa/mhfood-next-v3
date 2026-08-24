@@ -43,7 +43,7 @@ export default async function ProductPage({ params }) {
   ]);
 
   return (
-    <div className="max-w-8xl mx-auto px-5 py-8">
+    <div className="max-w-[97%] mx-auto px-5 py-8">
       <ProductView
         product={product}
         siteSettings={siteSettings}

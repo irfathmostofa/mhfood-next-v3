@@ -26,6 +26,9 @@ export const DEFAULT_SEO = {
     "Shop a curated collection of products across every category — ordered in a click and tracked the whole way.",
   home_keywords: "shop, online store, ecommerce",
   og_image: "",
+  ga_measurement_id: "",
+  facebook_pixel_id: "",
+  tiktok_pixel_id: "",
 };
 
 async function fetchTheme() {
@@ -75,16 +78,55 @@ async function fetchSiteSettings() {
   }
 }
 
-export const getSiteSettings = unstable_cache(fetchSiteSettings, ["site-settings"], {
-  revalidate: CONFIG_TTL,
-});
+export const getSiteSettings = unstable_cache(
+  fetchSiteSettings,
+  ["site-settings"],
+  {
+    revalidate: CONFIG_TTL,
+  },
+);
 
 export const DEFAULT_SECTIONS = [
-  { key: "hero", title: "Featured", subtitle: "Showcase your hero banner", enabled: true, sort_order: 1, items_per_page: 1 },
-  { key: "bestsellers", title: "Best Selling Products", subtitle: "Our customers' favorites", enabled: true, sort_order: 2, items_per_page: 12 },
-  { key: "categories", title: "Shop by Category", subtitle: "Browse our collections", enabled: true, sort_order: 3, items_per_page: 12 },
-  { key: "featured", title: "Featured Products", subtitle: "Handpicked for you", enabled: true, sort_order: 4, items_per_page: 8 },
-  { key: "latest", title: "New Arrivals", subtitle: "Fresh in store", enabled: true, sort_order: 5, items_per_page: 8 },
+  {
+    key: "hero",
+    title: "Featured",
+    subtitle: "Showcase your hero banner",
+    enabled: true,
+    sort_order: 1,
+    items_per_page: 1,
+  },
+  {
+    key: "bestsellers",
+    title: "Best Selling Products",
+    subtitle: "Our customers' favorites",
+    enabled: true,
+    sort_order: 2,
+    items_per_page: 12,
+  },
+  {
+    key: "categories",
+    title: "Shop by Category",
+    subtitle: "Browse our collections",
+    enabled: true,
+    sort_order: 3,
+    items_per_page: 12,
+  },
+  {
+    key: "featured",
+    title: "Featured Products",
+    subtitle: "Handpicked for you",
+    enabled: true,
+    sort_order: 4,
+    items_per_page: 8,
+  },
+  {
+    key: "latest",
+    title: "New Arrivals",
+    subtitle: "Fresh in store",
+    enabled: true,
+    sort_order: 5,
+    items_per_page: 8,
+  },
 ];
 
 async function fetchHomeSections() {
@@ -100,9 +142,13 @@ async function fetchHomeSections() {
   return DEFAULT_SECTIONS;
 }
 
-export const getHomeSections = unstable_cache(fetchHomeSections, ["site-sections"], {
-  revalidate: CONFIG_TTL,
-});
+export const getHomeSections = unstable_cache(
+  fetchHomeSections,
+  ["site-sections"],
+  {
+    revalidate: CONFIG_TTL,
+  },
+);
 
 async function fetchCategories() {
   try {
@@ -116,9 +162,13 @@ async function fetchCategories() {
   }
 }
 
-export const getCategories = unstable_cache(fetchCategories, ["site-categories"], {
-  revalidate: CONFIG_TTL,
-});
+export const getCategories = unstable_cache(
+  fetchCategories,
+  ["site-categories"],
+  {
+    revalidate: CONFIG_TTL,
+  },
+);
 
 async function fetchDeliveryZones() {
   try {
@@ -133,9 +183,13 @@ async function fetchDeliveryZones() {
   }
 }
 
-export const getDeliveryZones = unstable_cache(fetchDeliveryZones, ["site-zones"], {
-  revalidate: CONFIG_TTL,
-});
+export const getDeliveryZones = unstable_cache(
+  fetchDeliveryZones,
+  ["site-zones"],
+  {
+    revalidate: CONFIG_TTL,
+  },
+);
 
 async function fetchDiscountRules() {
   try {
@@ -149,9 +203,13 @@ async function fetchDiscountRules() {
   }
 }
 
-export const getDiscountRules = unstable_cache(fetchDiscountRules, ["site-discounts"], {
-  revalidate: CONFIG_TTL,
-});
+export const getDiscountRules = unstable_cache(
+  fetchDiscountRules,
+  ["site-discounts"],
+  {
+    revalidate: CONFIG_TTL,
+  },
+);
 
 async function fetchHeroSlides() {
   try {
@@ -166,9 +224,13 @@ async function fetchHeroSlides() {
   }
 }
 
-export const getHeroSlides = unstable_cache(fetchHeroSlides, ["site-hero-slides"], {
-  revalidate: CONFIG_TTL,
-});
+export const getHeroSlides = unstable_cache(
+  fetchHeroSlides,
+  ["site-hero-slides"],
+  {
+    revalidate: CONFIG_TTL,
+  },
+);
 
 async function fetchCategoryCounts() {
   try {
@@ -187,6 +249,10 @@ async function fetchCategoryCounts() {
   }
 }
 
-export const getCategoryCounts = unstable_cache(fetchCategoryCounts, ["site-category-counts"], {
-  revalidate: CONFIG_TTL,
-});
+export const getCategoryCounts = unstable_cache(
+  fetchCategoryCounts,
+  ["site-category-counts"],
+  {
+    revalidate: CONFIG_TTL,
+  },
+);

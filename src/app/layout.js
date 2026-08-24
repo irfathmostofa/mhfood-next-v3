@@ -23,7 +23,11 @@ export default async function RootLayout({ children }) {
       </head>
       <body className="overflow-x-hidden">
         <Suspense fallback={null}>
-          <Analytics />
+          <Analytics
+            gaId={seo?.ga_measurement_id}
+            metaPixelId={seo?.facebook_pixel_id}
+            tiktokPixelId={seo?.tiktok_pixel_id}
+          />
         </Suspense>
         <CartProvider>{children}</CartProvider>
       </body>

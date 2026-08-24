@@ -176,6 +176,13 @@ export default function AdminProducts() {
     const removedImageIds = imageRows
       .filter((im) => im._removed && im.id)
       .map((im) => im.id);
+    const existingImageRows = imageRows
+      .filter((im) => !im._removed && im.id)
+      .map((im) => ({
+        id: im.id,
+        image_url: im.image_url,
+        sort_order: im.sort_order,
+      }));
     const newImageRows = imageRows
       .filter((im) => !im._removed && !im.id && im.image_url)
       .map((im, i) => ({
@@ -185,6 +192,16 @@ export default function AdminProducts() {
       }));
     if (removedImageIds.length > 0) {
       await supabase.from("product_images").delete().in("id", removedImageIds);
+    }
+    if (existingImageRows.length > 0) {
+      await Promise.all(
+        existingImageRows.map((im) =>
+          supabase
+            .from("product_images")
+            .update({ image_url: im.image_url, sort_order: im.sort_order })
+            .eq("id", im.id),
+        ),
+      );
     }
     if (newImageRows.length > 0) {
       await supabase.from("product_images").insert(newImageRows);
