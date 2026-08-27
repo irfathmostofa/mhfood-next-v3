@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Check,
@@ -20,15 +21,9 @@ import { useCart } from "@/hooks/useCart";
 import { trackViewContent, trackAddToCart } from "@/components/Analytics";
 import StarRating from "./StarRating";
 import ReviewsList from "./ReviewsList";
-import ProductCard from "./ProductCard";
 import { toHtml } from "@/lib/richtext";
-import Link from "next/link";
 
-export default function ProductView({
-  product,
-  siteSettings = null,
-  relatedProducts = [],
-}) {
+export default function ProductView({ product, siteSettings = null }) {
   const router = useRouter();
   const { addItem } = useCart();
   const [activeImage, setActiveImage] = useState(0);
@@ -177,15 +172,16 @@ export default function ProductView({
                   <button
                     key={img.id}
                     onClick={() => setActiveImage(i)}
-                    className={`w-full aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
+                    className={`relative w-full aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
                       i === activeImage ? "border-accent" : "border-transparent"
                     }`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={img.image_url}
                       alt=""
-                      className="w-full h-full object-cover"
+                      fill
+                      sizes="96px"
+                      className="object-cover"
                     />
                   </button>
                 ))}
@@ -193,15 +189,17 @@ export default function ProductView({
             )}
 
             {/* Main Image */}
-            <div className="aspect-square rounded-2xl overflow-hidden bg-primary/5 flex-1 order-1 lg:order-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+            <div className="relative aspect-square rounded-2xl overflow-hidden bg-primary/5 flex-1 order-1 lg:order-2">
+              <Image
                 src={
                   images[activeImage]?.image_url ||
                   "https://placehold.co/600x600?text=No+Image"
                 }
                 alt={product.name}
-                className="w-full h-full object-cover"
+                fill
+                priority
+                sizes="(min-width: 1024px) 45vw, 95vw"
+                className="object-cover"
               />
             </div>
           </div>
@@ -385,27 +383,6 @@ export default function ProductView({
           reviewCount={product.review_count}
         />
       </section>
-
-      {/* Related Products */}
-      {relatedProducts.length > 0 && (
-        <section className="mt-16 pt-8 border-t border-line">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="font-display text-2xl text-ink">Related Products</h2>
-            <Link
-              href={`/shop?category=${product.category_id}`}
-              className="text-sm text-accent hover:underline font-medium"
-            >
-              View All →
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-            {relatedProducts.map((relatedProduct) => (
-              <ProductCard key={relatedProduct.id} product={relatedProduct} />
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Spacer so the mobile sticky bar never covers page content */}
       <div className="lg:hidden h-24" aria-hidden="true" />

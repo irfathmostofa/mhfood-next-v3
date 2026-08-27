@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Plus,
   Pencil,
@@ -11,6 +12,7 @@ import {
   Image as ImageIcon,
   ChevronDown,
   Search,
+  Sparkles,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import ImageUploader from "./ImageUploader";
@@ -272,7 +274,10 @@ export default function AdminProducts() {
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
-  const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paged = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   return (
     <div>
@@ -284,9 +289,14 @@ export default function AdminProducts() {
             catalog.
           </p>
         </div>
-        <button onClick={openNew} className="btn btn-primary">
-          <Plus size={16} /> Add Product
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/products/new" className="btn btn-outline">
+            <Sparkles size={16} /> Create with AI
+          </Link>
+          <button onClick={openNew} className="btn btn-primary">
+            <Plus size={16} /> Add Product
+          </button>
+        </div>
       </div>
 
       {flash && (
@@ -416,7 +426,9 @@ export default function AdminProducts() {
         open={!!editing}
         onClose={() => !saving && setEditing(null)}
         title={editing?.id ? "Edit Product" : "New Product"}
-        subtitle={editing?.id ? editing.name : "Add a new product to your catalog."}
+        subtitle={
+          editing?.id ? editing.name : "Add a new product to your catalog."
+        }
         size="lg"
       >
         {editing && (

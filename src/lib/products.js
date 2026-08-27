@@ -17,9 +17,7 @@ async function fetchProductsWithRatings({
 }) {
   let q = supabase
     .from("products")
-    .select(
-      "*, product_images(id, image_url, sort_order), categories(name)",
-    )
+    .select("*, product_images(id, image_url, sort_order), categories(name)")
     .eq("is_active", true);
 
   if (categoryId && categoryId !== "all") q = q.eq("category_id", categoryId);
@@ -86,9 +84,13 @@ async function fetchBestsellers(limit = 12) {
   return products.sort((a, b) => (soldMap[b.id] || 0) - (soldMap[a.id] || 0));
 }
 
-export const getBestsellers = unstable_cache(fetchBestsellers, ["bestsellers"], {
-  revalidate: PRODUCTS_TTL,
-});
+export const getBestsellers = unstable_cache(
+  fetchBestsellers,
+  ["bestsellers"],
+  {
+    revalidate: PRODUCTS_TTL,
+  },
+);
 
 async function fetchProductBySlug(slug) {
   const { data: product, error } = await supabase
@@ -149,4 +151,32 @@ export const getProductBySlug = unstable_cache(
   fetchProductBySlug,
   ["product-by-slug"],
   { revalidate: PRODUCTS_TTL },
+);
+
+async function fetchProductMeta(slug) {
+  const { data: product, error } = await supabase
+    .from("products")
+    .select(
+      "id, name, slug, description, category_id, categories(name), product_images(id, image_url, sort_order)",
+    )
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .single();
+
+  if (error || !product) return null;
+
+  return {
+    ...product,
+    product_images: [...(product.product_images || [])].sort(
+      (a, b) => a.sort_order - b.sort_order,
+    ),
+  };
+}
+
+export const getProductMeta = unstable_cache(
+  fetchProductMeta,
+  ["product-meta"],
+  {
+    revalidate: PRODUCTS_TTL,
+  },
 );

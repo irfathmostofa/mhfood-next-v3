@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { ShoppingBag, Check } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
@@ -37,16 +38,17 @@ export default function ProductCard({ product }) {
       href={`/product/${product.slug}`}
       className="group relative block bg-surface border border-line rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
     >
-      {/* Image */}
-      <div className="relative aspect-square bg-primary/5 overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={image || "https://placehold.co/400x400?text=No+Image"}
-          alt={product.name}
-          loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-        />
-        {outOfStock && (
+        {/* Image */}
+        <div className="relative aspect-square bg-primary/5 overflow-hidden">
+          <Image
+            src={image || "https://placehold.co/400x400?text=No+Image"}
+            alt={product.name}
+            fill
+            sizes="(min-width: 1280px) 25vw, (min-width: 640px) 33vw, 50vw"
+            loading="lazy"
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
+          />
+          {outOfStock && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="bg-white/90 text-ink text-xs font-semibold px-3 py-1.5 rounded-full">
               Out of stock
