@@ -22,15 +22,95 @@ export interface SeoResult {
 }
 
 const STOP_WORDS = new Set([
-  "a", "an", "and", "are", "as", "at", "be", "been", "but", "by",
-  "can", "could", "did", "do", "does", "for", "from", "had", "has", "have",
-  "he", "her", "his", "i", "if", "in", "into", "is", "it", "its",
-  "may", "me", "more", "my", "not", "of", "on", "one", "or", "our",
-  "out", "over", "said", "she", "so", "some", "than", "that", "the", "their",
-  "them", "then", "there", "these", "they", "this", "to", "too", "under", "up",
-  "us", "was", "we", "were", "what", "when", "where", "which", "while", "who",
-  "will", "with", "would", "you", "your", "very", "just", "also", "own", "its",
-  "every", "each", "both", "other", "such", "only", "same", "even", "how",
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "been",
+  "but",
+  "by",
+  "can",
+  "could",
+  "did",
+  "do",
+  "does",
+  "for",
+  "from",
+  "had",
+  "has",
+  "have",
+  "he",
+  "her",
+  "his",
+  "i",
+  "if",
+  "in",
+  "into",
+  "is",
+  "it",
+  "its",
+  "may",
+  "me",
+  "more",
+  "my",
+  "not",
+  "of",
+  "on",
+  "one",
+  "or",
+  "our",
+  "out",
+  "over",
+  "said",
+  "she",
+  "so",
+  "some",
+  "than",
+  "that",
+  "the",
+  "their",
+  "them",
+  "then",
+  "there",
+  "these",
+  "they",
+  "this",
+  "to",
+  "too",
+  "under",
+  "up",
+  "us",
+  "was",
+  "we",
+  "were",
+  "what",
+  "when",
+  "where",
+  "which",
+  "while",
+  "who",
+  "will",
+  "with",
+  "would",
+  "you",
+  "your",
+  "very",
+  "just",
+  "also",
+  "own",
+  "its",
+  "every",
+  "each",
+  "both",
+  "other",
+  "such",
+  "only",
+  "same",
+  "even",
+  "how",
 ]);
 
 const HTML_TAGS = /<[^>]*>/g;
@@ -118,7 +198,8 @@ export function analyzeSEO(title: string, description: string): SeoResult {
   // Readability: Flesch Reading Ease approximation (0-100, higher is easier).
   let syllableTotal = 0;
   for (const w of words) syllableTotal += countSyllables(w);
-  const syllablesPer100 = totalWords > 0 ? (syllableTotal / totalWords) * 100 : 0;
+  const syllablesPer100 =
+    totalWords > 0 ? (syllableTotal / totalWords) * 100 : 0;
   const flesch = 206.835 - 1.015 * avgWps - 84.6 * (syllablesPer100 / 100);
   const readabilityScore = Math.max(0, Math.min(100, Math.round(flesch)));
 
@@ -127,16 +208,15 @@ export function analyzeSEO(title: string, description: string): SeoResult {
   const lengthScore = Math.min(100, Math.round((descriptionWords / 500) * 100));
 
   // Density component: penalise both under- and over-optimised copy.
-  const densityScore = Math.max(
-    0,
-    100 - Math.abs(keywordDensity - 2.5) * 18,
-  );
+  const densityScore = Math.max(0, 100 - Math.abs(keywordDensity - 2.5) * 18);
 
   // Keyword coverage bonus: having 8+ suggested keywords is good.
   const coverageScore = Math.min(100, keywords.length * 12);
 
   const seoScore = Math.round(
-    0.4 * densityScore + 0.3 * readabilityScore + 0.2 * lengthScore +
+    0.4 * densityScore +
+      0.3 * readabilityScore +
+      0.2 * lengthScore +
       0.1 * coverageScore,
   );
 

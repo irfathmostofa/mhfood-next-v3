@@ -20,9 +20,14 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { analyzeSEO } from "@/lib/seoAnalyzer";
+import { getSeoSettings } from "@/lib/site";
 
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+
+// How long the "saved" confirmation banner stays up before the whole
+// form resets and is ready for the next product.
+const RESET_DELAY_MS = 1600;
 
 // Converts the chosen file to a PNG Blob (client-side) so the edge
 // function only ever has to deal with PNG input.
@@ -76,11 +81,46 @@ const PROGRESS_LABELS = {
   failed: "Processing failed",
 };
 
+// Fires a native browser notification if permission has been granted.
+// Safe to call unconditionally — silently does nothing if Notification
+// isn't supported or permission was never granted, so callers never need
+// to check first. Clicking the notification focuses this tab.
+function notify(title, body) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  try {
+    const n = new Notification(title, {
+      body,
+      icon: "/favicon.ico",
+      tag: "ai-product-create", // replaces any earlier notification from this flow
+    });
+    n.onclick = () => {
+      window.focus();
+      n.close();
+    };
+  } catch {
+    // Some browsers (mostly older mobile Safari) throw on `new
+    // Notification()` even when permission is granted — never let a
+    // notification failure interrupt the actual flow.
+  }
+}
+
+const EMPTY_FORM = {
+  name: "",
+  slug: "",
+  short_description: "",
+  description: "",
+  price: "0",
+  stock: "0",
+  unit: "",
+  category_id: "",
+};
+
 export default function AiProductCreate() {
   const inputRef = useRef(null);
   const dragDepth = useRef(0);
 
-  const [phase, setPhase] = useState("upload"); // upload | processing | review
+  const [phase, setPhase] = useState("upload"); // upload | processing | naming | review
   const [file, setFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -91,27 +131,30 @@ export default function AiProductCreate() {
   const [loadingImages, setLoadingImages] = useState(false);
 
   const [productId, setProductId] = useState(null);
-  const [status, setStatus] = useState(null); // pending|processing|completed|failed
+  const [status, setStatus] = useState(null); // pending|processing|awaiting_name|completed|failed
   const [progress, setProgress] = useState(0);
   const [processingError, setProcessingError] = useState("");
   const [warnings, setWarnings] = useState([]);
 
+  const [language, setLanguage] = useState("en"); // en | bn
+  const [processedImage, setProcessedImage] = useState("");
+
+  // Store name used as the watermark text on processed images. Seeded
+  // from the public env var, then upgraded to the DB-backed site setting
+  // once it loads (see effect below).
+  const [storeName, setStoreName] = useState(
+    process.env.NEXT_PUBLIC_SITE_NAME || "",
+  );
+
   const [categories, setCategories] = useState([]);
-  const [form, setForm] = useState({
-    name: "",
-    slug: "",
-    short_description: "",
-    description: "",
-    price: "0",
-    stock: "0",
-    unit: "",
-    category_id: "",
-  });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [keywords, setKeywords] = useState([]);
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState("");
 
   const startedAt = useRef(null);
+  const sourcePathRef = useRef("");
+  const resetTimerRef = useRef(null);
 
   // Lists previously uploaded raw images so the admin can reuse one instead
   // of uploading a new photo. Reloads each time the upload step is shown.
@@ -155,6 +198,63 @@ export default function AiProductCreate() {
       .then(({ data }) => setCategories(data || []));
   }, []);
 
+  // Prefer the DB-backed site name (getSeoSettings().site_name) over the
+  // build-time env var, if/when it resolves. Falls back silently to the
+  // env var if this can't run (e.g. helper is server-only) or errors.
+  useEffect(() => {
+    let cancelled = false;
+    getSeoSettings()
+      .then((seo) => {
+        if (!cancelled && seo?.site_name) setStoreName(seo.site_name);
+      })
+      .catch(() => {
+        // Keep whatever storeName is already set (env var fallback).
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Clear any pending reset timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    };
+  }, []);
+
+  // Ask for notification permission once, up front, so it's already
+  // granted by the time a long-running generation finishes (asking at
+  // that point would be too late to matter for the first product).
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "default"
+    ) {
+      Notification.requestPermission().catch(() => {});
+    }
+  }, []);
+
+  // Flash the browser tab title while generation is running, in case the
+  // admin switches tabs and notifications are blocked/unsupported. Reverts
+  // to the original title as soon as the phase changes.
+  useEffect(() => {
+    const originalTitle = document.title;
+    if (phase !== "processing") {
+      document.title = originalTitle;
+      return;
+    }
+    let flip = false;
+    const id = setInterval(() => {
+      document.title = flip ? "⏳ Generating…" : originalTitle;
+      flip = !flip;
+    }, 1500);
+    return () => {
+      clearInterval(id);
+      document.title = originalTitle;
+    };
+  }, [phase]);
+
   // Live SEO score computed from the current title + description.
   const seo = useMemo(
     () => analyzeSEO(form.name, form.description),
@@ -163,7 +263,13 @@ export default function AiProductCreate() {
 
   // Real-time subscription + polling fallback for processing status.
   useEffect(() => {
-    if (!productId || status === "completed" || status === "failed") return;
+    if (
+      !productId ||
+      status === "completed" ||
+      status === "failed" ||
+      status === "awaiting_name"
+    )
+      return;
 
     const channel = supabase
       .channel(`product-ai-${productId}`)
@@ -221,10 +327,29 @@ export default function AiProductCreate() {
         setProgress(100);
         await loadProduct(row.id);
         setPhase("review");
+        notify(
+          "Listing ready ✅",
+          "Your AI-generated product listing is ready to review.",
+        );
+      }
+      if (row.processing_status === "awaiting_name") {
+        setProgress(100);
+        await loadProduct(row.id);
+        setForm((prev) => ({ ...prev, name: "", slug: "" }));
+        setPhase("naming");
+        notify(
+          "Couldn't identify the product",
+          "Add a product name to finish generating the listing.",
+        );
       }
       if (row.processing_status === "failed") {
         setProgress(0);
         setProcessingError(row.processing_errors || "Processing failed.");
+        notify(
+          "Processing failed ❌",
+          row.processing_errors ||
+            "Something went wrong generating the listing.",
+        );
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -249,6 +374,7 @@ export default function AiProductCreate() {
       category_id: data.category_id || "",
     });
     setKeywords(data.seo_keywords || []);
+    setProcessedImage(data.processed_image_url || "");
     if (data.processing_errors) {
       setWarnings(String(data.processing_errors).split("\n").filter(Boolean));
     }
@@ -272,6 +398,7 @@ export default function AiProductCreate() {
           .upload(path, blob, { contentType: "image/png" });
         if (upError) throw new Error(upError.message);
       }
+      sourcePathRef.current = path;
 
       const { data: urlData } = supabase.storage
         .from("product-images")
@@ -314,7 +441,12 @@ export default function AiProductCreate() {
       fetch("/api/admin/ai/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imagePath: path, productId: product.id }),
+        body: JSON.stringify({
+          imagePath: path,
+          productId: product.id,
+          language,
+          storeName,
+        }),
       })
         .then(async (res) => {
           const data = await res.json().catch(() => ({}));
@@ -326,6 +458,38 @@ export default function AiProductCreate() {
     } catch (err) {
       setProcessingError(err.message || "Could not start processing.");
       setPhase("upload");
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  async function regenerate() {
+    if (!productId || !sourcePathRef.current || !form.name.trim()) return;
+    setStarting(true);
+    setProcessingError("");
+    setWarnings([]);
+    try {
+      const res = await fetch("/api/admin/ai/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "generate",
+          imagePath: sourcePathRef.current,
+          productId,
+          name: form.name.trim(),
+          language,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Content generation failed.");
+      }
+      setStatus("completed");
+      setProgress(100);
+      await loadProduct(productId);
+      setPhase("review");
+    } catch (err) {
+      setProcessingError(err.message || "Could not generate content.");
     } finally {
       setStarting(false);
     }
@@ -352,6 +516,28 @@ export default function AiProductCreate() {
     setFile(null);
     setPreviewUrl("");
     setProcessingError("");
+  }
+
+  // Clears everything and returns to the upload step, ready for the next
+  // product. Called automatically a moment after a successful save.
+  function resetAll() {
+    setPhase("upload");
+    setFile(null);
+    setPreviewUrl("");
+    setUploading(false);
+    setStarting(false);
+    setSelectedImage(null);
+    setProductId(null);
+    setStatus(null);
+    setProgress(0);
+    setProcessingError("");
+    setWarnings([]);
+    setProcessedImage("");
+    setForm(EMPTY_FORM);
+    setKeywords([]);
+    setSavedFlash("");
+    sourcePathRef.current = "";
+    startedAt.current = null;
   }
 
   async function save(publish) {
@@ -388,6 +574,16 @@ export default function AiProductCreate() {
         ? "Product published to your store."
         : "Draft saved. You can edit it from the Products page.",
     );
+    notify(
+      publish ? "Product published 🎉" : "Draft saved",
+      publish
+        ? `"${payload.name}" is now live on your store.`
+        : `"${payload.name}" was saved as a draft.`,
+    );
+    // Show the confirmation briefly, then reset the whole form so the
+    // admin can immediately start creating the next product.
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    resetTimerRef.current = setTimeout(resetAll, RESET_DELAY_MS);
   }
 
   const estimate =
@@ -545,7 +741,11 @@ export default function AiProductCreate() {
             )}
           </div>
 
-          <div className="mt-5 flex justify-end">
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-muted">Listing language:</span>
+              <LanguageToggle language={language} onChange={setLanguage} />
+            </div>
             <button
               onClick={startProcessing}
               disabled={(!file && !selectedImage) || uploading || starting}
@@ -596,7 +796,7 @@ export default function AiProductCreate() {
               ) : (
                 <Loader2 size={14} className="animate-spin" />
               )}
-              Image uploaded &amp; processing
+              Image uploaded &amp; watermarking
             </div>
             <div className="flex items-center gap-2">
               {progress >= 50 ? (
@@ -618,7 +818,89 @@ export default function AiProductCreate() {
         </div>
       )}
 
-      {/* ---------- STEP 3: REVIEW ---------- */}
+      {/* ---------- STEP 3: NAME THE PRODUCT (not recognized) ---------- */}
+      {phase === "naming" && (
+        <div className="card p-6">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-11 h-11 rounded-2xl bg-accent/10 text-accent flex items-center justify-center">
+              <ImageIcon size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-ink">
+                We couldn&apos;t identify this product
+              </p>
+              <p className="text-xs text-muted">
+                Tell us what it is and we&apos;ll write the listing and pick SEO
+                keywords based on that name.
+              </p>
+            </div>
+          </div>
+
+          {processedImage && (
+            <div className="mb-5 rounded-xl overflow-hidden border border-line bg-primary/5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={processedImage}
+                alt="Processed product"
+                className="max-h-64 w-full object-contain"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="label">Product name</label>
+            <input
+              value={form.name}
+              onChange={(e) =>
+                setForm({ ...form, name: e.target.value, slug: "" })
+              }
+              placeholder="e.g. Handwoven cane basket, Handmade clay pot"
+              className="input"
+              autoFocus
+            />
+            <p className="text-[11px] text-muted mt-1">
+              Supports English and বাংলা names — the listing will use it as the
+              title.
+            </p>
+          </div>
+
+          <div className="mt-4">
+            <label className="label">Listing language</label>
+            <LanguageToggle language={language} onChange={setLanguage} />
+          </div>
+
+          <div className="mt-6 flex items-center justify-between gap-3">
+            <button
+              onClick={() => {
+                setProductId(null);
+                setStatus(null);
+                setPhase("upload");
+              }}
+              disabled={starting}
+              className="btn btn-ghost disabled:opacity-60"
+            >
+              Use a different image
+            </button>
+            <button
+              onClick={regenerate}
+              disabled={starting || !form.name.trim()}
+              className="btn btn-accent disabled:opacity-60"
+            >
+              {starting ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" /> Generating…
+                </>
+              ) : (
+                <>
+                  <Sparkles size={16} /> Generate listing
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- STEP 4: REVIEW ---------- */}
       {phase === "review" && (
         <div className="space-y-5">
           <div className="card p-6">
@@ -875,6 +1157,36 @@ export default function AiProductCreate() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------- Language toggle (English / বাংলা) ----------
+function LanguageToggle({ language, onChange }) {
+  return (
+    <div className="inline-flex rounded-lg border border-line overflow-hidden">
+      <button
+        type="button"
+        onClick={() => onChange("en")}
+        className={`px-4 py-2 text-sm font-medium transition-colors ${
+          language === "en"
+            ? "bg-accent text-white"
+            : "bg-surface text-muted hover:text-ink"
+        }`}
+      >
+        English
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("bn")}
+        className={`px-4 py-2 text-sm font-medium transition-colors ${
+          language === "bn"
+            ? "bg-accent text-white"
+            : "bg-surface text-muted hover:text-ink"
+        }`}
+      >
+        বাংলা
+      </button>
     </div>
   );
 }

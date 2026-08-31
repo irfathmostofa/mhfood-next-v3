@@ -128,6 +128,14 @@ export const DEFAULT_SECTIONS = [
     sort_order: 5,
     items_per_page: 8,
   },
+  {
+    key: "promo",
+    title: "Promotional Banner",
+    subtitle: "Full-width banner after your products",
+    enabled: true,
+    sort_order: 6,
+    items_per_page: 1,
+  },
 ];
 
 async function fetchHomeSections() {

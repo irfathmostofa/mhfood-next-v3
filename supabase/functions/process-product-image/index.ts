@@ -3,13 +3,34 @@
 // ------------------------------------------------------------
 // Creates a complete product listing from a single uploaded image.
 //
-// Expected payload:
-//   { "imagePath": "raw/<file>.png", "productId": "<uuid>" }
+// Expected payload (full pipeline):
+//   { "imagePath": "raw/<file>.png", "productId": "<uuid>",
+//     "language": "en" | "bn", "storeName": "<optional store name>" }
 //
-// Pipeline:
-//   auth (JWT) -> download -> validate -> process (bg removal +
-//   logo watermark) -> upload processed -> HF vision analysis ->
-//   HF content generation -> SEO analysis -> save -> completed
+// Regenerate-content payload (mode = "generate", used when the AI could
+// not identify the product OR could not generate content, and the admin
+// typed in the name manually):
+//   { "mode": "generate", "imagePath": "raw/<file>.png",
+//     "productId": "<uuid>", "name": "<product name>",
+//     "language": "en" | "bn" }
+//
+// Full pipeline:
+//   auth (JWT) -> download -> validate -> process (tiled store-name
+//   watermark only -- no background removal) -> upload processed ->
+//   Gemini vision analysis -> content generation (English or Bangla) ->
+//   SEO analysis -> save -> done
+//
+// The admin is asked to confirm/provide the product name (processing_status
+// = 'awaiting_name') in TWO cases:
+//   1. Vision analysis could not identify a specific product at all.
+//   2. Vision analysis succeeded, but AI content generation (title/
+//      description/keywords) failed -- rather than silently completing
+//      with generic fallback copy, we save that fallback copy as a draft
+//      and still ask the admin to confirm the name before publishing.
+// In both cases the admin UI then calls back in "generate" mode. If
+// generation fails again on that second attempt, we no longer loop the
+// admin back into the naming screen -- we just complete with fallback
+// content, since they've already confirmed a name once.
 //
 // Any hard failure flips the product to processing_status = 'failed'
 // with details in processing_errors. Non-critical image steps log
@@ -20,6 +41,7 @@ import {
   analyzeImage,
   fallbackContent,
   generateContent,
+  type ContentLanguage,
   type GeneratedContent,
   type ImageAnalysis,
 } from "./hf.ts";
@@ -49,6 +71,18 @@ function slugify(text: string): string {
     .slice(0, 80);
 }
 
+// Turns raw AI/fallback description text into clean plain text: keeps
+// paragraph breaks and normalizes markdown-style bullets into • bullets
+// so the storefront renders it well. Shared by the draft-save path
+// (content generation failed) and the final completed-save path.
+function normalizeDescription(text: string): string {
+  return String(text || "")
+    .replace(/\r/g, "")
+    .replace(/^([-*•])\s+/gm, "• ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function ensureUniqueSlug(
   supabase: ReturnType<typeof createClient>,
   base: string,
@@ -61,6 +95,107 @@ async function ensureUniqueSlug(
     .maybeSingle();
   if (!data) return candidate;
   return `${candidate.slice(0, 60)}-${Date.now().toString(36).slice(-4)}`;
+}
+
+// Replaces a product's image rows with the processed (main) image and the
+// original raw photo. Returns an error message on failure, else null.
+async function syncProductImages(
+  supabase: ReturnType<typeof createClient>,
+  productId: string,
+  processedImageUrl: string,
+  rawImageUrl: string,
+  altText: string,
+): Promise<string | null> {
+  const { error: imagesError } = await supabase
+    .from("product_images")
+    .delete()
+    .eq("product_id", productId);
+  if (imagesError) return imagesError.message;
+
+  const { error: insertImagesError } = await supabase
+    .from("product_images")
+    .insert([
+      {
+        product_id: productId,
+        image_url: processedImageUrl,
+        alt_text: altText,
+        sort_order: 1,
+      },
+      {
+        product_id: productId,
+        image_url: rawImageUrl,
+        alt_text: `${altText} (original)`,
+        sort_order: 2,
+      },
+    ]);
+  if (insertImagesError) return insertImagesError.message;
+  return null;
+}
+
+// Shared "defer to the admin" path -- used both when vision analysis
+// couldn't identify the product at all, and when content generation
+// failed after a successful identification. Optionally saves a
+// best-effort draft (fallback title/description/keywords/SEO) so the
+// admin has something to look at / edit instead of an empty listing
+// while they confirm the name, then leaves processing_status =
+// 'awaiting_name' so the admin UI shows the naming screen.
+async function deferToNaming(
+  supabase: ReturnType<typeof createClient>,
+  productId: string,
+  imagePath: string,
+  processedImageUrl: string,
+  warnings: string[],
+  draft?: { generated: GeneratedContent; seo: SeoResult },
+): Promise<Response> {
+  const update: Record<string, unknown> = {
+    processed_image_url: processedImageUrl,
+    processing_status: "awaiting_name",
+    processing_errors: warnings.length > 0 ? warnings.join("\n") : null,
+    publish_status: "draft",
+    is_active: false,
+  };
+
+  if (draft) {
+    update.name = draft.generated.title.slice(0, 120);
+    update.short_description = draft.generated.short_description;
+    update.description = normalizeDescription(draft.generated.description);
+    update.seo_keywords = draft.generated.keywords;
+    update.seo_score = draft.seo.seoScore;
+    update.seo_data = {
+      suggestedKeywords: draft.seo.suggestedKeywords,
+      keywordDensity: draft.seo.keywordDensity,
+      readabilityScore: draft.seo.readabilityScore,
+      stats: draft.seo.stats,
+    };
+  }
+
+  await supabase.from("products").update(update).eq("id", productId);
+
+  const rawImageUrl = supabase.storage
+    .from("product-images")
+    .getPublicUrl(imagePath).data.publicUrl;
+  const syncError = await syncProductImages(
+    supabase,
+    productId,
+    processedImageUrl,
+    rawImageUrl,
+    draft?.generated.title || "Untitled product",
+  );
+  if (syncError) {
+    await supabase
+      .from("products")
+      .update({ processing_errors: syncError })
+      .eq("id", productId);
+  }
+
+  return json({
+    ok: true,
+    recognized: false,
+    productId,
+    processedImageUrl,
+    generated: draft?.generated,
+    warnings,
+  });
 }
 
 Deno.serve(async (req: Request) => {
@@ -95,8 +230,22 @@ Deno.serve(async (req: Request) => {
     const body = await req.json().catch(() => ({}));
     const imagePath = typeof body.imagePath === "string" ? body.imagePath : "";
     const productId = typeof body.productId === "string" ? body.productId : "";
+    const mode = body.mode === "generate" ? "generate" : "full";
+    const language: ContentLanguage = body.language === "bn" ? "bn" : "en";
+    const providedName =
+      typeof body.name === "string" ? body.name.trim().slice(0, 120) : "";
+    // Store name for the watermark, supplied by the caller (env var or
+    // site settings on the frontend -- see page.jsx). Falls back to
+    // theme_settings below if the caller didn't send one.
+    const providedStoreName =
+      typeof body.storeName === "string"
+        ? body.storeName.trim().slice(0, 120)
+        : "";
     if (!imagePath || !productId) {
       return json({ error: "imagePath and productId are required." }, 400);
+    }
+    if (mode === "generate" && !providedName) {
+      return json({ error: "name is required when mode is generate." }, 400);
     }
 
     // Service-role client for storage + DB operations.
@@ -147,87 +296,132 @@ Deno.serve(async (req: Request) => {
       );
     }
     const originalBytes = new Uint8Array(await fileBlob.arrayBuffer());
-    let rawExt: string;
     try {
-      rawExt = validateImage(originalBytes).ext;
+      validateImage(originalBytes);
     } catch (err) {
       return await fail(err instanceof Error ? err.message : "Invalid image.");
     }
     const fileName = imagePath.split("/").pop() ?? "";
 
-    // -------- 3. process image (background removal + logo/text watermark) --------
-    const logoUrl = Deno.env.get("PRODUCT_LOGO_URL") ?? "";
-    // Used as the watermark fallback (see images.ts addWatermark()) when
-    // there's no logo configured, or the logo step fails for any reason.
-    let storeName = "";
-    try {
-      const { data: theme } = await supabase
-        .from("theme_settings")
-        .select("store_name")
-        .eq("id", 1)
-        .maybeSingle();
-      storeName = theme?.store_name ?? "";
-    } catch {
-      // Non-critical -- just means no text-watermark fallback is available.
-    }
-    let processedImageUrl = "";
-    let warnings: string[] = [];
-    try {
-      const result = await processImage(originalBytes, logoUrl, storeName);
-      warnings = result.warnings;
-      const ext = result.mime === "image/jpeg" ? "jpg" : "png";
-      const processedPath = `processed/${productId}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from("product-images")
-        .upload(processedPath, result.buffer, {
-          contentType: result.mime,
-          cacheControl: "3600",
-          upsert: true,
-        });
-      if (uploadError) throw new Error(uploadError.message);
-      processedImageUrl = supabase.storage
-        .from("product-images")
-        .getPublicUrl(processedPath).data.publicUrl;
-    } catch (err) {
-      return await fail(
-        `Image processing failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+    // -------- 3. process image (tiled store-name watermark only --
+    // background removal has been removed from the pipeline) --------
+    let storeName = providedStoreName;
+    if (!storeName) {
+      try {
+        const { data: theme } = await supabase
+          .from("theme_settings")
+          .select("store_name")
+          .eq("id", 1)
+          .maybeSingle();
+        storeName = theme?.store_name ?? "";
+      } catch {
+        // Non-critical -- just means no text watermark is available.
+      }
     }
 
-    // -------- 4. AI content generation --------
+    let processedImageUrl = product.processed_image_url ?? "";
+    let warnings: string[] = [];
+    if (mode !== "generate") {
+      try {
+        const result = await processImage(originalBytes, storeName);
+        warnings = result.warnings;
+        const ext = result.mime === "image/jpeg" ? "jpg" : "png";
+        const processedPath = `processed/${productId}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("product-images")
+          .upload(processedPath, result.buffer, {
+            contentType: result.mime,
+            cacheControl: "3600",
+            upsert: true,
+          });
+        if (uploadError) throw new Error(uploadError.message);
+        processedImageUrl = supabase.storage
+          .from("product-images")
+          .getPublicUrl(processedPath).data.publicUrl;
+      } catch (err) {
+        return await fail(
+          `Image processing failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+    }
+
+    // -------- 4. vision analysis (shared by both modes) --------
     let analysis: ImageAnalysis;
-    let generated: GeneratedContent;
-    let seo: SeoResult;
     try {
       analysis = await analyzeImage(originalBytes, fileName);
-      try {
-        generated = await generateContent(analysis);
-      } catch (genErr) {
-        warnings.push(
-          `AI content generation skipped (fallback used): ${
-            genErr instanceof Error ? genErr.message : String(genErr)
-          }`,
-        );
-        generated = fallbackContent(analysis, fileName);
-      }
-      seo = analyzeSEO(generated.title, generated.description);
     } catch (err) {
       return await fail(
         `AI analysis failed: ${err instanceof Error ? err.message : String(err)}`,
       );
     }
 
-    // Normalise AI output into clean plain text: keep paragraph breaks and
-    // turn markdown bullets into • bullets so the storefront renders it well.
-    const description = String(generated.description || "")
-      .replace(/\r/g, "")
-      .replace(/^([-*•])\s+/gm, "• ")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
+    if (mode === "generate") {
+      // The admin typed the product name manually -- either because the
+      // AI couldn't recognize it, or because AI content generation failed
+      // on the first pass. Treat that name as authoritative. Both the
+      // content generation prompt and the SEO keywords derive from it (via
+      // identifiedName/productType), in the chosen language.
+      analysis = {
+        ...analysis,
+        identifiedName: providedName,
+        productType: providedName || analysis.productType,
+      };
+    }
 
+    // -------- 5. not recognized -> defer generation, ask for the name --------
+    if (!analysis.identifiedName && mode !== "generate") {
+      return await deferToNaming(
+        supabase,
+        productId,
+        imagePath,
+        processedImageUrl,
+        warnings,
+      );
+    }
+
+    // -------- 6. generate content (in the chosen language) --------
+    // Dynamic content: driven entirely by `analysis`, which either came
+    // from vision recognition (identifiedName filled in automatically) or
+    // from the admin-provided name (mode === "generate", step 4 above).
+    let generated: GeneratedContent;
+    let usedFallbackContent = false;
+    try {
+      generated = await generateContent(analysis, language);
+    } catch (genErr) {
+      usedFallbackContent = true;
+      warnings.push(
+        `AI content generation skipped (fallback used): ${
+          genErr instanceof Error ? genErr.message : String(genErr)
+        }`,
+      );
+      generated = fallbackContent(analysis, fileName, language);
+    }
+
+    // -------- 6b. content generation failed on the FIRST attempt -->
+    // save the fallback draft and ask the admin to confirm/name the
+    // product, same as the "not recognized" path above, instead of
+    // silently completing with generic fallback copy. If this is
+    // already the admin's second attempt (mode === "generate", they
+    // already confirmed a name once), don't loop them back into the
+    // naming screen -- fall through and complete with the fallback
+    // content below. --------
+    if (usedFallbackContent && mode !== "generate") {
+      const seoDraft = analyzeSEO(generated.title, generated.description);
+      return await deferToNaming(
+        supabase,
+        productId,
+        imagePath,
+        processedImageUrl,
+        warnings,
+        { generated, seo: seoDraft },
+      );
+    }
+
+    const seo: SeoResult = analyzeSEO(generated.title, generated.description);
+    const description = normalizeDescription(generated.description);
     const slug = await ensureUniqueSlug(supabase, slugify(generated.title));
 
-    // -------- 5. save everything --------
+    // -------- 7. save everything --------
     const { error: saveError } = await supabase
       .from("products")
       .update({
@@ -259,37 +453,21 @@ Deno.serve(async (req: Request) => {
       .from("product-images")
       .getPublicUrl(imagePath).data.publicUrl;
 
-    const { error: imagesError } = await supabase
-      .from("product_images")
-      .delete()
-      .eq("product_id", productId);
-
-    if (!imagesError) {
-      const { error: insertImagesError } = await supabase
-        .from("product_images")
-        .insert([
-          {
-            product_id: productId,
-            image_url: processedImageUrl,
-            alt_text: generated.title,
-            sort_order: 1,
-          },
-          {
-            product_id: productId,
-            image_url: rawImageUrl,
-            alt_text: `${generated.title} (original)`,
-            sort_order: 2,
-          },
-        ]);
-      if (insertImagesError) {
-        // Non-fatal — the listing still exists with its raw image.
-        await supabase
-          .from("products")
-          .update({
-            processing_errors: `Product saved but image sync failed: ${insertImagesError.message}`,
-          })
-          .eq("id", productId);
-      }
+    const syncError = await syncProductImages(
+      supabase,
+      productId,
+      processedImageUrl,
+      rawImageUrl,
+      generated.title,
+    );
+    if (syncError) {
+      // Non-fatal — the listing still exists with its raw image.
+      await supabase
+        .from("products")
+        .update({
+          processing_errors: `Product saved but image sync failed: ${syncError}`,
+        })
+        .eq("id", productId);
     }
 
     return json({

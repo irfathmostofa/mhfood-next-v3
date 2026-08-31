@@ -5,7 +5,9 @@ export async function POST(req) {
   try {
     await requireAdmin();
 
-    const { imagePath, productId } = await req.json().catch(() => ({}));
+    const { imagePath, productId, mode, language, name } = await req
+      .json()
+      .catch(() => ({}));
     if (!imagePath || !productId) {
       return NextResponse.json(
         { error: "imagePath and productId are required." },
@@ -15,14 +17,19 @@ export async function POST(req) {
 
     const supabase = await createAdminClient();
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
     const headers = session?.access_token
       ? { Authorization: `Bearer ${session.access_token}` }
       : undefined;
 
     const { data, error } = await supabase.functions.invoke(
       "process-product-image",
-      { headers, body: { imagePath, productId } },
+      {
+        headers,
+        body: { imagePath, productId, mode, language, name },
+      },
     );
 
     if (error) {
@@ -67,7 +74,8 @@ export async function POST(req) {
         } catch (jsonErr) {
           if (typeof ctx.text === "function") {
             try {
-              const cloned = typeof ctx.clone === "function" ? ctx.clone() : ctx;
+              const cloned =
+                typeof ctx.clone === "function" ? ctx.clone() : ctx;
               const text = await cloned.text();
               if (text) detail = text;
             } catch (textErr) {

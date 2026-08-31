@@ -21,6 +21,17 @@ import { supabase } from "@/lib/supabase";
 import ImageUploader from "./ImageUploader";
 import Pagination from "./Pagination";
 
+const TABS = [
+  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "seo", label: "SEO", icon: Search },
+  { id: "contact", label: "Contact & Delivery", icon: Phone },
+  { id: "banner", label: "Promo Banner", icon: Layout },
+  { id: "sections", label: "Home Sections", icon: Layout },
+  { id: "coupons", label: "Coupons", icon: Tag },
+  { id: "zones", label: "Delivery Zones", icon: Truck },
+  { id: "rules", label: "Discount Rules", icon: Percent },
+];
+
 export default function AdminSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -36,19 +47,25 @@ export default function AdminSettings() {
   const [zones, setZones] = useState([]);
   const [rules, setRules] = useState([]);
 
-  const tabs = [
-    { id: "appearance", label: "Appearance", icon: Palette },
-    { id: "seo", label: "SEO", icon: Search },
-    { id: "contact", label: "Contact & Delivery", icon: Phone },
-    { id: "banner", label: "Promo Banner", icon: Layout },
-    { id: "sections", label: "Home Sections", icon: Layout },
-    { id: "coupons", label: "Coupons", icon: Tag },
-    { id: "zones", label: "Delivery Zones", icon: Truck },
-    { id: "rules", label: "Discount Rules", icon: Percent },
-  ];
+  function switchTab(id) {
+    setActiveTab(id);
+    try {
+      localStorage.setItem("adminSettingsTab", id);
+    } catch {
+      // ignore storage errors (private mode etc.)
+    }
+  }
 
   useEffect(() => {
     loadAll();
+    try {
+      const saved = localStorage.getItem("adminSettingsTab");
+      if (saved && TABS.some((t) => t.id === saved)) {
+        setActiveTab(saved);
+      }
+    } catch {
+      // ignore storage errors
+    }
   }, []);
 
   async function loadAll() {
@@ -141,12 +158,12 @@ export default function AdminSettings() {
       {/* Tabs */}
       <div className="border-b border-line mb-6 overflow-x-auto">
         <nav className="flex gap-1 min-w-max">
-          {tabs.map((tab) => {
+          {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => switchTab(tab.id)}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
                   isActive
                     ? "border-primary text-primary"
@@ -659,6 +676,7 @@ const SECTION_KEYS = {
   categories: "Shop by Category",
   featured: "Featured Products",
   latest: "New Arrivals",
+  promo: "Promotional Banner",
 };
 
 function SectionsManager({ sections, setSections }) {
@@ -680,6 +698,15 @@ function SectionsManager({ sections, setSections }) {
         subtitle: section.subtitle,
         items_per_page: section.items_per_page,
       })
+      .eq("id", section.id);
+  }
+
+  async function saveSectionSettings(section, settings) {
+    const updated = { ...section, settings };
+    setSections(sections.map((s) => (s.id === section.id ? updated : s)));
+    await supabase
+      .from("home_sections")
+      .update({ settings })
       .eq("id", section.id);
   }
 
@@ -771,6 +798,38 @@ function SectionsManager({ sections, setSections }) {
                 className="input input-sm"
               />
             </div>
+
+            {section.key === "promo" && (
+              <div className="mt-4 space-y-3 border-t border-line pt-4">
+                <ImageUploader
+                  value={section.settings?.image || ""}
+                  onChange={(v) =>
+                    saveSectionSettings(section, {
+                      ...(section.settings || {}),
+                      image: v,
+                    })
+                  }
+                  folder="promo-banner"
+                  aspect="wide"
+                  label="Banner Image"
+                  hint="Full-width banner shown after your product sections. Recommended 1600x680px."
+                />
+                <div>
+                  <label className="label">Banner Link URL</label>
+                  <input
+                    value={section.settings?.link || ""}
+                    onChange={(e) =>
+                      saveSectionSettings(section, {
+                        ...(section.settings || {}),
+                        link: e.target.value,
+                      })
+                    }
+                    placeholder="/shop?category=..."
+                    className="input input-sm"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>

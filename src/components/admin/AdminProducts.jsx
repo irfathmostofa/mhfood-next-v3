@@ -53,6 +53,7 @@ export default function AdminProducts() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [flash, setFlash] = useState("");
+  const [selected, setSelected] = useState(() => new Set());
 
   useEffect(() => {
     loadAll();
@@ -259,6 +260,61 @@ export default function AdminProducts() {
       return;
     }
     showFlash("Product deleted.");
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(product.id);
+      return next;
+    });
+    await loadAll();
+  }
+
+  function toggleSelect(id) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    const pagedIds = paged.map((p) => p.id);
+    if (pagedIds.length === 0) return;
+    const allSelected = pagedIds.every((id) => selected.has(id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      pagedIds.forEach((id) => {
+        if (allSelected) {
+          next.delete(id);
+        } else {
+          next.add(id);
+        }
+      });
+      return next;
+    });
+  }
+
+  async function deleteSelected() {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    const label = ids.length === 1 ? "product" : "products";
+    if (
+      !confirm(`Delete ${ids.length} selected ${label}? This cannot be undone.`)
+    )
+      return;
+    const { error: deleteError } = await supabase
+      .from("products")
+      .delete()
+      .in("id", ids);
+    if (deleteError) {
+      setError(deleteError.message);
+      return;
+    }
+    showFlash(`${ids.length} ${label} deleted.`);
+    setSelected(new Set());
     await loadAll();
   }
 
@@ -320,6 +376,7 @@ export default function AdminProducts() {
           onChange={(e) => {
             setSearch(e.target.value);
             setPage(1);
+            setSelected(new Set());
           }}
           placeholder="Search products..."
           className="input pl-9"
@@ -340,11 +397,42 @@ export default function AdminProducts() {
             </p>
           ) : (
             <div className="divide-y divide-line">
+              <div className="flex items-center gap-4 px-5 py-2.5 bg-surface/50">
+                <input
+                  type="checkbox"
+                  checked={
+                    paged.length > 0 && paged.every((p) => selected.has(p.id))
+                  }
+                  onChange={toggleSelectAll}
+                  aria-label="Select all products on this page"
+                  className="shrink-0 w-4 h-4 accent-[color:var(--accent)]"
+                />
+                <p className="text-xs text-muted">
+                  {selected.size > 0
+                    ? `${selected.size} selected`
+                    : "Select products to delete"}
+                </p>
+                {selected.size > 0 && (
+                  <button
+                    onClick={deleteSelected}
+                    className="ml-auto flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 size={13} /> Delete Selected
+                  </button>
+                )}
+              </div>
               {paged.map((product) => (
                 <div
                   key={product.id}
                   className="flex items-center gap-4 px-5 py-3.5"
                 >
+                  <input
+                    type="checkbox"
+                    checked={selected.has(product.id)}
+                    onChange={() => toggleSelect(product.id)}
+                    aria-label={`Select ${product.name}`}
+                    className="shrink-0 w-4 h-4 accent-[color:var(--accent)]"
+                  />
                   <div className="w-12 h-12 rounded-lg bg-primary/5 overflow-hidden shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img

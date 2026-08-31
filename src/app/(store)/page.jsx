@@ -14,6 +14,7 @@ import CategoriesGrid from "@/components/CategoriesGrid";
 import ProductSection from "@/components/ProductSection";
 import HowItWorks from "@/components/HowItWorks";
 import CtaBand from "@/components/CtaBand";
+import PromoBannerSection from "@/components/PromoBannerSection";
 
 export async function generateMetadata() {
   const [seo, theme] = await Promise.all([getSeoSettings(), getTheme()]);
@@ -96,6 +97,14 @@ export default async function HomePage() {
             subtitle={section.subtitle}
             products={latest.products}
             viewAllHref="/shop"
+          />
+        );
+      case "promo":
+        return (
+          <PromoBannerSection
+            key={section.key}
+            title={section.title}
+            settings={section.settings}
           />
         );
       default:
