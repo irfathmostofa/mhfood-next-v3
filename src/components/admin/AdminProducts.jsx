@@ -22,6 +22,8 @@ import RichTextEditor from "./RichTextEditor";
 
 const PAGE_SIZES = [10, 25, 50];
 
+const LOW_STOCK_THRESHOLD = 10;
+
 const EMPTY_PRODUCT = {
   name: "",
   slug: "",
@@ -46,6 +48,9 @@ export default function AdminProducts() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [featuredFilter, setFeaturedFilter] = useState("all");
+  const [stockFilter, setStockFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
 
@@ -318,15 +323,35 @@ export default function AdminProducts() {
     await loadAll();
   }
 
-  const filtered = useMemo(
-    () =>
-      products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(search.toLowerCase()) ||
-          p.slug.toLowerCase().includes(search.toLowerCase()),
-      ),
-    [products, search],
-  );
+  const filtered = useMemo(() => {
+    const matchesStatus = (p) =>
+      statusFilter === "all"
+        ? true
+        : statusFilter === "active"
+          ? !!p.is_active
+          : !p.is_active;
+    const matchesFeatured = (p) =>
+      featuredFilter === "all"
+        ? true
+        : featuredFilter === "featured"
+          ? !!p.is_featured
+          : !p.is_featured;
+    const matchesStock = (p) => {
+      const stock = Number(p.stock) || 0;
+      if (stockFilter === "all") return true;
+      if (stockFilter === "low")
+        return stock > 0 && stock <= LOW_STOCK_THRESHOLD;
+      return stock === 0;
+    };
+    return products.filter(
+      (p) =>
+        (p.name.toLowerCase().includes(search.toLowerCase()) ||
+          p.slug.toLowerCase().includes(search.toLowerCase())) &&
+        matchesStatus(p) &&
+        matchesFeatured(p) &&
+        matchesStock(p),
+    );
+  }, [products, search, statusFilter, featuredFilter, stockFilter]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
@@ -365,22 +390,69 @@ export default function AdminProducts() {
           {error}
         </p>
       )}
+      <div className="flex flex-row gap-2 max-w-full flex-wrap items-center justify-between mb-4">
+        <div className="relative ">
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+          />
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+              setSelected(new Set());
+            }}
+            placeholder="Search products..."
+            className="input pl-9"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+              setSelected(new Set());
+            }}
+            className="input input-sm w-auto"
+            aria-label="Filter by status"
+          >
+            <option value="all">All statuses</option>
+            <option value="active">Active</option>
+            <option value="hidden">Hidden</option>
+          </select>
 
-      <div className="relative mb-4 max-w-sm">
-        <Search
-          size={15}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-        />
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-            setSelected(new Set());
-          }}
-          placeholder="Search products..."
-          className="input pl-9"
-        />
+          <select
+            value={featuredFilter}
+            onChange={(e) => {
+              setFeaturedFilter(e.target.value);
+              setPage(1);
+              setSelected(new Set());
+            }}
+            className="input input-sm w-auto"
+            aria-label="Filter by featured"
+          >
+            <option value="all">All featured</option>
+            <option value="featured">Featured</option>
+            <option value="standard">Not featured</option>
+          </select>
+
+          <select
+            value={stockFilter}
+            onChange={(e) => {
+              setStockFilter(e.target.value);
+              setPage(1);
+              setSelected(new Set());
+            }}
+            className="input input-sm w-auto"
+            aria-label="Filter by stock"
+          >
+            <option value="all">All stock</option>
+            <option value="low">Low stock (≤{LOW_STOCK_THRESHOLD})</option>
+            <option value="out">Out of stock</option>
+          </select>
+        </div>
       </div>
 
       {loading ? (
@@ -391,8 +463,11 @@ export default function AdminProducts() {
         <div className="card overflow-hidden">
           {filtered.length === 0 ? (
             <p className="text-sm text-muted py-12 text-center">
-              {search
-                ? "No products match your search."
+              {search ||
+              statusFilter !== "all" ||
+              featuredFilter !== "all" ||
+              stockFilter !== "all"
+                ? "No products match your search or filters."
                 : "No products yet — click “Add Product” to create one."}
             </p>
           ) : (
