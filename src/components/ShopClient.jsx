@@ -133,9 +133,9 @@ export default function ShopClient({ categories = [], products = [] }) {
             {categories.map((cat) => (
               <button
                 key={cat.id}
-                onClick={() => updateParams({ category: cat.id })}
+                onClick={() => updateParams({ category: cat.slug || cat.id })}
                 className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                  category === cat.id
+                  category === (cat.slug || cat.id)
                     ? "bg-primary text-white"
                     : "text-ink hover:bg-primary/5"
                 }`}

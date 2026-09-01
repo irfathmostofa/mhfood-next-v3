@@ -30,6 +30,7 @@ export default function ProductView({ product, siteSettings = null }) {
   const [quantity, setQuantity] = useState(1);
   const [addedMsg, setAddedMsg] = useState(false);
   const [selected, setSelected] = useState({});
+  const [activeTab, setActiveTab] = useState("description");
 
   useEffect(() => {
     trackViewContent({
@@ -233,6 +234,12 @@ export default function ProductView({ product, siteSettings = null }) {
             ৳{price.toFixed(2)}
           </p>
 
+          {product.short_description && (
+            <p className="text-sm text-muted leading-relaxed mb-6">
+              {product.short_description}
+            </p>
+          )}
+
           {/* Variant groups */}
           {groups.length > 0 && (
             <div className="space-y-4 mb-6">
@@ -363,25 +370,48 @@ export default function ProductView({ product, siteSettings = null }) {
           <ShareBar product={product} />
         </div>
       </div>
-      {/* Full Description Section */}
-      {product.description && (
-        <section className="mt-16 pt-8 border-t border-line">
-          <h2 className="font-display text-2xl text-ink mb-6">Description</h2>
-          <div
-            className="prose prose-sm max-w-none text-muted leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: toHtml(product.description) }}
-          />
-        </section>
-      )}
+      {/* Description & Reviews tabs */}
+      <section className="mt-10 pt-4 ">
+        <div className="flex items-center gap-6 border-b border-line mb-6">
+          <button
+            onClick={() => setActiveTab("description")}
+            className={`pb-3 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+              activeTab === "description"
+                ? "border-accent text-ink"
+                : "border-transparent text-muted hover:text-ink"
+            }`}
+          >
+            Description
+          </button>
+          <button
+            onClick={() => setActiveTab("reviews")}
+            className={`pb-3 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+              activeTab === "reviews"
+                ? "border-accent text-ink"
+                : "border-transparent text-muted hover:text-ink"
+            }`}
+          >
+            Reviews ({product.review_count || 0})
+          </button>
+        </div>
 
-      {/* Reviews */}
-      <section className="mt-16 pt-8 border-t border-line">
-        <h2 className="font-display text-2xl text-ink mb-6">Reviews</h2>
-        <ReviewsList
-          reviews={product.reviews || []}
-          avgRating={product.avg_rating}
-          reviewCount={product.review_count}
-        />
+        {activeTab === "description" &&
+          (product.description ? (
+            <div
+              className="prose prose-sm max-w-none text-black leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: toHtml(product.description) }}
+            />
+          ) : (
+            <p className="text-sm text-muted py-6">No description available.</p>
+          ))}
+
+        {activeTab === "reviews" && (
+          <ReviewsList
+            reviews={product.reviews || []}
+            avgRating={product.avg_rating}
+            reviewCount={product.review_count}
+          />
+        )}
       </section>
 
       {/* Spacer so the mobile sticky bar never covers page content */}

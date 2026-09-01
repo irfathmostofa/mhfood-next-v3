@@ -18,17 +18,22 @@ export default async function ShopPage({ searchParams }) {
   const max = params?.max || "";
   const inStockOnly = params?.instock === "1";
 
-  const [categories, { products }] = await Promise.all([
-    getCategories(),
-    getProductsWithRatings({
-      categoryId: category !== "all" ? category : undefined,
-      query,
-      minPrice: min,
-      maxPrice: max,
-      inStockOnly,
-      sort,
-    }),
-  ]);
+  const categories = await getCategories();
+
+  // The category query param is now a slug. Resolve it to an id server-side.
+  const activeCategory =
+    category !== "all" ? categories.find((c) => c.slug === category) : null;
+
+  const { products } = await getProductsWithRatings({
+    categoryId:
+      activeCategory?.id ||
+      (category !== "all" ? "00000000-0000-0000-0000-000000000000" : undefined),
+    query,
+    minPrice: min,
+    maxPrice: max,
+    inStockOnly,
+    sort,
+  });
 
   const sortedProducts =
     sort === "rating"

@@ -356,7 +356,7 @@ export default function Header({ theme, categories = [] }) {
                     className="relative group h-full flex items-center gap-2 shrink-0"
                   >
                     <Link
-                      href={`/shop?category=${cat.id}`}
+                      href={`/shop?category=${cat.slug || cat.id}`}
                       className="flex items-center gap-1 pr-4 py-2 text-sm font-medium text-white hover:text-accent hover:bg-primary/5 rounded-lg transition-colors whitespace-nowrap"
                     >
                       {cat.name}
@@ -371,7 +371,7 @@ export default function Header({ theme, categories = [] }) {
                         {childCategories.map((child) => (
                           <Link
                             key={child.id}
-                            href={`/shop?category=${child.id}`}
+                            href={`/shop?category=${child.slug || child.id}`}
                             className="block px-4 py-2.5 text-sm text-ink hover:text-accent hover:bg-primary/5 transition-colors"
                           >
                             {child.name}
@@ -513,7 +513,7 @@ export default function Header({ theme, categories = [] }) {
                           if (hasChildren) {
                             toggleCategory(cat.id);
                           } else {
-                            router.push(`/shop?category=${cat.id}`);
+                            router.push(`/shop?category=${cat.slug || cat.id}`);
                             setMenuOpen(false);
                           }
                         }}
@@ -536,7 +536,7 @@ export default function Header({ theme, categories = [] }) {
                           {childCategories.map((child) => (
                             <Link
                               key={child.id}
-                              href={`/shop?category=${child.id}`}
+                              href={`/shop?category=${child.slug || child.id}`}
                               onClick={() => setMenuOpen(false)}
                               className="block px-3 py-2 text-sm rounded-xl text-ink/80 hover:text-accent hover:bg-primary/5 transition-colors"
                             >

@@ -17,7 +17,9 @@ async function fetchProductsWithRatings({
 }) {
   let q = supabase
     .from("products")
-    .select("*, product_images(id, image_url, sort_order), categories(name)")
+    .select(
+      "*, product_images(id, image_url, sort_order), categories(name, slug)",
+    )
     .eq("is_active", true);
 
   if (categoryId && categoryId !== "all") q = q.eq("category_id", categoryId);
@@ -95,7 +97,9 @@ export const getBestsellers = unstable_cache(
 async function fetchProductBySlug(slug) {
   const { data: product, error } = await supabase
     .from("products")
-    .select("*, categories(name), product_images(id, image_url, sort_order)")
+    .select(
+      "*, categories(name, slug), product_images(id, image_url, sort_order)",
+    )
     .eq("slug", slug)
     .eq("is_active", true)
     .single();
@@ -157,7 +161,7 @@ async function fetchProductMeta(slug) {
   const { data: product, error } = await supabase
     .from("products")
     .select(
-      "id, name, slug, description, category_id, categories(name), product_images(id, image_url, sort_order)",
+      "id, name, slug, description, category_id, categories(name, slug), product_images(id, image_url, sort_order)",
     )
     .eq("slug", slug)
     .eq("is_active", true)

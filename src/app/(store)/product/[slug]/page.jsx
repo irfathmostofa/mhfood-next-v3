@@ -49,7 +49,7 @@ async function ProductRelatedSection({ product }) {
       <div className="flex items-center justify-between mb-6">
         <h2 className="font-display text-2xl text-ink">Related Products</h2>
         <Link
-          href={`/shop?category=${product.category_id}`}
+          href={`/shop?category=${product.categories?.slug || product.category_id}`}
           className="text-sm text-accent hover:underline font-medium"
         >
           View All →

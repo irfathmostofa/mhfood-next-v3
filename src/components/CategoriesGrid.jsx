@@ -205,7 +205,7 @@ export default function CategoriesGrid({
           {extendedCategories.map((cat, index) => (
             <Link
               key={`${cat.id}-${index}`}
-              href={`/shop?category=${cat.id}`}
+              href={`/shop?category=${cat.slug || cat.id}`}
               className="group flex-shrink-0 w-[calc(50%-8px)] sm:w-[calc(25%-18px)] lg:w-[calc(12.5%-21px)]"
             >
               <div className="aspect-square bg-primary/5 overflow-hidden rounded-lg relative group">
