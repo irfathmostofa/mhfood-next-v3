@@ -408,71 +408,70 @@ export default function AdminProducts() {
           {error}
         </p>
       )}
+      <div className="flex flex-row justify-between ">
+        <div className="relative mb-4 max-w-sm">
+          <Search
+            size={15}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+          />
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+              setSelected(new Set());
+            }}
+            placeholder="Search products..."
+            className="input pl-9"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+              setSelected(new Set());
+            }}
+            className="input input-sm w-auto"
+            aria-label="Filter by status"
+          >
+            <option value="all">All statuses</option>
+            <option value="active">Active</option>
+            <option value="hidden">Hidden</option>
+          </select>
 
-      <div className="relative mb-4 max-w-sm">
-        <Search
-          size={15}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-        />
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-            setSelected(new Set());
-          }}
-          placeholder="Search products..."
-          className="input pl-9"
-        />
+          <select
+            value={featuredFilter}
+            onChange={(e) => {
+              setFeaturedFilter(e.target.value);
+              setPage(1);
+              setSelected(new Set());
+            }}
+            className="input input-sm w-auto"
+            aria-label="Filter by featured"
+          >
+            <option value="all">All featured</option>
+            <option value="featured">Featured</option>
+            <option value="standard">Not featured</option>
+          </select>
+
+          <select
+            value={stockFilter}
+            onChange={(e) => {
+              setStockFilter(e.target.value);
+              setPage(1);
+              setSelected(new Set());
+            }}
+            className="input input-sm w-auto"
+            aria-label="Filter by stock"
+          >
+            <option value="all">All stock</option>
+            <option value="low">Low stock (≤{LOW_STOCK_THRESHOLD})</option>
+            <option value="out">Out of stock</option>
+          </select>
+        </div>
       </div>
-
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setStatusFilter(e.target.value);
-            setPage(1);
-            setSelected(new Set());
-          }}
-          className="input input-sm w-auto"
-          aria-label="Filter by status"
-        >
-          <option value="all">All statuses</option>
-          <option value="active">Active</option>
-          <option value="hidden">Hidden</option>
-        </select>
-
-        <select
-          value={featuredFilter}
-          onChange={(e) => {
-            setFeaturedFilter(e.target.value);
-            setPage(1);
-            setSelected(new Set());
-          }}
-          className="input input-sm w-auto"
-          aria-label="Filter by featured"
-        >
-          <option value="all">All featured</option>
-          <option value="featured">Featured</option>
-          <option value="standard">Not featured</option>
-        </select>
-
-        <select
-          value={stockFilter}
-          onChange={(e) => {
-            setStockFilter(e.target.value);
-            setPage(1);
-            setSelected(new Set());
-          }}
-          className="input input-sm w-auto"
-          aria-label="Filter by stock"
-        >
-          <option value="all">All stock</option>
-          <option value="low">Low stock (≤{LOW_STOCK_THRESHOLD})</option>
-          <option value="out">Out of stock</option>
-        </select>
-      </div>
-
       {loading ? (
         <p className="text-sm text-muted py-10 text-center">
           Loading products...

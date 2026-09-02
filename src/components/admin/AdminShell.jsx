@@ -66,7 +66,7 @@ export default function AdminShell({ children }) {
           <p className="text-xs text-white/50 mt-0.5">Store Manager</p>
         </div>
 
-        <nav className="flex-1 py-4 overflow-y-auto">
+        <nav className="flex-1 py-4 overflow-y-auto scrollbar-ghost">
           {NAV.map((item) => {
             const active = isActive(item.href, pathname);
             return (
