@@ -16,6 +16,7 @@ import {
   Loader2,
   BarChart3,
   Wand2,
+  Wallet,
 } from "lucide-react";
 
 const NAV = [
@@ -26,6 +27,7 @@ const NAV = [
   { href: "/admin/hero", label: "Hero Slides", icon: Sparkles },
   { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { href: "/admin/customers", label: "Customers", icon: Users },
+  { href: "/admin/expenses", label: "Expenses", icon: Wallet },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];

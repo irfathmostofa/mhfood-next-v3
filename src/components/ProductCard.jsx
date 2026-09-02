@@ -15,6 +15,12 @@ export default function ProductCard({ product }) {
   const outOfStock = Number(product.stock) === 0;
   const rating = Number(product.avg_rating || 0);
   const reviewCount = Number(product.review_count || 0);
+  const price = Number(product.price) || 0;
+  const regularPrice = Number(product.regular_price) || 0;
+  const discount =
+    regularPrice > price
+      ? Math.round(((regularPrice - price) / regularPrice) * 100)
+      : 0;
 
   function handleAdd(e) {
     e.preventDefault();
@@ -38,17 +44,22 @@ export default function ProductCard({ product }) {
       href={`/product/${product.slug}`}
       className="group relative block bg-surface border border-line rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
     >
-        {/* Image */}
-        <div className="relative aspect-square bg-primary/5 overflow-hidden">
-          <Image
-            src={image || "https://placehold.co/400x400?text=No+Image"}
-            alt={product.name}
-            fill
-            sizes="(min-width: 1280px) 25vw, (min-width: 640px) 33vw, 50vw"
-            loading="lazy"
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-          {outOfStock && (
+      {/* Image */}
+      <div className="relative aspect-square bg-primary/5 overflow-hidden">
+        <Image
+          src={image || "https://placehold.co/400x400?text=No+Image"}
+          alt={product.name}
+          fill
+          sizes="(min-width: 1280px) 25vw, (min-width: 640px) 33vw, 50vw"
+          loading="lazy"
+          className="object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+        {discount > 0 && (
+          <span className="absolute top-3 left-3 bg-accent text-white text-xs font-semibold px-2 py-1 rounded-full">
+            -{discount}%
+          </span>
+        )}
+        {outOfStock && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="bg-white/90 text-ink text-xs font-semibold px-3 py-1.5 rounded-full">
               Out of stock
@@ -74,13 +85,22 @@ export default function ProductCard({ product }) {
             {product.categories.name}
           </p>
         )}
-        <h3 className="text-sm font-medium text-ink truncate">{product.name}</h3>
+        <h3 className="text-sm font-medium text-ink truncate">
+          {product.name}
+        </h3>
 
         <div className="mt-1.5 flex items-end justify-between gap-2">
           <div>
-            <p className="text-base font-semibold text-accent">
-              ৳{Number(product.price).toFixed(2)}
-            </p>
+            <div className="flex items-baseline gap-1.5 flex-wrap">
+              {discount > 0 && (
+                <p className="text-xs text-muted line-through">
+                  ৳{regularPrice.toFixed(2)}
+                </p>
+              )}
+              <p className="text-base font-semibold text-accent">
+                ৳{price.toFixed(2)}
+              </p>
+            </div>
             {product.unit && (
               <p className="text-[11px] text-muted">{product.unit}</p>
             )}

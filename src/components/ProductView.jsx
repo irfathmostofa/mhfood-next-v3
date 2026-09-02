@@ -90,6 +90,11 @@ export default function ProductView({ product, siteSettings = null }) {
     0,
   );
   const price = Number(product.price) + priceAdjustment;
+  const regularPrice = Number(product.regular_price) || 0;
+  const discount =
+    regularPrice > price
+      ? Math.round(((regularPrice - price) / regularPrice) * 100)
+      : 0;
 
   const variantStock = allSelected
     ? selectedOptions.reduce(
@@ -230,9 +235,21 @@ export default function ProductView({ product, siteSettings = null }) {
             )}
           </div>
 
-          <p className="text-2xl font-semibold text-accent mb-4">
-            ৳{price.toFixed(2)}
-          </p>
+          {regularPrice > price && (
+            <p className="text-base text-muted line-through mb-1">
+              ৳{regularPrice.toFixed(2)}
+            </p>
+          )}
+          <div className="flex items-center gap-3 mb-4">
+            <p className="text-2xl font-semibold text-accent">
+              ৳{price.toFixed(2)}
+            </p>
+            {discount > 0 && (
+              <span className="text-xs font-semibold bg-accent/10 text-accent px-2 py-1 rounded-full">
+                -{discount}%
+              </span>
+            )}
+          </div>
 
           {product.short_description && (
             <p className="text-sm text-muted leading-relaxed mb-6">
@@ -371,7 +388,7 @@ export default function ProductView({ product, siteSettings = null }) {
         </div>
       </div>
       {/* Description & Reviews tabs */}
-      <section className="mt-10 pt-4 ">
+      <section className="mt-16 pt-8 border-t border-line">
         <div className="flex items-center gap-6 border-b border-line mb-6">
           <button
             onClick={() => setActiveTab("description")}
@@ -398,7 +415,7 @@ export default function ProductView({ product, siteSettings = null }) {
         {activeTab === "description" &&
           (product.description ? (
             <div
-              className="prose prose-sm max-w-none text-black leading-relaxed"
+              className="prose prose-sm max-w-none text-muted leading-relaxed"
               dangerouslySetInnerHTML={{ __html: toHtml(product.description) }}
             />
           ) : (

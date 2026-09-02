@@ -28,6 +28,8 @@ const EMPTY_PRODUCT = {
   name: "",
   slug: "",
   category_id: "",
+  cost: "",
+  regular_price: "",
   price: "",
   stock: 0,
   description: "",
@@ -41,6 +43,14 @@ function slugify(str) {
     .trim()
     .replace(/[^\w\s-]/g, "")
     .replace(/\s+/g, "-");
+}
+
+// Profit margin percentage based on selling price.
+function calcMargin(cost, price) {
+  const c = Number(cost) || 0;
+  const p = Number(price) || 0;
+  if (c <= 0 || p <= 0) return 0;
+  return ((p - c) / p) * 100;
 }
 
 export default function AdminProducts() {
@@ -115,6 +125,8 @@ export default function AdminProducts() {
         slugify(editing.name) +
           (editing.id ? "" : `-${Date.now().toString(36).slice(-4)}`),
       category_id: editing.category_id || null,
+      cost: Number(editing.cost) || 0,
+      regular_price: Number(editing.regular_price) || 0,
       price: Number(editing.price) || 0,
       stock: Number(editing.stock) || 0,
       description: editing.description || "",
@@ -360,6 +372,12 @@ export default function AdminProducts() {
     currentPage * pageSize,
   );
 
+  const editingCost = Number(editing?.cost) || 0;
+  const editingPrice = Number(editing?.price) || 0;
+  const editingProfit = editingPrice - editingCost;
+  const editingMargin =
+    editingPrice > 0 ? calcMargin(editingCost, editingPrice) : 0;
+
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
@@ -390,69 +408,69 @@ export default function AdminProducts() {
           {error}
         </p>
       )}
-      <div className="flex flex-row gap-2 max-w-full flex-wrap items-center justify-between mb-4">
-        <div className="relative ">
-          <Search
-            size={15}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-          />
-          <input
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-              setSelected(new Set());
-            }}
-            placeholder="Search products..."
-            className="input pl-9"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setPage(1);
-              setSelected(new Set());
-            }}
-            className="input input-sm w-auto"
-            aria-label="Filter by status"
-          >
-            <option value="all">All statuses</option>
-            <option value="active">Active</option>
-            <option value="hidden">Hidden</option>
-          </select>
 
-          <select
-            value={featuredFilter}
-            onChange={(e) => {
-              setFeaturedFilter(e.target.value);
-              setPage(1);
-              setSelected(new Set());
-            }}
-            className="input input-sm w-auto"
-            aria-label="Filter by featured"
-          >
-            <option value="all">All featured</option>
-            <option value="featured">Featured</option>
-            <option value="standard">Not featured</option>
-          </select>
+      <div className="relative mb-4 max-w-sm">
+        <Search
+          size={15}
+          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
+        />
+        <input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+            setSelected(new Set());
+          }}
+          placeholder="Search products..."
+          className="input pl-9"
+        />
+      </div>
 
-          <select
-            value={stockFilter}
-            onChange={(e) => {
-              setStockFilter(e.target.value);
-              setPage(1);
-              setSelected(new Set());
-            }}
-            className="input input-sm w-auto"
-            aria-label="Filter by stock"
-          >
-            <option value="all">All stock</option>
-            <option value="low">Low stock (≤{LOW_STOCK_THRESHOLD})</option>
-            <option value="out">Out of stock</option>
-          </select>
-        </div>
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <select
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setPage(1);
+            setSelected(new Set());
+          }}
+          className="input input-sm w-auto"
+          aria-label="Filter by status"
+        >
+          <option value="all">All statuses</option>
+          <option value="active">Active</option>
+          <option value="hidden">Hidden</option>
+        </select>
+
+        <select
+          value={featuredFilter}
+          onChange={(e) => {
+            setFeaturedFilter(e.target.value);
+            setPage(1);
+            setSelected(new Set());
+          }}
+          className="input input-sm w-auto"
+          aria-label="Filter by featured"
+        >
+          <option value="all">All featured</option>
+          <option value="featured">Featured</option>
+          <option value="standard">Not featured</option>
+        </select>
+
+        <select
+          value={stockFilter}
+          onChange={(e) => {
+            setStockFilter(e.target.value);
+            setPage(1);
+            setSelected(new Set());
+          }}
+          className="input input-sm w-auto"
+          aria-label="Filter by stock"
+        >
+          <option value="all">All stock</option>
+          <option value="low">Low stock (≤{LOW_STOCK_THRESHOLD})</option>
+          <option value="out">Out of stock</option>
+        </select>
       </div>
 
       {loading ? (
@@ -530,6 +548,21 @@ export default function AdminProducts() {
                       {product.categories?.name || "Uncategorized"} · ৳
                       {Number(product.price).toFixed(2)} · {product.stock} in
                       stock
+                      {Number(product.cost) > 0 && (
+                        <>
+                          {" "}
+                          · Profit ৳
+                          {(
+                            Number(product.price) - Number(product.cost)
+                          ).toFixed(2)}{" "}
+                          (
+                          {calcMargin(
+                            Number(product.cost),
+                            Number(product.price),
+                          ).toFixed(1)}
+                          %)
+                        </>
+                      )}
                     </p>
                   </div>
 
@@ -621,7 +654,7 @@ export default function AdminProducts() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="label">Category</label>
                 <select
@@ -640,20 +673,6 @@ export default function AdminProducts() {
                 </select>
               </div>
               <div>
-                <label className="label">Price (৳)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={editing.price}
-                  onChange={(e) =>
-                    setEditing({ ...editing, price: e.target.value })
-                  }
-                  className="input"
-                  required
-                />
-              </div>
-              <div>
                 <label className="label">Stock</label>
                 <input
                   type="number"
@@ -666,6 +685,82 @@ export default function AdminProducts() {
                   required
                 />
               </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="label">Cost (৳)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editing.cost}
+                  onChange={(e) =>
+                    setEditing({ ...editing, cost: e.target.value })
+                  }
+                  placeholder="0.00"
+                  className="input"
+                />
+                <p className="text-[11px] text-muted mt-1">
+                  What you pay per unit (for profit tracking).
+                </p>
+              </div>
+              <div>
+                <label className="label">Regular Price (৳)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editing.regular_price}
+                  onChange={(e) =>
+                    setEditing({ ...editing, regular_price: e.target.value })
+                  }
+                  placeholder="0.00"
+                  className="input"
+                />
+                <p className="text-[11px] text-muted mt-1">
+                  List price, shown struck-through.
+                </p>
+              </div>
+              <div>
+                <label className="label">Selling Price (৳)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editing.price}
+                  onChange={(e) =>
+                    setEditing({ ...editing, price: e.target.value })
+                  }
+                  className="input"
+                  required
+                />
+                <p className="text-[11px] text-muted mt-1">
+                  What customers pay.
+                </p>
+              </div>
+            </div>
+
+            <div
+              className={`rounded-xl border px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-sm ${
+                editingCost > 0
+                  ? editingProfit >= 0
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-red-200 bg-red-50 text-red-600"
+                  : "border-line bg-surface text-muted"
+              }`}
+            >
+              <span className="font-medium">Profit / Margin</span>
+              <span className="font-semibold">
+                {editingCost > 0 ? (
+                  <>
+                    ৳{editingProfit.toFixed(2)} ({editingMargin.toFixed(1)}%
+                    margin)
+                  </>
+                ) : (
+                  "Enter a cost to see profit"
+                )}
+              </span>
             </div>
 
             <div>
