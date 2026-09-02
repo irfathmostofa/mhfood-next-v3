@@ -136,6 +136,14 @@ export const DEFAULT_SECTIONS = [
     sort_order: 6,
     items_per_page: 1,
   },
+  {
+    key: "flash_sale",
+    title: "Flash Sale",
+    subtitle: "Limited-time campaign offers",
+    enabled: true,
+    sort_order: 2,
+    items_per_page: 10,
+  },
 ];
 
 async function fetchHomeSections() {

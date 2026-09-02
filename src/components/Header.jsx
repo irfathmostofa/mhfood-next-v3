@@ -20,7 +20,7 @@ const NAV_LINKS = [
   { to: "/track", label: "Track Order" },
 ];
 
-export default function Header({ theme, categories = [] }) {
+export default function Header({ theme, categories = [], liveSessions = [] }) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -31,6 +31,8 @@ export default function Header({ theme, categories = [] }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [expandedCategory, setExpandedCategory] = useState(null);
+  const [hoverMenu, setHoverMenu] = useState(null);
+  const hoverTimer = useRef(null);
 
   const inputRef = useRef(null);
 
@@ -70,7 +72,7 @@ export default function Header({ theme, categories = [] }) {
       resizeObserver.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories]);
+  }, [categories, liveSessions]);
 
   const scrollNav = (direction) => {
     const el = navScrollRef.current;
@@ -139,7 +141,41 @@ export default function Header({ theme, categories = [] }) {
   useEffect(() => {
     setMenuOpen(false);
     setSearchOpen(false);
+    setHoverMenu(null);
   }, [pathname]);
+
+  function openCategoryHover(categoryId, el) {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    const rect = el.getBoundingClientRect();
+    setHoverMenu({
+      id: categoryId,
+      left: rect.left,
+      top: rect.bottom,
+    });
+  }
+
+  function closeCategoryHover() {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setHoverMenu(null), 160);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    const hide = () => setHoverMenu(null);
+    el.addEventListener("scroll", hide, { passive: true });
+    window.addEventListener("resize", hide);
+    return () => {
+      el.removeEventListener("scroll", hide);
+      window.removeEventListener("resize", hide);
+    };
+  }, []);
 
   /* ============================================================
      SEARCH SUBMIT
@@ -283,6 +319,15 @@ export default function Header({ theme, categories = [] }) {
 
           <div className="flex items-center gap-1 justify-end shrink-0">
             <div className="hidden lg:flex items-center">
+              {liveSessions.map((session) => (
+                <Link
+                  key={session.id}
+                  href={`/sale/${session.slug}`}
+                  className="px-3 py-2 rounded-full text-[13px] font-semibold text-accent hover:text-ink transition-colors"
+                >
+                  {session.name}
+                </Link>
+              ))}
               <Link
                 href="/shop"
                 className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
@@ -349,36 +394,31 @@ export default function Header({ theme, categories = [] }) {
               {parentCategories.map((cat) => {
                 const childCategories = getChildCategories(cat.id);
                 const hasChildren = childCategories.length > 0;
+                const isOpen = hoverMenu?.id === cat.id;
 
                 return (
                   <div
                     key={cat.id}
-                    className="relative group h-full flex items-center gap-2 shrink-0"
+                    className="relative h-full flex items-center gap-2 shrink-0"
+                    onMouseEnter={(e) =>
+                      hasChildren && openCategoryHover(cat.id, e.currentTarget)
+                    }
+                    onMouseLeave={() => hasChildren && closeCategoryHover()}
                   >
                     <Link
                       href={`/shop?category=${cat.slug || cat.id}`}
-                      className="flex items-center gap-1 pr-4 py-2 text-sm font-medium text-white hover:text-accent hover:bg-primary/5 rounded-lg transition-colors whitespace-nowrap"
+                      className={`flex items-center gap-1 pr-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
+                        isOpen ? "text-accent" : "text-white hover:text-accent"
+                      }`}
                     >
                       {cat.name}
                       {hasChildren && (
-                        <ChevronDown size={14} className="text-muted" />
+                        <ChevronDown
+                          size={14}
+                          className={`transition-transform ${isOpen ? "rotate-180 text-accent" : "text-white/70"}`}
+                        />
                       )}
                     </Link>
-
-                    {/* Sub-categories dropdown */}
-                    {hasChildren && (
-                      <div className="absolute top-full left-0 mt-0 min-w-[200px] bg-surface rounded-b-lg shadow-xl border border-t-0 border-line py-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                        {childCategories.map((child) => (
-                          <Link
-                            key={child.id}
-                            href={`/shop?category=${child.slug || child.id}`}
-                            className="block px-4 py-2.5 text-sm text-ink hover:text-accent hover:bg-primary/5 transition-colors"
-                          >
-                            {child.name}
-                          </Link>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -400,6 +440,34 @@ export default function Header({ theme, categories = [] }) {
           </div>
         </div>
       )}
+
+      {hoverMenu &&
+        (() => {
+          const children = getChildCategories(hoverMenu.id);
+          if (children.length === 0) return null;
+          return (
+            <div
+              className="hidden lg:block fixed z-[90] min-w-[220px] pt-1"
+              style={{ left: hoverMenu.left, top: hoverMenu.top }}
+              onMouseEnter={() => {
+                if (hoverTimer.current) clearTimeout(hoverTimer.current);
+              }}
+              onMouseLeave={closeCategoryHover}
+            >
+              <div className="bg-surface rounded-b-lg shadow-xl border border-line py-1">
+                {children.map((child) => (
+                  <Link
+                    key={child.id}
+                    href={`/shop?category=${child.slug || child.id}`}
+                    className="block px-4 py-2.5 text-sm text-ink hover:text-accent hover:bg-primary/5 transition-colors"
+                  >
+                    {child.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
       {/* ========================================================
           MOBILE / TABLET SEARCH
@@ -473,6 +541,17 @@ export default function Header({ theme, categories = [] }) {
 
           {/* Navigation */}
           <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            {liveSessions.length > 0 &&
+              liveSessions.map((session) => (
+                <Link
+                  key={session.id}
+                  href={`/sale/${session.slug}`}
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-3 py-3 text-sm font-semibold rounded-xl text-accent bg-accent/10"
+                >
+                  {session.name}
+                </Link>
+              ))}
             {NAV_LINKS.map((link) => {
               const active =
                 link.to === "/"
@@ -501,6 +580,16 @@ export default function Header({ theme, categories = [] }) {
                 <div className="px-3 pt-4 pb-2 text-xs font-semibold text-muted uppercase tracking-wider">
                   Categories
                 </div>
+                {liveSessions.map((session) => (
+                  <Link
+                    key={session.id}
+                    href={`/sale/${session.slug}`}
+                    className="flex items-center pr-4 py-2 text-sm font-semibold text-accent hover:text-white whitespace-nowrap shrink-0"
+                  >
+                    {session.name}
+                  </Link>
+                ))}
+
                 {parentCategories.map((cat) => {
                   const childCategories = getChildCategories(cat.id);
                   const hasChildren = childCategories.length > 0;

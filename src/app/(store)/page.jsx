@@ -6,6 +6,7 @@ import {
   getTheme,
 } from "@/lib/site";
 import { getProductsWithRatings, getBestsellers } from "@/lib/products";
+import { getLiveSessionsWithProducts } from "@/lib/discountSessions";
 import { buildMetadata } from "@/lib/seo";
 import HeroSection from "@/components/HeroSection";
 import FeatureStrip from "@/components/FeatureStrip";
@@ -15,6 +16,7 @@ import ProductSection from "@/components/ProductSection";
 import HowItWorks from "@/components/HowItWorks";
 import CtaBand from "@/components/CtaBand";
 import PromoBannerSection from "@/components/PromoBannerSection";
+import FlashSaleSection from "@/components/FlashSaleSection";
 
 export async function generateMetadata() {
   const [seo, theme] = await Promise.all([getSeoSettings(), getTheme()]);
@@ -30,27 +32,36 @@ export default async function HomePage() {
   const categoriesSection = enabled.find((s) => s.key === "categories");
   const featuredSection = enabled.find((s) => s.key === "featured");
   const latestSection = enabled.find((s) => s.key === "latest");
+  const flashSaleSection = enabled.find((s) => s.key === "flash_sale");
 
-  const [featured, latest, bestsellers, [allCategories, categoryCounts]] =
-    await Promise.all([
-      featuredSection
-        ? getProductsWithRatings({
-            featuredOnly: true,
-            limit: featuredSection.items_per_page || 8,
-          })
-        : { products: [] },
-      latestSection
-        ? getProductsWithRatings({
-            limit: latestSection.items_per_page || 8,
-          })
-        : { products: [] },
-      bestsellersSection
-        ? getBestsellers(bestsellersSection.items_per_page || 12)
-        : [],
-      categoriesSection
-        ? Promise.all([getCategories(), getCategoryCounts()])
-        : [[], {}],
-    ]);
+  const [
+    featured,
+    latest,
+    bestsellers,
+    [allCategories, categoryCounts],
+    saleSessions,
+  ] = await Promise.all([
+    featuredSection
+      ? getProductsWithRatings({
+          featuredOnly: true,
+          limit: featuredSection.items_per_page || 8,
+        })
+      : { products: [] },
+    latestSection
+      ? getProductsWithRatings({
+          limit: latestSection.items_per_page || 8,
+        })
+      : { products: [] },
+    bestsellersSection
+      ? getBestsellers(bestsellersSection.items_per_page || 12)
+      : [],
+    categoriesSection
+      ? Promise.all([getCategories(), getCategoryCounts()])
+      : [[], {}],
+    flashSaleSection
+      ? getLiveSessionsWithProducts(flashSaleSection.items_per_page || 10)
+      : [],
+  ]);
 
   const parentCategories = allCategories
     .filter((c) => !c.parent_id && categoryCounts[c.id] > 0)
@@ -60,6 +71,8 @@ export default async function HomePage() {
     switch (section.key) {
       case "hero":
         return <HeroSection key={section.key} />;
+      case "flash_sale":
+        return <FlashSaleSection key={section.key} sessions={saleSessions} />;
       case "bestsellers":
         return (
           <BestSellers

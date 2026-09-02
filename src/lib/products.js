@@ -1,5 +1,9 @@
 import { unstable_cache } from "next/cache";
 import { supabase } from "./supabase";
+import {
+  decorateProductsWithSale,
+  decorateProductWithSale,
+} from "./discountSessions";
 
 const PRODUCTS_TTL = 30;
 
@@ -59,7 +63,8 @@ async function fetchProductsWithRatings({
     review_count: ratingMap[p.id]?.review_count || 0,
   }));
 
-  return { products, error };
+  const withSale = await decorateProductsWithSale(products);
+  return { products: withSale, error };
 }
 
 export const getProductsWithRatings = unstable_cache(
@@ -138,7 +143,7 @@ async function fetchProductBySlug(slug) {
       .order("sort_order", { ascending: true }),
   ]);
 
-  return {
+  const decorated = await decorateProductWithSale({
     ...product,
     product_images: [...(product.product_images || [])].sort(
       (a, b) => a.sort_order - b.sort_order,
@@ -148,7 +153,8 @@ async function fetchProductBySlug(slug) {
     total_sold: countRow?.total_sold || 0,
     variants: variantRows || [],
     reviews: reviewRows || [],
-  };
+  });
+  return decorated;
 }
 
 export const getProductBySlug = unstable_cache(

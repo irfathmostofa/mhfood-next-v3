@@ -110,11 +110,20 @@ const EMPTY_FORM = {
   slug: "",
   short_description: "",
   description: "",
-  price: "0",
+  cost: "",
+  regular_price: "",
+  price: "",
   stock: "0",
   unit: "",
   category_id: "",
 };
+
+function calcMargin(cost, price) {
+  const c = Number(cost) || 0;
+  const p = Number(price) || 0;
+  if (c <= 0 || p <= 0) return 0;
+  return ((p - c) / p) * 100;
+}
 
 export default function AiProductCreate() {
   const inputRef = useRef(null);
@@ -261,6 +270,11 @@ export default function AiProductCreate() {
     [form.name, form.description],
   );
 
+  const formCost = Number(form.cost) || 0;
+  const formPrice = Number(form.price) || 0;
+  const formProfit = formPrice - formCost;
+  const formMargin = formPrice > 0 ? calcMargin(formCost, formPrice) : 0;
+
   // Real-time subscription + polling fallback for processing status.
   useEffect(() => {
     if (
@@ -368,7 +382,16 @@ export default function AiProductCreate() {
       slug: data.slug || "",
       short_description: data.short_description || "",
       description: data.description || "",
-      price: String(Number(data.price) || 0),
+      cost:
+        data.cost != null && Number(data.cost) !== 0 ? String(data.cost) : "",
+      regular_price:
+        data.regular_price != null && Number(data.regular_price) !== 0
+          ? String(data.regular_price)
+          : "",
+      price:
+        data.price != null && Number(data.price) !== 0
+          ? String(data.price)
+          : "",
       stock: String(Number(data.stock) || 0),
       unit: data.unit || "",
       category_id: data.category_id || "",
@@ -552,6 +575,8 @@ export default function AiProductCreate() {
         `ai-${Date.now().toString(36)}`,
       short_description: form.short_description.trim(),
       description: form.description.trim(),
+      cost: Number(form.cost) || 0,
+      regular_price: Number(form.regular_price) || 0,
       price: Number(form.price) || 0,
       stock: Number(form.stock) || 0,
       unit: form.unit.trim(),
@@ -979,19 +1004,79 @@ export default function AiProductCreate() {
             <h3 className="text-sm font-semibold text-ink mb-4">
               Pricing &amp; catalog
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="label">Price (৳)</label>
+                <label className="label">Cost (৳)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.cost}
+                  onChange={(e) => setForm({ ...form, cost: e.target.value })}
+                  placeholder="0.00"
+                  className="input"
+                />
+                <p className="text-[11px] text-muted mt-1">
+                  What you pay per unit (for profit tracking).
+                </p>
+              </div>
+              <div>
+                <label className="label">Regular Price (৳)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.regular_price}
+                  onChange={(e) =>
+                    setForm({ ...form, regular_price: e.target.value })
+                  }
+                  placeholder="0.00"
+                  className="input"
+                />
+                <p className="text-[11px] text-muted mt-1">
+                  List price, shown struck-through.
+                </p>
+              </div>
+              <div>
+                <label className="label">Selling Price (৳)</label>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
                   value={form.price}
                   onChange={(e) => setForm({ ...form, price: e.target.value })}
+                  placeholder="0.00"
                   className="input"
                   required
                 />
+                <p className="text-[11px] text-muted mt-1">
+                  What customers pay.
+                </p>
               </div>
+            </div>
+
+            <div
+              className={`mt-4 rounded-xl border px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-sm ${
+                formCost > 0
+                  ? formProfit >= 0
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-red-200 bg-red-50 text-red-600"
+                  : "border-line bg-surface text-muted"
+              }`}
+            >
+              <span className="font-medium">Profit / Margin</span>
+              <span className="font-semibold">
+                {formCost > 0 ? (
+                  <>
+                    ৳{formProfit.toFixed(2)} ({formMargin.toFixed(1)}% margin)
+                  </>
+                ) : (
+                  "Enter a cost to see profit"
+                )}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
               <div>
                 <label className="label">Stock</label>
                 <input
@@ -1012,7 +1097,7 @@ export default function AiProductCreate() {
                   className="input"
                 />
               </div>
-              <div>
+              <div className="col-span-2 sm:col-span-1">
                 <label className="label">Category</label>
                 <select
                   value={form.category_id}

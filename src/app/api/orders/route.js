@@ -8,6 +8,10 @@ import {
 import { generateTrackingCode } from "@/lib/tracking";
 import { sendOrderPlacedEmails } from "@/lib/email";
 import { sendOrderPlacedSMS } from "@/lib/sms";
+import {
+  computeSalePrice,
+  getLiveSaleUnitPrices,
+} from "@/lib/discountSessions";
 
 class StockError extends Error {
   constructor() {
@@ -87,6 +91,7 @@ export async function POST(req) {
     const productMap = Object.fromEntries(
       (productRows || []).map((p) => [p.id, p]),
     );
+    const saleByProduct = await getLiveSaleUnitPrices(productIds);
 
     const variantIds = [
       ...new Set(cartItems.flatMap((i) => i.variant_ids || [])),
@@ -147,7 +152,15 @@ export async function POST(req) {
         );
       }
 
-      const unitPrice = Number(product.price) + adjustment;
+      const saleItem = saleByProduct[product.id];
+      const basePrice = saleItem
+        ? computeSalePrice(
+            product.price,
+            saleItem.discount_type,
+            saleItem.discount_value,
+          )
+        : Number(product.price);
+      const unitPrice = basePrice + adjustment;
       const lineTotal = unitPrice * qty;
       subtotal += lineTotal;
 

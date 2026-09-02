@@ -672,6 +672,7 @@ function PromoBannerForm({ site, setSite }) {
 // ---------- Home sections ----------
 const SECTION_KEYS = {
   hero: "Hero Slider",
+  flash_sale: "Discount Session / Flash Sale",
   bestsellers: "Best Selling Products",
   categories: "Shop by Category",
   featured: "Featured Products",
