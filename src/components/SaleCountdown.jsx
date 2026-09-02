@@ -15,13 +15,22 @@ function parts(endsAt) {
 }
 
 export default function SaleCountdown({ endsAt, light = false }) {
-  const [t, setT] = useState(() => parts(endsAt));
+  const [t, setT] = useState(null); // null on both server & first client render
 
   useEffect(() => {
-    setT(parts(endsAt));
+    setT(parts(endsAt)); // real value computed client-side, after mount
     const id = setInterval(() => setT(parts(endsAt)), 1000);
     return () => clearInterval(id);
   }, [endsAt]);
+
+  if (!t) {
+    // same markup shape server renders — avoids layout shift too
+    return (
+      <div className="flex items-center gap-2">
+        {/* skeleton/placeholder cells, or just render zeros */}
+      </div>
+    );
+  }
 
   if (t.done) {
     return (

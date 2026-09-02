@@ -38,7 +38,7 @@ export default function FlashSaleSection({ sessions = [] }) {
         return (
           <section
             key={session.id}
-            className="max-w-[97%] mx-auto px-2 py-6 sm:py-10"
+            className="max-w-[94%] mx-auto px-2 py-6 sm:py-10"
           >
             <div
               className={`rounded-3xl overflow-hidden shadow-lg ${theme.wrap}`}
