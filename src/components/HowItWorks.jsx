@@ -19,15 +19,18 @@ const STEPS = [
   },
 ];
 
-export default function HowItWorks() {
+export default function HowItWorks({
+  title = "How it works",
+  subtitle = "Fresh food, in three easy steps",
+}) {
   return (
     <section className="max-w-7xl mx-auto px-5 py-14 sm:py-20">
       <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
         <p className="text-xs uppercase tracking-[0.15em] text-accent font-semibold mb-2">
-          How it works
+          {title}
         </p>
         <h2 className="font-display text-2xl sm:text-4xl text-ink">
-          Fresh food, in three easy steps
+          {subtitle}
         </h2>
       </div>
 

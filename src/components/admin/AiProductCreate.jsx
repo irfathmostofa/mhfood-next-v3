@@ -21,6 +21,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { analyzeSEO } from "@/lib/seoAnalyzer";
 import { getSeoSettings } from "@/lib/site";
+import VariantsEditor, { saveProductVariants } from "./VariantsEditor";
 
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -157,6 +158,7 @@ export default function AiProductCreate() {
 
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [variants, setVariants] = useState([]);
   const [keywords, setKeywords] = useState([]);
   const [saving, setSaving] = useState(false);
   const [savedFlash, setSavedFlash] = useState("");
@@ -397,6 +399,12 @@ export default function AiProductCreate() {
       category_id: data.category_id || "",
     });
     setKeywords(data.seo_keywords || []);
+    const { data: variantRows } = await supabase
+      .from("product_variants")
+      .select("*")
+      .eq("product_id", id)
+      .order("created_at", { ascending: true });
+    setVariants(variantRows || []);
     setProcessedImage(data.processed_image_url || "");
     if (data.processing_errors) {
       setWarnings(String(data.processing_errors).split("\n").filter(Boolean));
@@ -557,6 +565,7 @@ export default function AiProductCreate() {
     setWarnings([]);
     setProcessedImage("");
     setForm(EMPTY_FORM);
+    setVariants([]);
     setKeywords([]);
     setSavedFlash("");
     sourcePathRef.current = "";
@@ -589,11 +598,13 @@ export default function AiProductCreate() {
       .from("products")
       .update(payload)
       .eq("id", productId);
-    setSaving(false);
     if (error) {
+      setSaving(false);
       setProcessingError(error.message);
       return;
     }
+    await saveProductVariants(supabase, productId, variants);
+    setSaving(false);
     setSavedFlash(
       publish
         ? "Product published to your store."
@@ -1114,6 +1125,10 @@ export default function AiProductCreate() {
                   ))}
                 </select>
               </div>
+            </div>
+
+            <div className="mt-6">
+              <VariantsEditor variants={variants} onChange={setVariants} />
             </div>
           </div>
 

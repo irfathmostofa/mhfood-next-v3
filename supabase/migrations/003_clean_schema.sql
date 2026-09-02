@@ -505,8 +505,11 @@ VALUES
   ('hero',        'Featured',                  'Showcase your hero banner',  true,  1, 1),
   ('bestsellers', 'Best Selling Products',     'Our customers'' favorites',  true,  2, 12),
   ('categories',  'Shop by Category',          'Browse our collections',     true,  3, 12),
-  ('featured',    'Featured Products',         'Handpicked for you',         true,  4, 8),
-  ('latest',      'New Arrivals',              'Fresh in store',             true,  5, 8)
+  ('featured',      'Featured Products',         'Handpicked for you',         true,  4, 8),
+  ('latest',        'New Arrivals',              'Fresh in store',             true,  5, 8),
+  ('feature_strip', 'Trust Features',            'Delivery, freshness, tracking and support', true, 7, 4),
+  ('how_it_works',  'How it works',              'Fresh food, in three easy steps', true, 8, 3),
+  ('cta',           'Hungry? Your order is a click away.', 'Order fresh food and groceries online and track them the whole way to your door.', true, 9, 1)
 ON CONFLICT (key) DO UPDATE
 SET title = EXCLUDED.title,
     subtitle = EXCLUDED.subtitle,

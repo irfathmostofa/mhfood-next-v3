@@ -144,6 +144,31 @@ export const DEFAULT_SECTIONS = [
     sort_order: 2,
     items_per_page: 10,
   },
+  {
+    key: "feature_strip",
+    title: "Trust Features",
+    subtitle: "Delivery, freshness, tracking and support",
+    enabled: true,
+    sort_order: 7,
+    items_per_page: 4,
+  },
+  {
+    key: "how_it_works",
+    title: "How it works",
+    subtitle: "Fresh food, in three easy steps",
+    enabled: true,
+    sort_order: 8,
+    items_per_page: 3,
+  },
+  {
+    key: "cta",
+    title: "Hungry? Your order is a click away.",
+    subtitle:
+      "Order fresh food and groceries online and track them the whole way to your door.",
+    enabled: true,
+    sort_order: 9,
+    items_per_page: 1,
+  },
 ];
 
 async function fetchHomeSections() {
@@ -152,7 +177,13 @@ async function fetchHomeSections() {
       .from("home_sections")
       .select("*")
       .order("sort_order", { ascending: true });
-    if (data && data.length > 0) return data;
+    if (data && data.length > 0) {
+      const keys = new Set(data.map((s) => s.key));
+      const missing = DEFAULT_SECTIONS.filter((s) => !keys.has(s.key));
+      return [...data, ...missing].sort(
+        (a, b) => (a.sort_order || 0) - (b.sort_order || 0),
+      );
+    }
   } catch {
     // fall through to defaults
   }

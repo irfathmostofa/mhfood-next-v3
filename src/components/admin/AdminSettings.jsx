@@ -159,7 +159,23 @@ export default function AdminSettings() {
     setTheme(themeData || {});
     setSeo(seoData || {});
     setSite(siteData || {});
-    setSections(sectionsData || []);
+    let nextSections = sectionsData || [];
+    const existingKeys = new Set(nextSections.map((s) => s.key));
+    const toInsert = MISSING_HOME_SECTIONS.filter(
+      (s) => !existingKeys.has(s.key),
+    );
+    if (toInsert.length > 0) {
+      const { data: inserted } = await supabase
+        .from("home_sections")
+        .insert(toInsert)
+        .select();
+      if (inserted?.length) {
+        nextSections = [...nextSections, ...inserted].sort(
+          (a, b) => (a.sort_order || 0) - (b.sort_order || 0),
+        );
+      }
+    }
+    setSections(nextSections);
     setCoupons(couponsData || []);
     setZones(zonesData || []);
     setPickupPoints(pickupData || []);
@@ -723,7 +739,46 @@ const SECTION_KEYS = {
   featured: "Featured Products",
   latest: "New Arrivals",
   promo: "Promotional Banner",
+  feature_strip: "Trust Features",
+  how_it_works: "How It Works",
+  cta: "Call to Action",
 };
+
+const STATIC_SECTION_KEYS = [
+  "hero",
+  "promo",
+  "feature_strip",
+  "how_it_works",
+  "cta",
+];
+
+const MISSING_HOME_SECTIONS = [
+  {
+    key: "feature_strip",
+    title: "Trust Features",
+    subtitle: "Delivery, freshness, tracking and support",
+    enabled: true,
+    sort_order: 7,
+    items_per_page: 4,
+  },
+  {
+    key: "how_it_works",
+    title: "How it works",
+    subtitle: "Fresh food, in three easy steps",
+    enabled: true,
+    sort_order: 8,
+    items_per_page: 3,
+  },
+  {
+    key: "cta",
+    title: "Hungry? Your order is a click away.",
+    subtitle:
+      "Order fresh food and groceries online and track them the whole way to your door.",
+    enabled: true,
+    sort_order: 9,
+    items_per_page: 1,
+  },
+];
 
 function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
   async function toggle(key, enabled) {
@@ -811,7 +866,7 @@ function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
               </div>
             </div>
 
-            {section.key !== "hero" && section.key !== "promo" && (
+            {!STATIC_SECTION_KEYS.includes(section.key) && (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -861,6 +916,33 @@ function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
                   setSite={setSite}
                   showFlash={showFlash}
                 />
+              </div>
+            )}
+
+            {(section.key === "feature_strip" ||
+              section.key === "how_it_works" ||
+              section.key === "cta") && (
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <label className="label">Title</label>
+                  <input
+                    value={section.title || ""}
+                    onChange={(e) =>
+                      saveSection({ ...section, title: e.target.value })
+                    }
+                    className="input input-sm"
+                  />
+                </div>
+                <div>
+                  <label className="label">Subtitle</label>
+                  <input
+                    value={section.subtitle || ""}
+                    onChange={(e) =>
+                      saveSection({ ...section, subtitle: e.target.value })
+                    }
+                    className="input input-sm"
+                  />
+                </div>
               </div>
             )}
 

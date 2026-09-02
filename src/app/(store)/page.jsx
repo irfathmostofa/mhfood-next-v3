@@ -120,19 +120,34 @@ export default async function HomePage() {
             settings={section.settings}
           />
         );
+      case "feature_strip":
+        return (
+          <FeatureStrip
+            key={section.key}
+            title={section.title}
+            subtitle={section.subtitle}
+          />
+        );
+      case "how_it_works":
+        return (
+          <HowItWorks
+            key={section.key}
+            title={section.title}
+            subtitle={section.subtitle}
+          />
+        );
+      case "cta":
+        return (
+          <CtaBand
+            key={section.key}
+            title={section.title}
+            subtitle={section.subtitle}
+          />
+        );
       default:
         return null;
     }
   };
 
-  return (
-    <div className="pb-4">
-      {enabled.map(renderSection)}
-
-      {/* Always-on trust / engagement sections */}
-      <FeatureStrip />
-      <HowItWorks />
-      <CtaBand />
-    </div>
-  );
+  return <div className="pb-4">{enabled.map(renderSection)}</div>;
 }
