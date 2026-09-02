@@ -39,7 +39,15 @@ export async function POST(req) {
 
   try {
     const body = await req.json();
-    const { items: cartItems, customer, zoneId, couponCode } = body;
+    const {
+      items: cartItems,
+      customer,
+      zoneId,
+      couponCode,
+      fulfillment,
+      pickupPointId,
+    } = body;
+    const isPickup = fulfillment === "pickup";
 
     if (!customer?.name?.trim() || !customer?.phone?.trim()) {
       return NextResponse.json(
@@ -53,15 +61,27 @@ export async function POST(req) {
         { status: 400 },
       );
     }
+    if (!isPickup && !customer?.address?.trim()) {
+      return NextResponse.json(
+        { error: "Delivery address is required." },
+        { status: 400 },
+      );
+    }
 
     // ---- Pricing data ----
     const [
       { data: zones },
+      { data: pickupPoints },
       { data: settings },
       { data: rules },
       { data: coupon },
     ] = await Promise.all([
       supabase.from("delivery_zones").select("*").eq("is_active", true),
+      supabase
+        .from("pickup_points")
+        .select("*")
+        .eq("is_active", true)
+        .then((res) => (res.error ? { data: [] } : res)),
       supabase.from("site_settings").select("*").eq("id", 1).maybeSingle(),
       supabase.from("discount_rules").select("*").eq("is_active", true),
       couponCode
@@ -73,8 +93,21 @@ export async function POST(req) {
         : Promise.resolve({ data: null }),
     ]);
 
-    const selectedZone = zones?.find((z) => z.id === zoneId) || null;
-    if (zones && zones.length > 0 && !selectedZone) {
+    const selectedPickup = isPickup
+      ? pickupPoints?.find((p) => p.id === pickupPointId) || null
+      : null;
+    const selectedZone = isPickup
+      ? null
+      : zones?.find((z) => z.id === zoneId) || null;
+
+    if (isPickup) {
+      if (!selectedPickup) {
+        return NextResponse.json(
+          { error: "Please select a pickup point." },
+          { status: 400 },
+        );
+      }
+    } else if (zones && zones.length > 0 && !selectedZone) {
       return NextResponse.json(
         { error: "Please select your delivery area." },
         { status: 400 },
@@ -194,12 +227,14 @@ export async function POST(req) {
       subtotal,
     );
 
-    // ---- Delivery ----
+    // ---- Delivery / pickup ----
     const freeDeliveryApplies =
+      !isPickup &&
       settings?.free_delivery_enabled &&
       subtotal >= Number(settings.free_delivery_threshold || 0);
-    const deliveryCharge =
-      zones && zones.length > 0
+    const deliveryCharge = isPickup
+      ? 0
+      : zones && zones.length > 0
         ? freeDeliveryApplies
           ? 0
           : Number(selectedZone.charge || 0)
@@ -210,26 +245,61 @@ export async function POST(req) {
     const trackingCode = generateTrackingCode();
 
     // ---- Insert order + items ----
-    const { data: newOrder, error: orderError } = await supabase
+    const orderPayload = {
+      tracking_code: trackingCode,
+      customer_name: customer.name.trim(),
+      phone: customer.phone.trim(),
+      email: customer.email?.trim() || null,
+      address: isPickup
+        ? selectedPickup.address || ""
+        : customer.address?.trim() || "",
+      total_amount: grandTotal,
+      delivery_zone_id: selectedZone?.id || null,
+      delivery_charge: deliveryCharge,
+      delivery_zone_name: selectedZone?.name || null,
+      discount_amount: totalDiscount,
+      discount_label:
+        couponApplied?.code || (autoBest ? autoBest.rule.label : null),
+      coupon_code: couponApplied?.code || null,
+      status: "pending",
+    };
+    const pickupFields = {
+      fulfillment_method: isPickup ? "pickup" : "delivery",
+      pickup_point_id: selectedPickup?.id || null,
+      pickup_point_name: selectedPickup?.name || null,
+      pickup_point_address: selectedPickup
+        ? [selectedPickup.address, selectedPickup.hours, selectedPickup.phone]
+            .filter(Boolean)
+            .join(" · ")
+        : null,
+    };
+
+    let { data: newOrder, error: orderError } = await supabase
       .from("orders")
-      .insert({
-        tracking_code: trackingCode,
-        customer_name: customer.name.trim(),
-        phone: customer.phone.trim(),
-        email: customer.email?.trim() || null,
-        address: customer.address?.trim() || "",
-        total_amount: grandTotal,
-        delivery_zone_id: selectedZone?.id || null,
-        delivery_charge: deliveryCharge,
-        delivery_zone_name: selectedZone?.name || null,
-        discount_amount: totalDiscount,
-        discount_label:
-          couponApplied?.code || (autoBest ? autoBest.rule.label : null),
-        coupon_code: couponApplied?.code || null,
-        status: "pending",
-      })
+      .insert({ ...orderPayload, ...pickupFields })
       .select()
       .single();
+
+    if (
+      orderError &&
+      /fulfillment_method|pickup_point/i.test(orderError.message || "")
+    ) {
+      if (isPickup) {
+        return NextResponse.json(
+          {
+            error: "Pickup is not available yet. Please choose home delivery.",
+          },
+          { status: 400 },
+        );
+      }
+      const retry = await supabase
+        .from("orders")
+        .insert(orderPayload)
+        .select()
+        .single();
+      newOrder = retry.data;
+      orderError = retry.error;
+    }
 
     if (orderError) throw orderError;
     order = newOrder;
@@ -321,9 +391,11 @@ export async function POST(req) {
     }
 
     // ---- Notifications (non-blocking) ----
-    const deliveryLabel = selectedZone
-      ? `${selectedZone.name} (${freeDeliveryApplies ? "FREE" : `৳${deliveryCharge}`})`
-      : "N/A";
+    const deliveryLabel = isPickup
+      ? `Pickup — ${selectedPickup.name} (FREE)`
+      : selectedZone
+        ? `${selectedZone.name} (${freeDeliveryApplies ? "FREE" : `৳${deliveryCharge}`})`
+        : "N/A";
 
     const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
 
@@ -331,7 +403,9 @@ export async function POST(req) {
       toEmail: customer.email,
       customerName: customer.name,
       phone: customer.phone,
-      address: customer.address,
+      address: isPickup
+        ? `Pickup: ${selectedPickup.name}${selectedPickup.address ? ` — ${selectedPickup.address}` : ""}`
+        : customer.address,
       trackingCode,
       items: itemRows,
       delivery: deliveryLabel,

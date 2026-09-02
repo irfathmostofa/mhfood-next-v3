@@ -208,6 +208,27 @@ export const getDeliveryZones = unstable_cache(
   },
 );
 
+async function fetchPickupPoints() {
+  try {
+    const { data } = await supabase
+      .from("pickup_points")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true });
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
+export const getPickupPoints = unstable_cache(
+  fetchPickupPoints,
+  ["site-pickup-points"],
+  {
+    revalidate: CONFIG_TTL,
+  },
+);
+
 async function fetchDiscountRules() {
   try {
     const { data } = await supabase

@@ -6,7 +6,6 @@ import {
   Trash2,
   Save,
   Loader2,
-  ChevronDown,
   ArrowUp,
   ArrowDown,
   Palette,
@@ -16,20 +15,72 @@ import {
   Tag,
   Truck,
   Percent,
+  MapPin,
+  Pencil,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import ImageUploader from "./ImageUploader";
 import Pagination from "./Pagination";
 
 const TABS = [
-  { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "seo", label: "SEO", icon: Search },
-  { id: "contact", label: "Contact & Delivery", icon: Phone },
-  { id: "banner", label: "Promo Banner", icon: Layout },
-  { id: "sections", label: "Home Sections", icon: Layout },
-  { id: "coupons", label: "Coupons", icon: Tag },
-  { id: "zones", label: "Delivery Zones", icon: Truck },
-  { id: "rules", label: "Discount Rules", icon: Percent },
+  {
+    id: "appearance",
+    label: "Appearance",
+    short: "Theme",
+    icon: Palette,
+    hint: "Logo, colors, store name",
+  },
+  {
+    id: "seo",
+    label: "SEO",
+    short: "SEO",
+    icon: Search,
+    hint: "Titles, keywords, pixels",
+  },
+  {
+    id: "contact",
+    label: "Contact",
+    short: "Contact",
+    icon: Phone,
+    hint: "Phone, address, free delivery",
+  },
+  {
+    id: "sections",
+    label: "Home Sections",
+    short: "Home",
+    icon: Layout,
+    hint: "Slider, banner, homepage blocks",
+  },
+  {
+    id: "coupons",
+    label: "Coupons",
+    short: "Coupons",
+    icon: Tag,
+    hint: "Discount codes",
+  },
+  {
+    id: "zones",
+    label: "Delivery Zones",
+    short: "Zones",
+    icon: Truck,
+    hint: "Areas and delivery fees",
+  },
+  {
+    id: "pickup",
+    label: "Pickup Points",
+    short: "Pickup",
+    icon: MapPin,
+    hint: "Store collection locations",
+  },
+  {
+    id: "rules",
+    label: "Discount Rules",
+    short: "Rules",
+    icon: Percent,
+    hint: "Automatic cart discounts",
+  },
 ];
 
 export default function AdminSettings() {
@@ -45,6 +96,7 @@ export default function AdminSettings() {
   const [sections, setSections] = useState([]);
   const [coupons, setCoupons] = useState([]);
   const [zones, setZones] = useState([]);
+  const [pickupPoints, setPickupPoints] = useState([]);
   const [rules, setRules] = useState([]);
 
   function switchTab(id) {
@@ -60,7 +112,9 @@ export default function AdminSettings() {
     loadAll();
     try {
       const saved = localStorage.getItem("adminSettingsTab");
-      if (saved && TABS.some((t) => t.id === saved)) {
+      if (saved === "banner") {
+        setActiveTab("sections");
+      } else if (saved && TABS.some((t) => t.id === saved)) {
         setActiveTab(saved);
       }
     } catch {
@@ -76,6 +130,7 @@ export default function AdminSettings() {
       { data: sectionsData },
       { data: couponsData },
       { data: zonesData },
+      { data: pickupData },
       { data: rulesData },
     ] = await Promise.all([
       supabase.from("theme_settings").select("*").eq("id", 1).maybeSingle(),
@@ -94,6 +149,11 @@ export default function AdminSettings() {
         .select("*")
         .order("sort_order", { ascending: true }),
       supabase
+        .from("pickup_points")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .then((res) => (res.error ? { data: [] } : res)),
+      supabase
         .from("discount_rules")
         .select("*")
         .order("sort_order", { ascending: true }),
@@ -105,6 +165,7 @@ export default function AdminSettings() {
     setSections(sectionsData || []);
     setCoupons(couponsData || []);
     setZones(zonesData || []);
+    setPickupPoints(pickupData || []);
     setRules(rulesData || []);
     setLoading(false);
   }
@@ -138,167 +199,187 @@ export default function AdminSettings() {
     );
   }
 
+  const activeMeta = TABS.find((t) => t.id === activeTab);
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6">
         <h1 className="text-2xl font-display text-ink">Settings</h1>
+        <p className="text-sm text-muted mt-1">
+          Storefront, checkout, and marketing options.
+        </p>
       </div>
 
       {flash && (
-        <p className="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2">
+        <p className="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">
           {flash}
         </p>
       )}
       {error && (
-        <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+        <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
           {error}
         </p>
       )}
 
-      {/* Tabs */}
-      <div className="border-b border-line mb-6 overflow-x-auto">
-        <nav className="flex gap-1 min-w-max">
+      <div className="flex flex-col lg:flex-row lg:items-start gap-5 lg:gap-8">
+        <nav className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-1 gap-2 lg:w-56 xl:w-64 shrink-0 lg:sticky lg:top-8">
           {TABS.map((tab) => {
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => switchTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
+                className={`flex flex-col lg:flex-row items-center lg:items-start gap-1.5 lg:gap-3 rounded-xl border px-2.5 py-3 lg:px-3.5 lg:py-3 text-center lg:text-left transition-colors ${
                   isActive
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted hover:text-ink"
+                    ? "bg-primary text-white border-primary shadow-sm"
+                    : "bg-surface text-ink border-line hover:border-primary/40 hover:bg-primary/5"
                 }`}
               >
-                <tab.icon size={16} />
-                {tab.label}
+                <tab.icon
+                  size={16}
+                  className={`shrink-0 ${isActive ? "text-white" : "text-accent"}`}
+                />
+                <span className="min-w-0">
+                  <span className="block text-[11px] sm:text-xs lg:hidden font-medium leading-tight">
+                    {tab.short}
+                  </span>
+                  <span className="hidden lg:block text-sm font-medium leading-tight">
+                    {tab.label}
+                  </span>
+                  <span
+                    className={`hidden lg:block text-[11px] mt-0.5 leading-snug ${
+                      isActive ? "text-white/70" : "text-muted"
+                    }`}
+                  >
+                    {tab.hint}
+                  </span>
+                </span>
               </button>
             );
           })}
         </nav>
-      </div>
 
-      {/* Tab Content */}
-      <div className="max-w-3xl">
-        {activeTab === "appearance" && (
-          <form onSubmit={saveAll} className="space-y-6">
-            <ThemeForm theme={theme} setTheme={setTheme} />
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={saving}
-                className="btn btn-primary disabled:opacity-60"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" /> Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save size={16} /> Save Appearance
-                  </>
-                )}
-              </button>
+        <div className="flex-1 min-w-0 max-w-3xl">
+          {activeMeta && (
+            <div className="lg:hidden mb-4">
+              <h2 className="text-base font-semibold text-ink">
+                {activeMeta.label}
+              </h2>
+              <p className="text-xs text-muted mt-0.5">{activeMeta.hint}</p>
             </div>
-          </form>
-        )}
+          )}
+          {activeTab === "appearance" && (
+            <form onSubmit={saveAll} className="space-y-6">
+              <ThemeForm theme={theme} setTheme={setTheme} />
+              <div className="flex justify-stretch sm:justify-end">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn btn-primary disabled:opacity-60 w-full sm:w-auto"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} /> Save Appearance
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
 
-        {activeTab === "seo" && (
-          <form onSubmit={saveAll} className="space-y-6">
-            <SeoForm seo={seo} setSeo={setSeo} />
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={saving}
-                className="btn btn-primary disabled:opacity-60"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" /> Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save size={16} /> Save SEO
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        )}
+          {activeTab === "seo" && (
+            <form onSubmit={saveAll} className="space-y-6">
+              <SeoForm seo={seo} setSeo={setSeo} />
+              <div className="flex justify-stretch sm:justify-end">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn btn-primary disabled:opacity-60 w-full sm:w-auto"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} /> Save SEO
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
 
-        {activeTab === "contact" && (
-          <form onSubmit={saveAll} className="space-y-6">
-            <ContactForm site={site} setSite={setSite} />
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={saving}
-                className="btn btn-primary disabled:opacity-60"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" /> Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save size={16} /> Save Contact Settings
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        )}
+          {activeTab === "contact" && (
+            <form onSubmit={saveAll} className="space-y-6">
+              <ContactForm site={site} setSite={setSite} />
+              <div className="flex justify-stretch sm:justify-end">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="btn btn-primary disabled:opacity-60 w-full sm:w-auto"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} /> Save Contact Settings
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          )}
 
-        {activeTab === "banner" && (
-          <form onSubmit={saveAll} className="space-y-6">
-            <PromoBannerForm site={site} setSite={setSite} />
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={saving}
-                className="btn btn-primary disabled:opacity-60"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" /> Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save size={16} /> Save Banner
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        )}
+          {activeTab === "sections" && (
+            <SectionsManager
+              sections={sections}
+              setSections={setSections}
+              site={site}
+              setSite={setSite}
+              showFlash={showFlash}
+            />
+          )}
 
-        {activeTab === "sections" && (
-          <SectionsManager sections={sections} setSections={setSections} />
-        )}
+          {activeTab === "coupons" && (
+            <CouponsManager
+              coupons={coupons}
+              setCoupons={setCoupons}
+              showFlash={showFlash}
+            />
+          )}
 
-        {activeTab === "coupons" && (
-          <CouponsManager
-            coupons={coupons}
-            setCoupons={setCoupons}
-            showFlash={showFlash}
-          />
-        )}
+          {activeTab === "zones" && (
+            <ZonesManager
+              zones={zones}
+              setZones={setZones}
+              showFlash={showFlash}
+            />
+          )}
 
-        {activeTab === "zones" && (
-          <ZonesManager
-            zones={zones}
-            setZones={setZones}
-            showFlash={showFlash}
-          />
-        )}
+          {activeTab === "pickup" && (
+            <PickupPointsManager
+              points={pickupPoints}
+              setPoints={setPickupPoints}
+              showFlash={showFlash}
+            />
+          )}
 
-        {activeTab === "rules" && (
-          <RulesManager
-            rules={rules}
-            setRules={setRules}
-            showFlash={showFlash}
-          />
-        )}
+          {activeTab === "rules" && (
+            <RulesManager
+              rules={rules}
+              setRules={setRules}
+              showFlash={showFlash}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -333,7 +414,7 @@ function ThemeForm({ theme, setTheme }) {
         />
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {colors.map(([key, label]) => (
           <div key={key}>
             <label className="label">{label}</label>
@@ -354,7 +435,7 @@ function ThemeForm({ theme, setTheme }) {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="label">Store Name</label>
           <input
@@ -404,7 +485,7 @@ function SeoForm({ seo, setSeo }) {
 
   return (
     <Section title="SEO">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="label">Site Name</label>
           <input
@@ -508,7 +589,7 @@ function ContactForm({ site, setSite }) {
 
   return (
     <Section title="Contact & Delivery">
-      <div className="flex items-center gap-3 mb-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-2">
         <label className="flex items-center gap-2 text-sm text-ink">
           <input
             type="checkbox"
@@ -527,7 +608,7 @@ function ContactForm({ site, setSite }) {
         </label>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="label">WhatsApp Number</label>
           <input
@@ -548,7 +629,7 @@ function ContactForm({ site, setSite }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="label">Store Phone</label>
           <input
@@ -591,7 +672,7 @@ function ContactForm({ site, setSite }) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="label">Facebook URL</label>
           <input
@@ -636,39 +717,6 @@ function ContactForm({ site, setSite }) {
   );
 }
 
-// ---------- Homepage promo banner (single banner next to hero slider) ----------
-function PromoBannerForm({ site, setSite }) {
-  function set(key, value) {
-    setSite((prev) => ({ ...prev, [key]: value }));
-  }
-
-  return (
-    <Section title="Homepage Promo Banner">
-      <p className="text-xs text-muted">
-        The single banner shown on the right side of the homepage hero slider.
-        Recommended 600x700px portrait image.
-      </p>
-      <ImageUploader
-        value={site.promo_banner_image || ""}
-        onChange={(v) => set("promo_banner_image", v)}
-        folder="promo-banner"
-        aspect="square"
-        label="Banner Image"
-        hint="Shown next to the hero slider on the homepage."
-      />
-      <div>
-        <label className="label">Banner Link URL</label>
-        <input
-          value={site.promo_banner_link || ""}
-          onChange={(e) => set("promo_banner_link", e.target.value)}
-          placeholder="/shop?category=..."
-          className="input"
-        />
-      </div>
-    </Section>
-  );
-}
-
 // ---------- Home sections ----------
 const SECTION_KEYS = {
   hero: "Hero Slider",
@@ -680,7 +728,7 @@ const SECTION_KEYS = {
   promo: "Promotional Banner",
 };
 
-function SectionsManager({ sections, setSections }) {
+function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
   async function toggle(key, enabled) {
     const updated = sections.map((s) =>
       s.key === key ? { ...s, enabled } : s,
@@ -730,6 +778,10 @@ function SectionsManager({ sections, setSections }) {
 
   return (
     <Section title="Home Page Sections">
+      <p className="text-xs text-muted -mt-2">
+        Toggle, reorder, and edit homepage blocks. The hero slider and side
+        promotional banner live in the Hero Slider section.
+      </p>
       <div className="space-y-3">
         {sections.map((section, index) => (
           <div key={section.id} className="border border-line rounded-xl p-4">
@@ -762,43 +814,58 @@ function SectionsManager({ sections, setSections }) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="label">Title</label>
-                <input
-                  value={section.title || ""}
-                  onChange={(e) =>
-                    saveSection({ ...section, title: e.target.value })
-                  }
-                  className="input input-sm"
+            {section.key !== "hero" && section.key !== "promo" && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Title</label>
+                    <input
+                      value={section.title || ""}
+                      onChange={(e) =>
+                        saveSection({ ...section, title: e.target.value })
+                      }
+                      className="input input-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Items</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={section.items_per_page || 8}
+                      onChange={(e) =>
+                        saveSection({
+                          ...section,
+                          items_per_page: Number(e.target.value) || 8,
+                        })
+                      }
+                      className="input input-sm"
+                    />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <label className="label">Subtitle</label>
+                  <input
+                    value={section.subtitle || ""}
+                    onChange={(e) =>
+                      saveSection({ ...section, subtitle: e.target.value })
+                    }
+                    className="input input-sm"
+                  />
+                </div>
+              </>
+            )}
+
+            {section.key === "hero" && (
+              <div className="mt-4 space-y-5 border-t border-line pt-4">
+                <HeroSliderEditor />
+                <HeroSideBannerEditor
+                  site={site}
+                  setSite={setSite}
+                  showFlash={showFlash}
                 />
               </div>
-              <div>
-                <label className="label">Items</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={section.items_per_page || 8}
-                  onChange={(e) =>
-                    saveSection({
-                      ...section,
-                      items_per_page: Number(e.target.value) || 8,
-                    })
-                  }
-                  className="input input-sm"
-                />
-              </div>
-            </div>
-            <div className="mt-3">
-              <label className="label">Subtitle</label>
-              <input
-                value={section.subtitle || ""}
-                onChange={(e) =>
-                  saveSection({ ...section, subtitle: e.target.value })
-                }
-                className="input input-sm"
-              />
-            </div>
+            )}
 
             {section.key === "promo" && (
               <div className="mt-4 space-y-3 border-t border-line pt-4">
@@ -812,8 +879,8 @@ function SectionsManager({ sections, setSections }) {
                   }
                   folder="promo-banner"
                   aspect="wide"
-                  label="Banner Image"
-                  hint="Full-width banner shown after your product sections. Recommended 1600x680px."
+                  label="Full-width Banner Image"
+                  hint="Shown as its own homepage section. Recommended 1600x680px."
                 />
                 <div>
                   <label className="label">Banner Link URL</label>
@@ -835,6 +902,285 @@ function SectionsManager({ sections, setSections }) {
         ))}
       </div>
     </Section>
+  );
+}
+
+const EMPTY_SLIDE = {
+  id: null,
+  image_url: "",
+  title: "",
+  subtitle: "",
+  link_url: "",
+  sort_order: 1,
+  is_active: true,
+};
+
+function HeroSliderEditor() {
+  const [slides, setSlides] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    loadSlides();
+  }, []);
+
+  async function loadSlides() {
+    const { data } = await supabase
+      .from("hero_slides")
+      .select("*")
+      .order("sort_order", { ascending: true });
+    setSlides(data || []);
+    setLoading(false);
+  }
+
+  async function saveSlide(e) {
+    e.preventDefault();
+    setSaving(true);
+    const payload = {
+      image_url: form.image_url || null,
+      title: form.title || "",
+      subtitle: form.subtitle || "",
+      link_url: form.link_url || "",
+      sort_order: Number(form.sort_order) || slides.length + 1,
+      is_active: form.is_active,
+    };
+    if (form.id) {
+      await supabase.from("hero_slides").update(payload).eq("id", form.id);
+    } else {
+      await supabase.from("hero_slides").insert(payload);
+    }
+    setForm(null);
+    await loadSlides();
+    setSaving(false);
+  }
+
+  async function toggleActive(slide) {
+    await supabase
+      .from("hero_slides")
+      .update({ is_active: !slide.is_active })
+      .eq("id", slide.id);
+    setSlides((prev) =>
+      prev.map((s) =>
+        s.id === slide.id ? { ...s, is_active: !s.is_active } : s,
+      ),
+    );
+  }
+
+  async function deleteSlide(slide) {
+    if (!confirm(`Delete slide "${slide.title || "untitled"}"?`)) return;
+    await supabase.from("hero_slides").delete().eq("id", slide.id);
+    setSlides((prev) => prev.filter((s) => s.id !== slide.id));
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+          Hero Slider
+        </p>
+        <button
+          type="button"
+          onClick={() =>
+            setForm({ ...EMPTY_SLIDE, sort_order: slides.length + 1 })
+          }
+          className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
+        >
+          <Plus size={12} /> Add slide
+        </button>
+      </div>
+      <p className="text-xs text-muted mb-3">
+        Carousel on the left of the homepage hero. Recommended 1920x700px.
+      </p>
+
+      {loading ? (
+        <p className="text-xs text-muted py-2">Loading slides...</p>
+      ) : slides.length === 0 && !form ? (
+        <p className="text-xs text-muted py-2">No slides yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {slides.map((slide) => (
+            <li
+              key={slide.id}
+              className="flex items-center gap-3 rounded-lg border border-line bg-background/60 px-2.5 py-2"
+            >
+              <div className="w-16 h-10 rounded-md overflow-hidden bg-primary/5 shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={
+                    slide.image_url || "https://placehold.co/160x100?text=Slide"
+                  }
+                  alt={slide.title || "Hero slide"}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-ink truncate">
+                  {slide.title || "(untitled)"}
+                </p>
+                <p className="text-xs text-muted truncate">
+                  {slide.link_url || "No link"}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => toggleActive(slide)}
+                  className={`p-1.5 rounded-md ${
+                    slide.is_active ? "text-emerald-600" : "text-muted"
+                  }`}
+                  aria-label={slide.is_active ? "Hide slide" : "Show slide"}
+                >
+                  {slide.is_active ? <Eye size={14} /> : <EyeOff size={14} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm({
+                      id: slide.id,
+                      image_url: slide.image_url || "",
+                      title: slide.title || "",
+                      subtitle: slide.subtitle || "",
+                      link_url: slide.link_url || "",
+                      sort_order: slide.sort_order ?? 1,
+                      is_active: slide.is_active !== false,
+                    })
+                  }
+                  className="p-1.5 text-muted hover:text-ink"
+                  aria-label="Edit slide"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => deleteSlide(slide)}
+                  className="p-1.5 text-muted hover:text-red-600"
+                  aria-label="Delete slide"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {form && (
+        <form
+          onSubmit={saveSlide}
+          className="mt-3 space-y-3 border border-dashed border-line rounded-xl p-3"
+        >
+          <ImageUploader
+            value={form.image_url || ""}
+            onChange={(v) => setForm({ ...form, image_url: v })}
+            folder="hero-slides"
+            label="Slide Image"
+            aspect="wide"
+            hint="Recommended 1920x700px."
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label">Title</label>
+              <input
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                className="input input-sm"
+                required
+              />
+            </div>
+            <div>
+              <label className="label">Link URL</label>
+              <input
+                value={form.link_url}
+                onChange={(e) => setForm({ ...form, link_url: e.target.value })}
+                placeholder="/shop"
+                className="input input-sm"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="label">Subtitle</label>
+            <input
+              value={form.subtitle}
+              onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
+              className="input input-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={saving}
+              className="btn btn-primary btn-sm disabled:opacity-60"
+            >
+              {saving ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Save size={14} />
+              )}
+              {form.id ? "Update slide" : "Add slide"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setForm(null)}
+              className="btn btn-ghost btn-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function HeroSideBannerEditor({ site, setSite, showFlash }) {
+  const [saving, setSaving] = useState(false);
+
+  async function persist(patch) {
+    const next = { ...site, ...patch };
+    setSite(next);
+    setSaving(true);
+    const { error } = await supabase
+      .from("site_settings")
+      .update({
+        promo_banner_image: next.promo_banner_image || null,
+        promo_banner_link: next.promo_banner_link || null,
+      })
+      .eq("id", 1);
+    setSaving(false);
+    if (error) showFlash(`Error: ${error.message}`);
+  }
+
+  return (
+    <div className="border-t border-line pt-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted mb-1">
+        Side Promotional Banner
+      </p>
+      <p className="text-xs text-muted mb-3">
+        Portrait banner on the right of the hero slider. Recommended 600x700px.
+        {saving ? " Saving..." : ""}
+      </p>
+      <ImageUploader
+        value={site?.promo_banner_image || ""}
+        onChange={(v) => persist({ promo_banner_image: v })}
+        folder="promo-banner"
+        aspect="square"
+        label="Banner Image"
+        hint="Shown next to the hero slider on the homepage."
+      />
+      <div className="mt-3">
+        <label className="label">Banner Link URL</label>
+        <input
+          value={site?.promo_banner_link || ""}
+          onChange={(e) =>
+            setSite((prev) => ({ ...prev, promo_banner_link: e.target.value }))
+          }
+          onBlur={(e) => persist({ promo_banner_link: e.target.value })}
+          placeholder="/shop?category=..."
+          className="input input-sm"
+        />
+      </div>
+    </div>
   );
 }
 
@@ -918,7 +1264,7 @@ function CouponsManager({ coupons, setCoupons, showFlash }) {
     <Section title="Coupons">
       <form
         onSubmit={save}
-        className="grid grid-cols-2 gap-3 border border-dashed border-line rounded-xl p-4 mb-4"
+        className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-dashed border-line rounded-xl p-4 mb-4"
       >
         <div>
           <label className="label">Code</label>
@@ -1003,7 +1349,7 @@ function CouponsManager({ coupons, setCoupons, showFlash }) {
           />
         </div>
 
-        <div className="col-span-2 flex items-center justify-between">
+        <div className="sm:col-span-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
           <label className="flex items-center gap-2 text-sm text-ink">
             <input
               type="checkbox"
@@ -1044,7 +1390,7 @@ function CouponsManager({ coupons, setCoupons, showFlash }) {
         {paged.map((coupon) => (
           <li
             key={coupon.id}
-            className="flex items-center justify-between py-2.5"
+            className="flex flex-wrap items-center justify-between gap-2 py-2.5"
           >
             <div>
               <p className="text-sm font-medium text-ink">{coupon.code}</p>
@@ -1142,7 +1488,7 @@ function ZonesManager({ zones, setZones, showFlash }) {
 
   return (
     <Section title="Delivery Zones">
-      <form onSubmit={save} className="flex gap-2 mb-4">
+      <form onSubmit={save} className="flex flex-col sm:flex-row gap-2 mb-4">
         <input
           value={form.name}
           onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -1155,30 +1501,35 @@ function ZonesManager({ zones, setZones, showFlash }) {
           value={form.charge}
           onChange={(e) => setForm({ ...form, charge: e.target.value })}
           placeholder="Charge (৳)"
-          className="input w-32"
+          className="input sm:w-32"
           required
         />
-        <button type="submit" className="btn btn-primary shrink-0">
-          {form.id ? "Update" : "Add"}
-        </button>
-        {form.id && (
+        <div className="flex gap-2">
           <button
-            type="button"
-            onClick={() =>
-              setForm({ id: null, name: "", charge: 0, is_active: true })
-            }
-            className="btn btn-ghost shrink-0"
+            type="submit"
+            className="btn btn-primary shrink-0 flex-1 sm:flex-none"
           >
-            Cancel
+            {form.id ? "Update" : "Add"}
           </button>
-        )}
+          {form.id && (
+            <button
+              type="button"
+              onClick={() =>
+                setForm({ id: null, name: "", charge: 0, is_active: true })
+              }
+              className="btn btn-ghost shrink-0"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </form>
 
       <ul className="divide-y divide-line">
         {paged.map((zone) => (
           <li
             key={zone.id}
-            className="flex items-center justify-between py-2.5"
+            className="flex flex-wrap items-center justify-between gap-2 py-2.5"
           >
             <div>
               <p className="text-sm text-ink">{zone.name}</p>
@@ -1194,6 +1545,189 @@ function ZonesManager({ zones, setZones, showFlash }) {
               <button
                 onClick={() => deleteZone(zone)}
                 aria-label="Delete zone"
+                className="text-muted hover:text-red-600"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {pagination}
+    </Section>
+  );
+}
+
+const EMPTY_PICKUP = {
+  id: null,
+  name: "",
+  address: "",
+  phone: "",
+  hours: "",
+  is_active: true,
+};
+
+function PickupPointsManager({ points, setPoints, showFlash }) {
+  const [form, setForm] = useState(EMPTY_PICKUP);
+  const { paged, pagination } = usePagedList(points);
+
+  async function save(e) {
+    e.preventDefault();
+    const payload = {
+      name: form.name.trim(),
+      address: form.address.trim(),
+      phone: form.phone.trim() || null,
+      hours: form.hours.trim() || null,
+      is_active: form.is_active,
+    };
+    const { error } = form.id
+      ? await supabase.from("pickup_points").update(payload).eq("id", form.id)
+      : await supabase.from("pickup_points").insert(payload);
+    if (error) {
+      showFlash(`Error: ${error.message}`);
+    } else {
+      showFlash(form.id ? "Pickup point updated." : "Pickup point added.");
+      setForm(EMPTY_PICKUP);
+      const { data } = await supabase
+        .from("pickup_points")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      setPoints(data || []);
+    }
+  }
+
+  async function deletePoint(point) {
+    if (!confirm(`Delete pickup point "${point.name}"?`)) return;
+    await supabase.from("pickup_points").delete().eq("id", point.id);
+    setPoints((prev) => prev.filter((p) => p.id !== point.id));
+    showFlash("Pickup point deleted.");
+  }
+
+  function toggleActive(point) {
+    supabase
+      .from("pickup_points")
+      .update({ is_active: !point.is_active })
+      .eq("id", point.id)
+      .then(() => {
+        setPoints((prev) =>
+          prev.map((p) =>
+            p.id === point.id ? { ...p, is_active: !p.is_active } : p,
+          ),
+        );
+      });
+  }
+
+  return (
+    <Section title="Pickup Points">
+      <p className="text-xs text-muted -mt-2">
+        Customers can collect orders from these locations instead of home
+        delivery. Pickup is free.
+      </p>
+      <form
+        onSubmit={save}
+        className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-dashed border-line rounded-xl p-4 mb-4"
+      >
+        <div className="sm:col-span-2">
+          <label className="label">Name</label>
+          <input
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="e.g. MHFood Dhanmondi"
+            className="input"
+            required
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="label">Address</label>
+          <input
+            value={form.address}
+            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            placeholder="Full street address"
+            className="input"
+            required
+          />
+        </div>
+        <div>
+          <label className="label">Phone (optional)</label>
+          <input
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+            placeholder="8801XXXXXXXXX"
+            className="input"
+          />
+        </div>
+        <div>
+          <label className="label">Hours (optional)</label>
+          <input
+            value={form.hours}
+            onChange={(e) => setForm({ ...form, hours: e.target.value })}
+            placeholder="e.g. 10am – 8pm"
+            className="input"
+          />
+        </div>
+        <div className="sm:col-span-2 flex items-center gap-2">
+          <button type="submit" className="btn btn-primary shrink-0">
+            {form.id ? "Update" : "Add"}
+          </button>
+          {form.id && (
+            <button
+              type="button"
+              onClick={() => setForm(EMPTY_PICKUP)}
+              className="btn btn-ghost shrink-0"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+
+      {points.length === 0 && (
+        <p className="text-sm text-muted py-4 text-center">
+          No pickup points yet. Add one so customers can collect orders in
+          store.
+        </p>
+      )}
+      <ul className="divide-y divide-line">
+        {paged.map((point) => (
+          <li
+            key={point.id}
+            className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+          >
+            <div className="min-w-0 pr-3">
+              <p className="text-sm text-ink">{point.name}</p>
+              <p className="text-xs text-muted truncate">{point.address}</p>
+              {(point.phone || point.hours) && (
+                <p className="text-xs text-muted">
+                  {[point.phone, point.hours].filter(Boolean).join(" · ")}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => toggleActive(point)}
+                className={`px-2.5 py-1 rounded-full text-[11px] border ${
+                  point.is_active
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-slate-100 text-muted border-line"
+                }`}
+              >
+                {point.is_active ? "Active" : "Inactive"}
+              </button>
+              <button
+                onClick={() =>
+                  setForm({
+                    ...point,
+                    phone: point.phone || "",
+                    hours: point.hours || "",
+                  })
+                }
+                className="text-xs text-muted hover:text-ink"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => deletePoint(point)}
+                aria-label="Delete pickup point"
                 className="text-muted hover:text-red-600"
               >
                 <Trash2 size={14} />
@@ -1269,9 +1803,9 @@ function RulesManager({ rules, setRules, showFlash }) {
       </p>
       <form
         onSubmit={save}
-        className="grid grid-cols-2 gap-3 border border-dashed border-line rounded-xl p-4 mb-4"
+        className="grid grid-cols-1 sm:grid-cols-2 gap-3 border border-dashed border-line rounded-xl p-4 mb-4"
       >
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <label className="label">Label</label>
           <input
             value={form.label}
@@ -1325,7 +1859,7 @@ function RulesManager({ rules, setRules, showFlash }) {
             required
           />
         </div>
-        <div className="col-span-2 flex items-center justify-between">
+        <div className="sm:col-span-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
           <label className="flex items-center gap-2 text-sm text-ink">
             <input
               type="checkbox"
@@ -1367,7 +1901,7 @@ function RulesManager({ rules, setRules, showFlash }) {
         {paged.map((rule) => (
           <li
             key={rule.id}
-            className="flex items-center justify-between py-2.5"
+            className="flex flex-wrap items-center justify-between gap-2 py-2.5"
           >
             <div>
               <p className="text-sm text-ink">{rule.label}</p>
@@ -1408,7 +1942,7 @@ function RulesManager({ rules, setRules, showFlash }) {
 // ---------- Shared section wrapper ----------
 function Section({ title, children }) {
   return (
-    <div className="card p-6">
+    <div className="card p-4 sm:p-6">
       <h2 className="text-sm font-semibold text-ink mb-4">{title}</h2>
       <div className="space-y-4">{children}</div>
     </div>

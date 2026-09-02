@@ -5,11 +5,18 @@ import { useParams, useSearchParams } from "next/navigation";
 import { Search, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
-const STEPS = [
+const DELIVERY_STEPS = [
   { key: "pending", label: "Received" },
   { key: "confirmed", label: "Confirmed" },
   { key: "out_for_delivery", label: "Out for Delivery" },
   { key: "delivered", label: "Delivered" },
+];
+
+const PICKUP_STEPS = [
+  { key: "pending", label: "Received" },
+  { key: "confirmed", label: "Confirmed" },
+  { key: "out_for_delivery", label: "Ready for Pickup" },
+  { key: "delivered", label: "Collected" },
 ];
 
 export default function TrackClient() {
@@ -64,6 +71,8 @@ export default function TrackClient() {
   }
 
   const isCancelled = order?.status === "cancelled";
+  const isPickup = order?.fulfillment_method === "pickup";
+  const STEPS = isPickup ? PICKUP_STEPS : DELIVERY_STEPS;
   const currentStepIndex = order
     ? STEPS.findIndex((s) => s.key === order.status)
     : -1;
@@ -72,8 +81,8 @@ export default function TrackClient() {
     <div className="max-w-4xl mx-auto px-5 py-12">
       {justPlaced && (
         <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-xl px-5 py-4 mb-8">
-          Your order has been placed! A confirmation email is on its way —
-          save this tracking code to check your order status anytime.
+          Your order has been placed! A confirmation email is on its way — save
+          this tracking code to check your order status anytime.
         </div>
       )}
 
@@ -127,7 +136,10 @@ export default function TrackClient() {
             <div className="mb-8">
               <div className="flex items-start">
                 {STEPS.map((step, i) => (
-                  <div key={step.key} className="flex items-center flex-1 last:flex-none">
+                  <div
+                    key={step.key}
+                    className="flex items-center flex-1 last:flex-none"
+                  >
                     <div className="flex flex-col items-center">
                       <div
                         className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-medium shrink-0 ${
@@ -140,7 +152,9 @@ export default function TrackClient() {
                       </div>
                       <p
                         className={`text-[9px] sm:text-xs mt-1.5 sm:mt-2 text-center w-12 sm:w-20 leading-tight ${
-                          i <= currentStepIndex ? "text-ink font-medium" : "text-muted"
+                          i <= currentStepIndex
+                            ? "text-ink font-medium"
+                            : "text-muted"
                         }`}
                       >
                         {step.label}
@@ -163,11 +177,17 @@ export default function TrackClient() {
             <p className="text-sm font-medium text-ink mb-3">Items</p>
             <ul className="space-y-2 mb-5">
               {items.map((item) => (
-                <li key={item.id} className="flex justify-between text-sm text-muted">
+                <li
+                  key={item.id}
+                  className="flex justify-between text-sm text-muted"
+                >
                   <span>
                     {item.product_name}
                     {item.variant_text && (
-                      <span className="text-xs text-muted/70"> ({item.variant_text})</span>
+                      <span className="text-xs text-muted/70">
+                        {" "}
+                        ({item.variant_text})
+                      </span>
                     )}{" "}
                     × {item.quantity}
                   </span>
@@ -194,9 +214,14 @@ export default function TrackClient() {
                 </div>
               )}
               <div className="flex justify-between text-sm text-muted">
-                <span>Delivery</span>
                 <span>
-                  {Number(order.delivery_charge) === 0 ? (
+                  {order.fulfillment_method === "pickup"
+                    ? "Pickup"
+                    : "Delivery"}
+                </span>
+                <span>
+                  {order.fulfillment_method === "pickup" ||
+                  Number(order.delivery_charge) === 0 ? (
                     <span className="text-emerald-600 font-medium">FREE</span>
                   ) : (
                     `৳${Number(order.delivery_charge || 0).toFixed(2)}`
@@ -211,8 +236,20 @@ export default function TrackClient() {
           </div>
 
           <div className="border-t border-line mt-5 pt-5 text-sm text-muted">
-            <p className="font-medium text-ink mb-1">Delivery Address</p>
-            <p>{order.address}</p>
+            {order.fulfillment_method === "pickup" ? (
+              <>
+                <p className="font-medium text-ink mb-1">Pickup Point</p>
+                <p>{order.pickup_point_name || "Store pickup"}</p>
+                {order.pickup_point_address && (
+                  <p className="mt-0.5">{order.pickup_point_address}</p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="font-medium text-ink mb-1">Delivery Address</p>
+                <p>{order.address}</p>
+              </>
+            )}
             <p className="mt-1">{order.phone}</p>
           </div>
         </div>

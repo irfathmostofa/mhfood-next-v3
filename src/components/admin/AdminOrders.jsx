@@ -97,7 +97,10 @@ export default function AdminOrders() {
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, pageCount);
-  const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paged = filtered.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   return (
     <div>
@@ -142,7 +145,9 @@ export default function AdminOrders() {
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted py-10 text-center">Loading orders...</p>
+        <p className="text-sm text-muted py-10 text-center">
+          Loading orders...
+        </p>
       ) : filtered.length === 0 ? (
         <p className="text-sm text-muted py-10 text-center">No orders found.</p>
       ) : (
@@ -157,9 +162,15 @@ export default function AdminOrders() {
                   <div className="min-w-0 pr-4">
                     <div className="flex items-center gap-2">
                       {expanded === order.id ? (
-                        <ChevronDown size={15} className="text-muted shrink-0" />
+                        <ChevronDown
+                          size={15}
+                          className="text-muted shrink-0"
+                        />
                       ) : (
-                        <ChevronRight size={15} className="text-muted shrink-0" />
+                        <ChevronRight
+                          size={15}
+                          className="text-muted shrink-0"
+                        />
                       )}
                       <p className="text-sm font-medium text-ink truncate">
                         {order.customer_name}
@@ -167,7 +178,10 @@ export default function AdminOrders() {
                     </div>
                     <p className="text-xs text-muted mt-0.5 pl-5">
                       {order.tracking_code} · ৳{order.total_amount} ·{" "}
-                      {new Date(order.created_at).toLocaleDateString()}
+                      {order.fulfillment_method === "pickup"
+                        ? "Pickup"
+                        : "Delivery"}{" "}
+                      · {new Date(order.created_at).toLocaleDateString()}
                     </p>
                   </div>
                   <span
@@ -176,7 +190,13 @@ export default function AdminOrders() {
                       "bg-primary/10 text-primary border-primary/20"
                     }`}
                   >
-                    {order.status.replace(/_/g, " ")}
+                    {order.fulfillment_method === "pickup" &&
+                    order.status === "out_for_delivery"
+                      ? "ready for pickup"
+                      : order.fulfillment_method === "pickup" &&
+                          order.status === "delivered"
+                        ? "collected"
+                        : order.status.replace(/_/g, " ")}
                   </span>
                 </button>
 
@@ -238,23 +258,34 @@ function OrderDetail({ order, loadItems, updatingId, onUpdateStatus }) {
   return (
     <div className="border border-line rounded-xl p-4 sm:p-5 bg-surface">
       <div className="flex flex-wrap items-center gap-2 mb-4">
-        {STATUSES.map((s) => (
-          <button
-            key={s.key}
-            onClick={() => onUpdateStatus(order, s.key)}
-            disabled={updatingId === order.id || order.status === s.key}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border disabled:opacity-50 ${
-              order.status === s.key
-                ? "bg-primary text-white border-primary"
-                : "bg-white text-ink border-line hover:border-primary"
-            }`}
-          >
-            {updatingId === order.id && order.status !== s.key
-              ? "..." : null}
-            {order.status === s.key ? <Check size={12} className="inline mr-1" /> : null}
-            {s.label}
-          </button>
-        ))}
+        {STATUSES.map((s) => {
+          const label =
+            order.fulfillment_method === "pickup"
+              ? s.key === "out_for_delivery"
+                ? "Ready for Pickup"
+                : s.key === "delivered"
+                  ? "Collected"
+                  : s.label
+              : s.label;
+          return (
+            <button
+              key={s.key}
+              onClick={() => onUpdateStatus(order, s.key)}
+              disabled={updatingId === order.id || order.status === s.key}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border disabled:opacity-50 ${
+                order.status === s.key
+                  ? "bg-primary text-white border-primary"
+                  : "bg-white text-ink border-line hover:border-primary"
+              }`}
+            >
+              {updatingId === order.id && order.status !== s.key ? "..." : null}
+              {order.status === s.key ? (
+                <Check size={12} className="inline mr-1" />
+              ) : null}
+              {label}
+            </button>
+          );
+        })}
         <button
           onClick={handlePrint}
           disabled={printing || !items}
@@ -277,29 +308,44 @@ function OrderDetail({ order, loadItems, updatingId, onUpdateStatus }) {
         <div>
           <ul className="space-y-1.5 mb-3">
             {items.map((item) => (
-              <li key={item.id} className="flex justify-between text-sm text-ink">
+              <li
+                key={item.id}
+                className="flex justify-between text-sm text-ink"
+              >
                 <span className="pr-3">
                   {item.product_name}
                   {item.variant_text && (
                     <span className="text-xs text-muted">
-                      {" "}({item.variant_text})
+                      {" "}
+                      ({item.variant_text})
                     </span>
                   )}{" "}
                   × {item.quantity}
                 </span>
-                <span className="shrink-0">৳{(item.price * item.quantity).toFixed(2)}</span>
+                <span className="shrink-0">
+                  ৳{(item.price * item.quantity).toFixed(2)}
+                </span>
               </li>
             ))}
           </ul>
 
           <div className="border-t border-line pt-3 space-y-1 text-sm text-muted">
             <div className="flex justify-between">
-              <span>Delivery</span>
               <span>
-                {Number(order.delivery_charge) === 0
+                {order.fulfillment_method === "pickup" ? "Pickup" : "Delivery"}
+              </span>
+              <span>
+                {order.fulfillment_method === "pickup" ||
+                Number(order.delivery_charge) === 0
                   ? "FREE"
                   : `৳${Number(order.delivery_charge || 0).toFixed(2)}`}
-                {order.delivery_zone_name ? ` (${order.delivery_zone_name})` : ""}
+                {order.fulfillment_method === "pickup"
+                  ? order.pickup_point_name
+                    ? ` (${order.pickup_point_name})`
+                    : ""
+                  : order.delivery_zone_name
+                    ? ` (${order.delivery_zone_name})`
+                    : ""}
               </span>
             </div>
             {Number(order.discount_amount) > 0 && (
@@ -315,8 +361,20 @@ function OrderDetail({ order, loadItems, updatingId, onUpdateStatus }) {
           </div>
 
           <div className="border-t border-line mt-3 pt-3 text-sm text-muted">
-            <p className="font-medium text-ink mb-1">Delivery Address</p>
-            <p>{order.address}</p>
+            {order.fulfillment_method === "pickup" ? (
+              <>
+                <p className="font-medium text-ink mb-1">Pickup Point</p>
+                <p>{order.pickup_point_name || "Store pickup"}</p>
+                {order.pickup_point_address && (
+                  <p className="mt-0.5">{order.pickup_point_address}</p>
+                )}
+              </>
+            ) : (
+              <>
+                <p className="font-medium text-ink mb-1">Delivery Address</p>
+                <p>{order.address}</p>
+              </>
+            )}
             <p className="mt-0.5">{order.phone}</p>
           </div>
         </div>

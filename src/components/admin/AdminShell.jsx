@@ -21,17 +21,47 @@ import {
 } from "lucide-react";
 
 const NAV = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/products", label: "Products", icon: Package },
-  { href: "/admin/products/new", label: "Create with AI", icon: Wand2 },
-  { href: "/admin/categories", label: "Categories", icon: Tags },
-  { href: "/admin/discounts", label: "Discount Sessions", icon: Percent },
-  { href: "/admin/hero", label: "Hero Slides", icon: Sparkles },
-  { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
-  { href: "/admin/customers", label: "Customers", icon: Users },
-  { href: "/admin/expenses", label: "Expenses", icon: Wallet },
-  { href: "/admin/reports", label: "Reports", icon: BarChart3 },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+  { href: "/admin", label: "Dashboard", short: "Home", icon: LayoutDashboard },
+  {
+    href: "/admin/products",
+    label: "Products",
+    short: "Products",
+    icon: Package,
+  },
+  {
+    href: "/admin/products/new",
+    label: "Create with AI",
+    short: "AI",
+    icon: Wand2,
+  },
+  { href: "/admin/categories", label: "Categories", short: "Cats", icon: Tags },
+  {
+    href: "/admin/discounts",
+    label: "Discount Sessions",
+    short: "Sales",
+    icon: Percent,
+  },
+  { href: "/admin/hero", label: "Hero Slides", short: "Hero", icon: Sparkles },
+  {
+    href: "/admin/orders",
+    label: "Orders",
+    short: "Orders",
+    icon: ShoppingCart,
+  },
+  { href: "/admin/customers", label: "Customers", short: "Users", icon: Users },
+  { href: "/admin/expenses", label: "Expenses", short: "Costs", icon: Wallet },
+  {
+    href: "/admin/reports",
+    label: "Reports",
+    short: "Reports",
+    icon: BarChart3,
+  },
+  {
+    href: "/admin/settings",
+    label: "Settings",
+    short: "Setup",
+    icon: Settings,
+  },
 ];
 
 function isActive(href, pathname) {
@@ -126,21 +156,22 @@ export default function AdminShell({ children }) {
             </button>
           </div>
         </div>
-        <div className="sm:hidden bg-background border-b border-line overflow-x-auto">
-          <nav className="flex px-3 py-2 gap-1">
+        <div className="sm:hidden bg-background border-b border-line overflow-x-auto no-scrollbar">
+          <nav className="flex px-3 py-2 gap-1.5 min-w-max">
             {NAV.map((item) => {
               const active = isActive(item.href, pathname);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`shrink-0 px-3 py-1.5 rounded-full text-xs ${
+                  className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${
                     active
                       ? "bg-primary text-white"
                       : "text-ink bg-surface border border-line"
                   }`}
                 >
-                  {item.label}
+                  <item.icon size={13} />
+                  {item.short}
                 </Link>
               );
             })}

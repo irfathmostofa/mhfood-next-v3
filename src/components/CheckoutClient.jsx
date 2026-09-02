@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Ticket, X, CheckCircle2 } from "lucide-react";
+import { Loader2, Ticket, X, CheckCircle2, Truck, MapPin } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useCart } from "@/hooks/useCart";
 import { pickBestDiscount } from "@/lib/pricing";
@@ -21,6 +21,9 @@ export default function CheckoutClient() {
   });
   const [zones, setZones] = useState([]);
   const [zoneId, setZoneId] = useState("");
+  const [pickupPoints, setPickupPoints] = useState([]);
+  const [pickupPointId, setPickupPointId] = useState("");
+  const [fulfillment, setFulfillment] = useState("delivery");
   const [siteSettings, setSiteSettings] = useState(null);
   const [discountRules, setDiscountRules] = useState([]);
 
@@ -44,37 +47,53 @@ export default function CheckoutClient() {
 
   useEffect(() => {
     async function loadPricing() {
-      const [{ data: zoneData }, { data: settingsData }, { data: ruleData }] =
-        await Promise.all([
-          supabase
-            .from("delivery_zones")
-            .select("*")
-            .eq("is_active", true)
-            .order("sort_order", { ascending: true }),
-          supabase
-            .from("site_settings")
-            .select("*")
-            .eq("id", 1)
-            .maybeSingle(),
-          supabase.from("discount_rules").select("*").eq("is_active", true),
-        ]);
+      const [
+        { data: zoneData },
+        pickupRes,
+        { data: settingsData },
+        { data: ruleData },
+      ] = await Promise.all([
+        supabase
+          .from("delivery_zones")
+          .select("*")
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true }),
+        supabase
+          .from("pickup_points")
+          .select("*")
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true }),
+        supabase.from("site_settings").select("*").eq("id", 1).maybeSingle(),
+        supabase.from("discount_rules").select("*").eq("is_active", true),
+      ]);
+      const pickupData = pickupRes?.error ? [] : pickupRes?.data;
 
       setZones(zoneData || []);
       if (zoneData && zoneData.length > 0) setZoneId(zoneData[0].id);
+      setPickupPoints(pickupData || []);
+      if (pickupData && pickupData.length > 0)
+        setPickupPointId(pickupData[0].id);
       setSiteSettings(settingsData || null);
       setDiscountRules(ruleData || []);
     }
     loadPricing();
   }, []);
 
+  const isPickup = fulfillment === "pickup";
   const selectedZone = zones.find((z) => z.id === zoneId);
+  const selectedPickup = pickupPoints.find((p) => p.id === pickupPointId);
   const baseDeliveryCharge = selectedZone ? Number(selectedZone.charge) : 0;
 
   const freeDeliveryApplies =
+    !isPickup &&
     siteSettings?.free_delivery_enabled &&
     totalAmount >= Number(siteSettings.free_delivery_threshold || 0);
 
-  const deliveryCharge = freeDeliveryApplies ? 0 : baseDeliveryCharge;
+  const deliveryCharge = isPickup
+    ? 0
+    : freeDeliveryApplies
+      ? 0
+      : baseDeliveryCharge;
 
   const autoBest = pickBestDiscount(discountRules, totalAmount);
   const autoDiscount = autoBest ? autoBest.amount : 0;
@@ -126,7 +145,12 @@ export default function CheckoutClient() {
     e.preventDefault();
     if (items.length === 0) return;
 
-    if (zones.length > 0 && !zoneId) {
+    if (isPickup) {
+      if (pickupPoints.length === 0 || !pickupPointId) {
+        setError("Please select a pickup point.");
+        return;
+      }
+    } else if (zones.length > 0 && !zoneId) {
       setError("Please select your delivery area.");
       return;
     }
@@ -141,7 +165,9 @@ export default function CheckoutClient() {
         body: JSON.stringify({
           items,
           customer: form,
-          zoneId: zoneId || null,
+          fulfillment,
+          zoneId: isPickup ? null : zoneId || null,
+          pickupPointId: isPickup ? pickupPointId || null : null,
           couponCode: couponApplied?.code || null,
         }),
       });
@@ -193,14 +219,17 @@ export default function CheckoutClient() {
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
         {/* Cart summary */}
         <div className="lg:col-span-2 order-2 lg:order-1">
-          <h2 className="text-sm font-semibold text-ink mb-4">
-            Order Summary
-          </h2>
+          <h2 className="text-sm font-semibold text-ink mb-4">Order Summary</h2>
           <ul className="space-y-4 mb-4">
             {items.map((item) => (
-              <li key={item._key} className="flex items-center justify-between gap-3">
+              <li
+                key={item._key}
+                className="flex items-center justify-between gap-3"
+              >
                 <div className="min-w-0">
-                  <p className="text-sm text-ink truncate">{item.product_name}</p>
+                  <p className="text-sm text-ink truncate">
+                    {item.product_name}
+                  </p>
                   {item.variant_text && (
                     <p className="text-xs text-muted truncate mt-0.5">
                       {item.variant_text}
@@ -209,7 +238,10 @@ export default function CheckoutClient() {
                   <div className="flex items-center gap-2 mt-1.5">
                     <button
                       onClick={() =>
-                        updateQuantity(item._key, Math.max(1, item.quantity - 1))
+                        updateQuantity(
+                          item._key,
+                          Math.max(1, item.quantity - 1),
+                        )
                       }
                       aria-label="Decrease"
                       className="w-6 h-6 flex items-center justify-center text-xs border border-line rounded-full text-ink hover:bg-primary/5"
@@ -276,7 +308,11 @@ export default function CheckoutClient() {
                   disabled={couponLoading || !couponCode.trim()}
                   className="btn btn-outline shrink-0 px-4"
                 >
-                  {couponLoading ? <Loader2 size={16} className="animate-spin" /> : "Apply"}
+                  {couponLoading ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    "Apply"
+                  )}
                 </button>
               </div>
             )}
@@ -307,24 +343,28 @@ export default function CheckoutClient() {
 
             <div className="flex items-center justify-between text-sm text-muted">
               <span>
-                Delivery{selectedZone ? ` (${selectedZone.name})` : ""}
+                {isPickup
+                  ? `Pickup${selectedPickup ? ` (${selectedPickup.name})` : ""}`
+                  : `Delivery${selectedZone ? ` (${selectedZone.name})` : ""}`}
               </span>
-              {freeDeliveryApplies ? (
+              {isPickup || freeDeliveryApplies ? (
                 <span className="text-emerald-600 font-medium">FREE</span>
               ) : (
                 <span>৳{deliveryCharge.toFixed(2)}</span>
               )}
             </div>
 
-            {siteSettings?.free_delivery_enabled && !freeDeliveryApplies && (
-              <p className="text-xs text-muted">
-                Add ৳
-                {(
-                  Number(siteSettings.free_delivery_threshold) - totalAmount
-                ).toFixed(2)}{" "}
-                more for free delivery
-              </p>
-            )}
+            {siteSettings?.free_delivery_enabled &&
+              !isPickup &&
+              !freeDeliveryApplies && (
+                <p className="text-xs text-muted">
+                  Add ৳
+                  {(
+                    Number(siteSettings.free_delivery_threshold) - totalAmount
+                  ).toFixed(2)}{" "}
+                  more for free delivery
+                </p>
+              )}
 
             <div className="flex items-center justify-between pt-2 border-t border-line">
               <p className="text-sm font-semibold text-ink">Total</p>
@@ -377,37 +417,98 @@ export default function CheckoutClient() {
               </p>
             </div>
 
-            {zones.length > 0 && (
+            {pickupPoints.length > 0 && (
               <div>
-                <label className="label">Delivery Area</label>
-                <select
-                  value={zoneId}
-                  onChange={(e) => setZoneId(e.target.value)}
-                  className="input appearance-none bg-surface"
-                >
-                  {zones.map((zone) => (
-                    <option key={zone.id} value={zone.id}>
-                      {zone.name} —{" "}
-                      {freeDeliveryApplies
-                        ? "FREE"
-                        : `৳${Number(zone.charge).toFixed(2)}`}
-                    </option>
-                  ))}
-                </select>
+                <label className="label">Fulfillment</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFulfillment("delivery")}
+                    className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                      fulfillment === "delivery"
+                        ? "border-primary bg-primary/5 text-ink"
+                        : "border-line text-muted hover:border-primary/40"
+                    }`}
+                  >
+                    <Truck size={16} /> Home delivery
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFulfillment("pickup")}
+                    className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
+                      fulfillment === "pickup"
+                        ? "border-primary bg-primary/5 text-ink"
+                        : "border-line text-muted hover:border-primary/40"
+                    }`}
+                  >
+                    <MapPin size={16} /> Store pickup
+                  </button>
+                </div>
               </div>
             )}
 
-            <div>
-              <label className="label">Delivery Address</label>
-              <textarea
-                required
-                rows={3}
-                value={form.address}
-                onChange={(e) => updateField("address", e.target.value)}
-                placeholder="House, road, area — full address within your selected delivery zone"
-                className="input"
-              />
-            </div>
+            {isPickup ? (
+              <div>
+                <label className="label">Pickup Point</label>
+                <select
+                  value={pickupPointId}
+                  onChange={(e) => setPickupPointId(e.target.value)}
+                  className="input appearance-none bg-surface"
+                  required
+                >
+                  {pickupPoints.map((point) => (
+                    <option key={point.id} value={point.id}>
+                      {point.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedPickup && (
+                  <div className="mt-2 text-xs text-muted space-y-0.5">
+                    <p>{selectedPickup.address}</p>
+                    {selectedPickup.hours && (
+                      <p>Hours: {selectedPickup.hours}</p>
+                    )}
+                    {selectedPickup.phone && (
+                      <p>Phone: {selectedPickup.phone}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                {zones.length > 0 && (
+                  <div>
+                    <label className="label">Delivery Area</label>
+                    <select
+                      value={zoneId}
+                      onChange={(e) => setZoneId(e.target.value)}
+                      className="input appearance-none bg-surface"
+                    >
+                      {zones.map((zone) => (
+                        <option key={zone.id} value={zone.id}>
+                          {zone.name} —{" "}
+                          {freeDeliveryApplies
+                            ? "FREE"
+                            : `৳${Number(zone.charge).toFixed(2)}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="label">Delivery Address</label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={form.address}
+                    onChange={(e) => updateField("address", e.target.value)}
+                    placeholder="House, road, area — full address within your selected delivery zone"
+                    className="input"
+                  />
+                </div>
+              </>
+            )}
 
             {error && (
               <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
@@ -422,7 +523,8 @@ export default function CheckoutClient() {
             >
               {loading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" /> Placing order...
+                  <Loader2 size={16} className="animate-spin" /> Placing
+                  order...
                 </>
               ) : (
                 `Place Order — ৳${grandTotal.toFixed(2)}`

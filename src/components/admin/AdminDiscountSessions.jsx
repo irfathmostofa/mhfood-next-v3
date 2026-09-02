@@ -88,7 +88,7 @@ export default function AdminDiscountSessions() {
         .order("created_at", { ascending: false }),
       supabase
         .from("products")
-        .select("id, name, price, regular_price, stock, is_active")
+        .select("id, name, price, regular_price, cost, stock, is_active")
         .order("name"),
     ]);
     setSessions(sessionRows || []);
@@ -538,22 +538,59 @@ export default function AdminDiscountSessions() {
                 {filteredProducts.length === 0 ? (
                   <p className="px-3 py-4 text-sm text-muted">No products.</p>
                 ) : (
-                  filteredProducts.map((p) => (
-                    <label
-                      key={p.id}
-                      className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(p.id)}
-                        onChange={() => toggleProduct(p.id)}
-                      />
-                      <span className="flex-1 text-ink truncate">{p.name}</span>
-                      <span className="text-xs text-muted">
-                        ৳{Number(p.price).toFixed(2)}
-                      </span>
-                    </label>
-                  ))
+                  filteredProducts.map((p) => {
+                    const hasRegularPrice =
+                      p.regular_price && Number(p.regular_price) > 0;
+
+                    return (
+                      <label
+                        key={p.id}
+                        className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-primary/5 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(p.id)}
+                          onChange={() => toggleProduct(p.id)}
+                        />
+                        <span className="flex-1 text-ink truncate">
+                          {p.name}
+                        </span>
+                        <div className="flex items-center gap-4 text-xs text-muted">
+                          {/* Cost */}
+                          <span className="flex flex-col items-end">
+                            <span className="text-[10px] text-muted/70">
+                              Cost
+                            </span>
+                            <span className="font-mono">
+                              ৳{Number(p.cost || 0).toFixed(2)}
+                            </span>
+                          </span>
+                          {/* Current Sale Price */}
+                          <span className="flex flex-col items-end">
+                            <span className="text-[10px] text-muted/70">
+                              Current
+                            </span>
+                            <span
+                              className={`font-mono ${hasRegularPrice ? "line-through text-muted/60" : ""}`}
+                            >
+                              ৳{Number(p.price).toFixed(2)}
+                            </span>
+                          </span>
+                          {/* Old Sale Price (regular_price) */}
+                          {hasRegularPrice && (
+                            <span className="flex flex-col items-end">
+                              <span className="text-[10px] text-muted/70">
+                                Old Sale
+                              </span>
+                              <span className="font-mono text-amber-600">
+                                ৳{Number(p.regular_price).toFixed(2)}
+                              </span>
+                            </span>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })
                 )}
               </div>
 
@@ -563,20 +600,35 @@ export default function AdminDiscountSessions() {
                     <thead>
                       <tr className="text-left text-xs text-muted">
                         <th className="pb-2 pr-3 font-medium">Product</th>
+                        <th className="pb-2 pr-3 font-medium">Cost</th>
+                        <th className="pb-2 pr-3 font-medium">Current Price</th>
+                        <th className="pb-2 pr-3 font-medium">Old Sale</th>
                         <th className="pb-2 pr-3 font-medium">Type</th>
                         <th className="pb-2 pr-3 font-medium">Value</th>
-                        <th className="pb-2 pr-3 font-medium">Sale price</th>
+                        <th className="pb-2 pr-3 font-medium">New Sale</th>
                         <th className="pb-2 font-medium" />
                       </tr>
                     </thead>
                     <tbody>
                       {editing.items.map((item) => {
                         const p = productMap[item.product_id];
+                        if (!p) return null;
+
                         const sale = computeSalePrice(
-                          p?.price,
+                          p.price,
                           item.discount_type,
                           item.discount_value,
                         );
+                        const hasRegularPrice =
+                          p.regular_price && Number(p.regular_price) > 0;
+
+                        // Calculate margin: (sale - cost) / sale * 100
+                        const cost = Number(p.cost || 0);
+                        const margin =
+                          sale > 0 && cost > 0
+                            ? (((sale - cost) / sale) * 100).toFixed(1)
+                            : null;
+
                         return (
                           <tr
                             key={item.product_id}
@@ -584,9 +636,22 @@ export default function AdminDiscountSessions() {
                           >
                             <td className="py-2 pr-3 text-ink">
                               {p?.name || "Unknown"}
-                              <p className="text-[11px] text-muted">
-                                ৳{Number(p?.price || 0).toFixed(2)}
-                              </p>
+                            </td>
+                            <td className="py-2 pr-3 text-xs font-mono text-muted">
+                              ৳{Number(p.cost || 0).toFixed(2)}
+                            </td>
+                            <td className="py-2 pr-3 font-mono text-xs">
+                              ৳{Number(p.price || 0).toFixed(2)}
+                              {hasRegularPrice && (
+                                <span className="ml-1 text-[10px] text-muted/60 line-through">
+                                  ৳{Number(p.regular_price).toFixed(2)}
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2 pr-3 font-mono text-xs text-amber-600">
+                              {hasRegularPrice
+                                ? `৳${Number(p.regular_price).toFixed(2)}`
+                                : "—"}
                             </td>
                             <td className="py-2 pr-3">
                               <select
@@ -620,8 +685,20 @@ export default function AdminDiscountSessions() {
                                 className="input input-sm w-24"
                               />
                             </td>
-                            <td className="py-2 pr-3 font-medium text-accent">
-                              ৳{sale.toFixed(2)}
+                            <td className="py-2 pr-3">
+                              <div className="flex flex-col">
+                                <span className="font-mono font-medium text-accent">
+                                  ৳{sale.toFixed(2)}
+                                </span>
+                                {margin !== null && (
+                                  <span
+                                    className={`text-[10px] ${Number(margin) < 0 ? "text-red-500" : "text-emerald-600"}`}
+                                  >
+                                    {Number(margin) >= 0 ? "+" : ""}
+                                    {margin}% margin
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="py-2">
                               <button

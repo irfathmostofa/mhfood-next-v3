@@ -3,8 +3,7 @@
 // any A4/Letter printer too.
 
 export function printPOSInvoice({ order, items, site }) {
-  const storeName =
-    site?.store_name || "MHFood";
+  const storeName = site?.store_name || "MHFood";
   const address = site?.store_address || "";
   const phone = site?.store_phone || "";
 
@@ -71,19 +70,31 @@ export function printPOSInvoice({ order, items, site }) {
   <div class="row"><span>Invoice No.</span><span>${order?.tracking_code || ""}</span></div>
   <div class="row"><span>Date</span><span>${new Date(order?.created_at).toLocaleString()}</span></div>
   <div class="row"><span>Status</span><span>${statusLabel}</span></div>
-  <div class="row"><span>Payment</span><span>Cash on Delivery</span></div>
+  <div class="row"><span>Payment</span><span>${order?.fulfillment_method === "pickup" ? "Pay at Pickup" : "Cash on Delivery"}</span></div>
   <div class="hr"></div>
   <div class="strong">Customer</div>
   <div>${order?.customer_name || ""}</div>
   ${order?.phone ? `<div>${order.phone}</div>` : ""}
-  ${order?.address ? `<div>${order.address}</div>` : ""}
+  ${
+    order?.fulfillment_method === "pickup"
+      ? `<div>Pickup: ${order?.pickup_point_name || "Store"}</div>${order?.pickup_point_address ? `<div>${order.pickup_point_address}</div>` : ""}`
+      : order?.address
+        ? `<div>${order.address}</div>`
+        : ""
+  }
   <div class="hr"></div>
   <div class="strong">Items</div>
   ${itemRows || "<div>No items</div>"}
   <div class="hr"></div>
   ${line("Subtotal", (Number(order?.total_amount || 0) - Number(order?.delivery_charge || 0) + Number(order?.discount_amount || 0)).toFixed(2))}
   ${Number(order?.discount_amount || 0) > 0 ? line("Discount", `-${Number(order.discount_amount).toFixed(2)}`) : ""}
-  ${line("Delivery", Number(order?.delivery_charge || 0) === 0 ? "FREE" : Number(order.delivery_charge).toFixed(2))}
+  ${line(
+    order?.fulfillment_method === "pickup" ? "Pickup" : "Delivery",
+    order?.fulfillment_method === "pickup" ||
+      Number(order?.delivery_charge || 0) === 0
+      ? "FREE"
+      : Number(order.delivery_charge).toFixed(2),
+  )}
   <div class="total"><span>Total</span><span>BDT ${Number(order?.total_amount || 0).toFixed(2)}</span></div>
   <div class="footer">
     Thank you for shopping with us!
