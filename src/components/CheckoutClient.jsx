@@ -9,8 +9,14 @@ import { pickBestDiscount } from "@/lib/pricing";
 import { trackInitiateCheckout, trackPurchase } from "@/components/Analytics";
 
 export default function CheckoutClient() {
-  const { items, totalAmount, clearCart, updateQuantity, removeItem } =
-    useCart();
+  const {
+    items,
+    hydrated,
+    totalAmount,
+    clearCart,
+    updateQuantity,
+    removeItem,
+  } = useCart();
   const router = useRouter();
 
   const [form, setForm] = useState({
@@ -197,6 +203,17 @@ export default function CheckoutClient() {
       setError(err.message || "Something went wrong placing your order.");
       setLoading(false);
     }
+  }
+
+  if (!hydrated) {
+    return (
+      <div className="max-w-6xl mx-auto px-5 py-8">
+        <h1 className="font-display text-2xl sm:text-3xl text-ink mb-8">
+          Checkout
+        </h1>
+        <p className="text-sm text-muted py-16 text-center">Loading cart...</p>
+      </div>
+    );
   }
 
   if (items.length === 0) {

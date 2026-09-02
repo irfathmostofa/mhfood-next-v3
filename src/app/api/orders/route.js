@@ -8,10 +8,8 @@ import {
 import { generateTrackingCode } from "@/lib/tracking";
 import { sendOrderPlacedEmails } from "@/lib/email";
 import { sendOrderPlacedSMS } from "@/lib/sms";
-import {
-  computeSalePrice,
-  getLiveSaleUnitPrices,
-} from "@/lib/discountSessions";
+import { computeSalePrice } from "@/lib/salePricing";
+import { getLiveSaleUnitPrices } from "@/lib/discountSessions";
 
 class StockError extends Error {
   constructor() {

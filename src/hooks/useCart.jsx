@@ -17,22 +17,24 @@ export function cartItemKey(productId, selection = []) {
 }
 
 export function CartProvider({ children }) {
-  const [items, setItems] = useState(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      const saved = localStorage.getItem("cart");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [items, setItems] = useState([]);
+  const [hydrated, setHydrated] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("cart", JSON.stringify(items));
+    try {
+      const saved = localStorage.getItem("cart");
+      setItems(saved ? JSON.parse(saved) : []);
+    } catch {
+      setItems([]);
     }
-  }, [items]);
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    localStorage.setItem("cart", JSON.stringify(items));
+  }, [items, hydrated]);
 
   function addItem(product, quantity = 1, selection = []) {
     const adjustment = selection.reduce(
@@ -104,6 +106,7 @@ export function CartProvider({ children }) {
     <CartContext.Provider
       value={{
         items,
+        hydrated,
         addItem,
         removeItem,
         updateQuantity,

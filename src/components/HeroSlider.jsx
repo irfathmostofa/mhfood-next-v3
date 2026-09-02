@@ -21,10 +21,8 @@ export default function HeroSlider({ slides = [] }) {
 
   if (slides.length === 0) return null;
 
-  const slide = slides[current];
-
   return (
-    <section className="relative w-full h-[400px] overflow-hidden">
+    <section className="relative w-full h-[148px] sm:h-[240px] lg:h-[320px] overflow-hidden">
       {slides.map((s, i) => (
         <div
           key={s.id}
@@ -38,22 +36,22 @@ export default function HeroSlider({ slides = [] }) {
             alt={s.title || ""}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
-          {(s.title || s.subtitle) && (
-            <div className="absolute inset-0 flex items-center">
-              <div className="max-w-7xl mx-auto w-full px-5 sm:px-10">
+          <div className="hidden sm:block absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10" />
+          {(s.title || s.subtitle || s.link_url) && (
+            <div className="hidden sm:flex absolute inset-0 items-center">
+              <div className="max-w-7xl mx-auto w-full px-4 sm:px-8">
                 <div className="text-white max-w-xl">
                   {s.title && (
-                    <h2 className="font-display text-3xl sm:text-5xl lg:text-6xl font-medium mb-3 leading-tight">
+                    <h2 className="font-display text-3xl lg:text-5xl font-medium mb-3 leading-tight">
                       {s.title}
                     </h2>
                   )}
                   {s.subtitle && (
-                    <p className="text-sm sm:text-lg text-white/90 max-w-md leading-relaxed">
+                    <p className="text-base lg:text-lg text-white/90 max-w-md leading-relaxed">
                       {s.subtitle}
                     </p>
                   )}
-                  <div className="flex flex-wrap gap-3 mt-7">
+                  <div className="flex flex-wrap gap-3 mt-5 lg:mt-7">
                     {s.link_url && (
                       <Link
                         href={s.link_url}
@@ -83,25 +81,27 @@ export default function HeroSlider({ slides = [] }) {
               setCurrent((c) => (c - 1 + slides.length) % slides.length)
             }
             aria-label="Previous slide"
-            className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full bg-white/15 backdrop-blur text-white hover:bg-white/35 transition-colors"
+            className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center rounded-full bg-white/15 backdrop-blur text-white hover:bg-white/35 transition-colors"
           >
             <ChevronLeft size={20} />
           </button>
           <button
             onClick={() => setCurrent((c) => (c + 1) % slides.length)}
             aria-label="Next slide"
-            className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center rounded-full bg-white/15 backdrop-blur text-white hover:bg-white/35 transition-colors"
+            className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 items-center justify-center rounded-full bg-white/15 backdrop-blur text-white hover:bg-white/35 transition-colors"
           >
             <ChevronRight size={20} />
           </button>
-          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-2">
+          <div className="absolute bottom-2 sm:bottom-5 left-1/2 -translate-x-1/2 flex gap-1.5 sm:gap-2">
             {slides.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setCurrent(i)}
                 aria-label={`Go to slide ${i + 1}`}
-                className={`h-2 rounded-full transition-all ${
-                  i === current ? "bg-white w-7" : "bg-white/50 w-2"
+                className={`h-1.5 sm:h-2 rounded-full transition-all ${
+                  i === current
+                    ? "bg-white w-5 sm:w-7"
+                    : "bg-white/50 w-1.5 sm:w-2"
                 }`}
               />
             ))}

@@ -28,7 +28,7 @@ const EMPTY_SLIDE = {
   is_active: true,
 };
 
-export default function AdminHero() {
+export default function AdminHero({ embedded = false }) {
   const [slides, setSlides] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -133,19 +133,37 @@ export default function AdminHero() {
 
   const pageCount = Math.max(1, Math.ceil(slides.length / pageSize));
   const currentPage = Math.min(page, pageCount);
-  const paged = slides.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paged = slides.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize,
+  );
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div
+        className={`flex flex-wrap items-center justify-between gap-3 ${
+          embedded ? "mb-3" : "mb-6"
+        }`}
+      >
         <div>
-          <h1 className="text-2xl font-display text-ink">Hero Slides</h1>
-          <p className="text-sm text-muted mt-1">
-            Slides shown in the storefront hero carousel, ordered by sort order.
+          {!embedded && (
+            <h1 className="text-2xl font-display text-ink">Hero Slides</h1>
+          )}
+          <p
+            className={
+              embedded ? "text-xs text-muted" : "text-sm text-muted mt-1"
+            }
+          >
+            {embedded
+              ? "Carousel on the left of the homepage hero. Recommended 1920x700px."
+              : "Slides shown in the storefront hero carousel, ordered by sort order."}
           </p>
         </div>
-        <button onClick={openNew} className="btn btn-primary">
-          <Plus size={16} /> Add Slide
+        <button
+          onClick={openNew}
+          className={embedded ? "btn btn-primary btn-sm" : "btn btn-primary"}
+        >
+          <Plus size={embedded ? 12 : 16} /> Add Slide
         </button>
       </div>
 
@@ -193,9 +211,7 @@ export default function AdminHero() {
                     </p>
                     <p className="text-xs text-muted truncate">
                       Order {slide.sort_order} ·{" "}
-                      {slide.link_url
-                        ? slide.link_url
-                        : "no link"}
+                      {slide.link_url ? slide.link_url : "no link"}
                     </p>
                   </div>
 

@@ -49,11 +49,11 @@ export default function BestSellers({ title, subtitle, products = [] }) {
       </div>
 
       <div className="overflow-hidden" ref={emblaRef}>
-        <div className="flex">
+        <div className="flex items-stretch">
           {products.map((product, rank) => (
             <div
               key={product.id}
-              className="relative shrink-0 px-1.5 sm:px-2.5 basis-1/2 sm:basis-1/3 lg:basis-1/5"
+              className="relative min-w-0 min-h-0 overflow-hidden shrink-0 grow-0 px-1.5 sm:px-2.5 basis-1/2 sm:basis-1/3 lg:basis-1/5"
             >
               {rank < 3 && (
                 <span className="absolute top-2 left-4 z-10 px-2.5 py-0.5 rounded-full bg-accent text-white text-[10px] font-semibold shadow">

@@ -42,10 +42,10 @@ export default function ProductCard({ product }) {
   return (
     <Link
       href={`/product/${product.slug}`}
-      className="group relative block bg-surface border border-line rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+      className="group relative flex h-full flex-col bg-surface border border-line rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
     >
       {/* Image */}
-      <div className="relative aspect-square bg-primary/5 overflow-hidden">
+      <div className="relative aspect-square w-full shrink-0 bg-primary/5 overflow-hidden">
         <Image
           src={image || "https://placehold.co/400x400?text=No+Image"}
           alt={product.name}
@@ -79,7 +79,7 @@ export default function ProductCard({ product }) {
       </div>
 
       {/* Body */}
-      <div className="p-3.5 sm:p-4">
+      <div className="p-3.5 sm:p-4 flex-1 flex flex-col">
         {product.categories?.name && (
           <p className="text-[10px] uppercase tracking-[0.12em] text-muted mb-1">
             {product.categories.name}

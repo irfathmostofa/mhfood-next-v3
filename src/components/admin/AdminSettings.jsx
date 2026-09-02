@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import {
-  Plus,
   Trash2,
   Save,
   Loader2,
@@ -16,13 +15,11 @@ import {
   Truck,
   Percent,
   MapPin,
-  Pencil,
-  Eye,
-  EyeOff,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import ImageUploader from "./ImageUploader";
 import Pagination from "./Pagination";
+import AdminHero from "./AdminHero";
 
 const TABS = [
   {
@@ -858,7 +855,7 @@ function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
 
             {section.key === "hero" && (
               <div className="mt-4 space-y-5 border-t border-line pt-4">
-                <HeroSliderEditor />
+                <AdminHero embedded />
                 <HeroSideBannerEditor
                   site={site}
                   setSite={setSite}
@@ -902,234 +899,6 @@ function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
         ))}
       </div>
     </Section>
-  );
-}
-
-const EMPTY_SLIDE = {
-  id: null,
-  image_url: "",
-  title: "",
-  subtitle: "",
-  link_url: "",
-  sort_order: 1,
-  is_active: true,
-};
-
-function HeroSliderEditor() {
-  const [slides, setSlides] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    loadSlides();
-  }, []);
-
-  async function loadSlides() {
-    const { data } = await supabase
-      .from("hero_slides")
-      .select("*")
-      .order("sort_order", { ascending: true });
-    setSlides(data || []);
-    setLoading(false);
-  }
-
-  async function saveSlide(e) {
-    e.preventDefault();
-    setSaving(true);
-    const payload = {
-      image_url: form.image_url || null,
-      title: form.title || "",
-      subtitle: form.subtitle || "",
-      link_url: form.link_url || "",
-      sort_order: Number(form.sort_order) || slides.length + 1,
-      is_active: form.is_active,
-    };
-    if (form.id) {
-      await supabase.from("hero_slides").update(payload).eq("id", form.id);
-    } else {
-      await supabase.from("hero_slides").insert(payload);
-    }
-    setForm(null);
-    await loadSlides();
-    setSaving(false);
-  }
-
-  async function toggleActive(slide) {
-    await supabase
-      .from("hero_slides")
-      .update({ is_active: !slide.is_active })
-      .eq("id", slide.id);
-    setSlides((prev) =>
-      prev.map((s) =>
-        s.id === slide.id ? { ...s, is_active: !s.is_active } : s,
-      ),
-    );
-  }
-
-  async function deleteSlide(slide) {
-    if (!confirm(`Delete slide "${slide.title || "untitled"}"?`)) return;
-    await supabase.from("hero_slides").delete().eq("id", slide.id);
-    setSlides((prev) => prev.filter((s) => s.id !== slide.id));
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-          Hero Slider
-        </p>
-        <button
-          type="button"
-          onClick={() =>
-            setForm({ ...EMPTY_SLIDE, sort_order: slides.length + 1 })
-          }
-          className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1"
-        >
-          <Plus size={12} /> Add slide
-        </button>
-      </div>
-      <p className="text-xs text-muted mb-3">
-        Carousel on the left of the homepage hero. Recommended 1920x700px.
-      </p>
-
-      {loading ? (
-        <p className="text-xs text-muted py-2">Loading slides...</p>
-      ) : slides.length === 0 && !form ? (
-        <p className="text-xs text-muted py-2">No slides yet.</p>
-      ) : (
-        <ul className="space-y-2">
-          {slides.map((slide) => (
-            <li
-              key={slide.id}
-              className="flex items-center gap-3 rounded-lg border border-line bg-background/60 px-2.5 py-2"
-            >
-              <div className="w-16 h-10 rounded-md overflow-hidden bg-primary/5 shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={
-                    slide.image_url || "https://placehold.co/160x100?text=Slide"
-                  }
-                  alt={slide.title || "Hero slide"}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-ink truncate">
-                  {slide.title || "(untitled)"}
-                </p>
-                <p className="text-xs text-muted truncate">
-                  {slide.link_url || "No link"}
-                </p>
-              </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => toggleActive(slide)}
-                  className={`p-1.5 rounded-md ${
-                    slide.is_active ? "text-emerald-600" : "text-muted"
-                  }`}
-                  aria-label={slide.is_active ? "Hide slide" : "Show slide"}
-                >
-                  {slide.is_active ? <Eye size={14} /> : <EyeOff size={14} />}
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setForm({
-                      id: slide.id,
-                      image_url: slide.image_url || "",
-                      title: slide.title || "",
-                      subtitle: slide.subtitle || "",
-                      link_url: slide.link_url || "",
-                      sort_order: slide.sort_order ?? 1,
-                      is_active: slide.is_active !== false,
-                    })
-                  }
-                  className="p-1.5 text-muted hover:text-ink"
-                  aria-label="Edit slide"
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => deleteSlide(slide)}
-                  className="p-1.5 text-muted hover:text-red-600"
-                  aria-label="Delete slide"
-                >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {form && (
-        <form
-          onSubmit={saveSlide}
-          className="mt-3 space-y-3 border border-dashed border-line rounded-xl p-3"
-        >
-          <ImageUploader
-            value={form.image_url || ""}
-            onChange={(v) => setForm({ ...form, image_url: v })}
-            folder="hero-slides"
-            label="Slide Image"
-            aspect="wide"
-            hint="Recommended 1920x700px."
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="label">Title</label>
-              <input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="input input-sm"
-                required
-              />
-            </div>
-            <div>
-              <label className="label">Link URL</label>
-              <input
-                value={form.link_url}
-                onChange={(e) => setForm({ ...form, link_url: e.target.value })}
-                placeholder="/shop"
-                className="input input-sm"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="label">Subtitle</label>
-            <input
-              value={form.subtitle}
-              onChange={(e) => setForm({ ...form, subtitle: e.target.value })}
-              className="input input-sm"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="btn btn-primary btn-sm disabled:opacity-60"
-            >
-              {saving ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Save size={14} />
-              )}
-              {form.id ? "Update slide" : "Add slide"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setForm(null)}
-              className="btn btn-ghost btn-sm"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
-      )}
-    </div>
   );
 }
 

@@ -1,15 +1,11 @@
 import Link from "next/link";
-import { getSiteSettings } from "@/lib/site";
 
-// Single static banner shown on the right column of the homepage hero
-// (3 of 12 grid columns). Configured from Admin > Settings > Promo Banner.
-export default async function PromoBanner() {
-  const settings = await getSiteSettings();
+export default function PromoBanner({ settings }) {
   const image = settings?.promo_banner_image;
   if (!image) return null;
 
   const content = (
-    <div className="relative w-full h-full aspect-[21/9] lg:aspect-auto overflow-hidden rounded-2xl bg-primary/5">
+    <div className="relative w-full h-[148px] sm:h-[240px] lg:h-[320px] overflow-hidden rounded-2xl bg-primary/5">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={image}
