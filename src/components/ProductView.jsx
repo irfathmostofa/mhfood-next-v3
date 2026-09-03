@@ -171,9 +171,9 @@ export default function ProductView({ product, siteSettings = null }) {
         {/* Gallery - Thumbnails on left for desktop */}
         <div>
           <div className="flex flex-col lg:flex-row gap-4">
-            {/* Thumbnails - Left side on desktop, horizontal on mobile */}
+            {/* Thumbnails - Left side on desktop, 5-6 per row on mobile */}
             {images.length > 1 && (
-              <div className="flex lg:flex-col gap-2 order-2 lg:order-1 lg:w-20">
+              <div className="grid grid-cols-5 min-[420px]:grid-cols-6 gap-2 order-2 lg:order-1 lg:flex lg:flex-col lg:w-20 lg:grid-cols-none">
                 {images.map((img, i) => (
                   <button
                     key={img.id}

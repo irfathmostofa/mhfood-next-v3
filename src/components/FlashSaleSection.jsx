@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, Zap } from "lucide-react";
 import ProductCard from "./ProductCard";
+import SaleProductsCarousel from "./SaleProductsCarousel";
 import SaleCountdown from "./SaleCountdown";
 
 const STYLES = {
@@ -38,52 +39,59 @@ export default function FlashSaleSection({ sessions = [] }) {
         return (
           <section
             key={session.id}
-            className="max-w-[94%] mx-auto px-2 py-6 sm:py-10"
+            className="max-w-full sm:max-w-[94%] mx-auto sm:px-2 px-0 py-5 sm:py-10"
           >
             <div
-              className={`rounded-3xl overflow-hidden shadow-lg ${theme.wrap}`}
+              className={`rounded-2xl sm:rounded-3xl overflow-hidden shadow-lg ${theme.wrap}`}
             >
-              <div className="px-5 sm:px-8 py-6 sm:py-8 flex flex-wrap items-end justify-between gap-4">
-                <div>
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] px-3 py-1 rounded-full ${theme.chip}`}
-                  >
-                    <Zap size={12} /> Limited time
-                  </span>
-                  <h2
-                    className={`font-display text-3xl sm:text-4xl mt-3 ${theme.title}`}
-                  >
-                    {session.name}
-                  </h2>
-                  {session.subtitle && (
-                    <p className={`text-sm mt-1 ${theme.sub}`}>
-                      {session.subtitle}
-                    </p>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-4">
-                  <div>
-                    <p
-                      className={`text-[10px] uppercase tracking-wider mb-1 ${theme.sub}`}
+              <div className="px-4 sm:px-8 pt-5 sm:pt-8 pb-4 sm:pb-6">
+                <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+                  <div className="min-w-0">
+                    <span
+                      className={`inline-flex items-center gap-1.5 text-[10px] sm:text-[11px] font-semibold uppercase tracking-[0.16em] px-2.5 sm:px-3 py-1 rounded-full ${theme.chip}`}
                     >
-                      Ends in
-                    </p>
-                    <SaleCountdown endsAt={session.ends_at} light />
+                      <Zap size={12} /> Limited time
+                    </span>
+                    <h2
+                      className={`font-display text-2xl sm:text-4xl mt-2.5 sm:mt-3 ${theme.title}`}
+                    >
+                      {session.name}
+                    </h2>
+                    {session.subtitle && (
+                      <p className={`text-xs sm:text-sm mt-1 ${theme.sub}`}>
+                        {session.subtitle}
+                      </p>
+                    )}
                   </div>
-                  <Link
-                    href={`/sale/${session.slug}`}
-                    className={`inline-flex items-center gap-1 text-sm font-semibold px-4 py-2 rounded-full transition-colors ${theme.btn}`}
-                  >
-                    Shop now <ArrowRight size={16} />
-                  </Link>
+
+                  <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                    <div>
+                      <p
+                        className={`text-[9px] sm:text-[10px] uppercase tracking-wider mb-1 ${theme.sub}`}
+                      >
+                        Ends in
+                      </p>
+                      <SaleCountdown endsAt={session.ends_at} light compact />
+                    </div>
+                    <Link
+                      href={`/sale/${session.slug}`}
+                      className={`inline-flex items-center gap-1 text-xs sm:text-sm font-semibold px-3.5 sm:px-4 py-2 sm:py-2 rounded-full transition-colors ${theme.btn}`}
+                    >
+                      Shop now <ArrowRight size={15} />
+                    </Link>
+                  </div>
                 </div>
               </div>
 
-              <div className="bg-background/95 px-3 sm:px-5 py-5 sm:py-6">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-5">
+              <div className="bg-background/95 px-1 sm:px-5 py-4 sm:py-6">
+                <div className="hidden lg:grid grid-cols-5 gap-4 sm:gap-5">
                   {session.products.map((product) => (
                     <ProductCard key={product.id} product={product} />
                   ))}
+                </div>
+
+                <div className="lg:hidden">
+                  <SaleProductsCarousel products={session.products} />
                 </div>
               </div>
             </div>

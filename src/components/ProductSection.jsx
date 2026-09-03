@@ -11,13 +11,15 @@ export default function ProductSection({
   if (!products || products.length === 0) return null;
 
   return (
-    <section className="max-w-[94%] mx-auto px-2 py-10">
-      <div className="flex items-end justify-between mb-6 px-1.5">
+    <section className="max-w-[94%] mx-auto px-2 py-6 sm:py-10">
+      <div className="flex items-end justify-between mb-4 sm:mb-6 px-1.5">
         <div>
-          <h2 className="font-display text-2xl sm:text-3xl text-ink">
+          <h2 className="font-display text-xl sm:text-2xl lg:text-3xl text-ink">
             {title || "Products"}
           </h2>
-          {subtitle && <p className="text-sm text-muted mt-1">{subtitle}</p>}
+          {subtitle && (
+            <p className="text-xs sm:text-sm text-muted mt-1">{subtitle}</p>
+          )}
         </div>
         {viewAllHref && (
           <Link
@@ -29,15 +31,15 @@ export default function ProductSection({
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6">
         {products.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}
       </div>
 
       {viewAllHref && (
-        <div className="mt-6 sm:hidden flex justify-center">
-          <Link href={viewAllHref} className="btn btn-ghost">
+        <div className="mt-5 sm:hidden flex justify-center">
+          <Link href={viewAllHref} className="btn btn-ghost text-sm">
             View all <ArrowRight size={16} />
           </Link>
         </div>

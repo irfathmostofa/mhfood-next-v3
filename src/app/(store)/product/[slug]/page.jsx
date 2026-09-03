@@ -90,7 +90,7 @@ export default async function ProductPage({ params }) {
   const siteSettings = await getSiteSettings();
 
   return (
-    <div className="max-w-[97%] mx-auto px-5 py-8">
+    <div className="max-w-[97%] mx-auto px-2 py-4">
       <ProductView product={product} siteSettings={siteSettings} />
       <Suspense fallback={<RelatedFallback />}>
         <ProductRelatedSection product={product} />

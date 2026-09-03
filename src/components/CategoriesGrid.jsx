@@ -142,13 +142,15 @@ export default function CategoriesGrid({
   };
 
   return (
-    <section className="max-w-[94%] mx-auto px-2 py-10">
-      <div className="mb-6 flex items-center justify-between">
+    <section className="max-w-[94%] mx-auto px-2 py-6 sm:py-10">
+      <div className="mb-4 sm:mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-medium text-ink">
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-medium text-ink">
             {title || "Shop by Category"}
           </h2>
-          {subtitle && <p className="text-sm text-muted mt-1">{subtitle}</p>}
+          {subtitle && (
+            <p className="text-xs sm:text-sm text-muted mt-1">{subtitle}</p>
+          )}
         </div>
         {categories.length > itemsPerView && (
           <div className="flex gap-2">
@@ -206,7 +208,7 @@ export default function CategoriesGrid({
             <Link
               key={`${cat.id}-${index}`}
               href={`/shop?category=${cat.slug || cat.id}`}
-              className="group flex-shrink-0 w-[calc(50%-8px)] sm:w-[calc(25%-18px)] lg:w-[calc(12.5%-21px)]"
+              className="group flex-shrink-0 w-[calc(33%-10px)] sm:w-[calc(25%-18px)] lg:w-[calc(12.5%-21px)]"
             >
               <div className="aspect-square bg-primary/5 overflow-hidden rounded-lg relative group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

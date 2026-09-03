@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronLeft,
+  Zap,
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 
@@ -540,18 +541,32 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-            {liveSessions.length > 0 &&
-              liveSessions.map((session) => (
-                <Link
-                  key={session.id}
-                  href={`/sale/${session.slug}`}
-                  onClick={() => setMenuOpen(false)}
-                  className="block px-3 py-3 text-sm font-semibold rounded-xl text-accent bg-accent/10"
-                >
-                  {session.name}
-                </Link>
-              ))}
+          <nav className="flex-1 px-4 py-5 overflow-y-auto space-y-1">
+            {liveSessions.length > 0 && (
+              <>
+                <p className="px-1 text-[11px] font-semibold text-muted uppercase tracking-wider mb-2">
+                  Hot Deals
+                </p>
+                {liveSessions.map((session) => (
+                  <Link
+                    key={session.id}
+                    href={`/sale/${session.slug}`}
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2.5 text-sm font-semibold rounded-xl text-accent bg-accent/10 hover:bg-accent/20 transition-colors"
+                  >
+                    <Zap size={15} className="shrink-0" />
+                    <span className="truncate">{session.name}</span>
+                    <span className="ml-auto text-[10px] font-bold uppercase tracking-wide text-accent/70 shrink-0">
+                      Sale
+                    </span>
+                  </Link>
+                ))}
+              </>
+            )}
+
+            <p className="px-1 pt-3 text-[11px] font-semibold text-muted uppercase tracking-wider mb-2">
+              Menu
+            </p>
             {NAV_LINKS.map((link) => {
               const active =
                 link.to === "/"
@@ -563,12 +578,15 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
                   key={link.to}
                   href={link.to}
                   onClick={() => setMenuOpen(false)}
-                  className={`block px-3 py-3 text-sm font-medium rounded-xl transition-colors ${
+                  className={`flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium rounded-xl transition-colors ${
                     active
                       ? "text-accent bg-primary/5"
-                      : "text-ink hover:text-accent hover:bg-primary/5"
+                      : "text-ink/80 hover:text-ink hover:bg-primary/5"
                   }`}
                 >
+                  {active && (
+                    <span className="w-1 h-4 rounded-full bg-accent" />
+                  )}
                   {link.label}
                 </Link>
               );
@@ -577,19 +595,9 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
             {/* Categories in Hamburger Menu */}
             {categories.length > 0 && (
               <>
-                <div className="px-3 pt-4 pb-2 text-xs font-semibold text-muted uppercase tracking-wider">
-                  Categories
-                </div>
-                {liveSessions.map((session) => (
-                  <Link
-                    key={session.id}
-                    href={`/sale/${session.slug}`}
-                    className="flex items-center pr-4 py-2 text-sm font-semibold text-accent hover:text-white whitespace-nowrap shrink-0"
-                  >
-                    {session.name}
-                  </Link>
-                ))}
-
+                <p className="px-1 pt-3 text-[11px] font-semibold text-muted uppercase tracking-wider mb-2">
+                  Shop by Category
+                </p>
                 {parentCategories.map((cat) => {
                   const childCategories = getChildCategories(cat.id);
                   const hasChildren = childCategories.length > 0;
@@ -606,14 +614,14 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
                             setMenuOpen(false);
                           }
                         }}
-                        className="w-full flex items-center justify-between px-3 py-2.5 text-sm rounded-xl text-ink hover:text-accent hover:bg-primary/5 transition-colors"
+                        className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm rounded-xl text-ink/90 hover:text-accent hover:bg-primary/5 transition-colors"
                       >
-                        <span>{cat.name}</span>
+                        <span className="truncate">{cat.name}</span>
                         {hasChildren && (
                           <ChevronRight
                             size={16}
-                            className={`transition-transform duration-200 ${
-                              isExpanded ? "rotate-90" : ""
+                            className={`shrink-0 transition-transform duration-200 ${
+                              isExpanded ? "rotate-90 text-accent" : ""
                             }`}
                           />
                         )}
@@ -621,13 +629,13 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
 
                       {/* Sub-categories */}
                       {hasChildren && isExpanded && (
-                        <div className="ml-4 space-y-1 border-l-2 border-line pl-3">
+                        <div className="ml-3 mt-1 space-y-0.5 border-l-2 border-line pl-3">
                           {childCategories.map((child) => (
                             <Link
                               key={child.id}
                               href={`/shop?category=${child.slug || child.id}`}
                               onClick={() => setMenuOpen(false)}
-                              className="block px-3 py-2 text-sm rounded-xl text-ink/80 hover:text-accent hover:bg-primary/5 transition-colors"
+                              className="block px-3 py-2 text-sm rounded-xl text-ink/70 hover:text-accent hover:bg-primary/5 transition-colors"
                             >
                               {child.name}
                             </Link>

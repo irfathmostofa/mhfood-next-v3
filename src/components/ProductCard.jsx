@@ -22,6 +22,9 @@ export default function ProductCard({ product }) {
       ? Math.round(((regularPrice - price) / regularPrice) * 100)
       : 0;
 
+  // Check if product is a best seller (you can adjust this logic)
+  const isBestSeller = product.is_best_seller || product.total_sold > 100;
+
   function handleAdd(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -54,24 +57,36 @@ export default function ProductCard({ product }) {
           loading="lazy"
           className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        {discount > 0 && (
-          <span className="absolute top-3 left-3 bg-accent text-white text-xs font-semibold px-2 py-1 rounded-full">
+
+        {/* Discount badge - left side */}
+        {discount > 0 && !outOfStock && (
+          <span className="absolute top-3 left-3 bg-accent text-white text-xs font-semibold px-2 py-1 rounded-full z-10">
             -{discount}%
           </span>
         )}
+
+        {/* Best Seller badge - right side */}
+        {isBestSeller && !outOfStock && (
+          <span className="absolute top-3 right-3 bg-primary text-white text-[10px] font-semibold px-2.5 py-1 rounded-full z-10 shadow-md">
+            Best Seller
+          </span>
+        )}
+
+        {/* Out of stock overlay */}
         {outOfStock && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40 flex items-center justify-center z-20">
             <span className="bg-white/90 text-ink text-xs font-semibold px-3 py-1.5 rounded-full">
               Out of stock
             </span>
           </div>
         )}
+
         {/* Quick add */}
         {!outOfStock && (
           <button
             onClick={handleAdd}
             aria-label="Add to cart"
-            className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white/95 text-ink shadow-lg flex items-center justify-center hover:bg-accent hover:text-white transition-colors opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 sm:opacity-100 sm:translate-y-0"
+            className="absolute bottom-3 right-3 w-10 h-10 rounded-full bg-white/95 text-ink shadow-lg flex items-center justify-center hover:bg-accent hover:text-white transition-colors opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 sm:opacity-100 sm:translate-y-0 z-30"
           >
             {added ? <Check size={17} /> : <ShoppingBag size={17} />}
           </button>

@@ -26,13 +26,15 @@ export default function BestSellers({ title, subtitle, products = [] }) {
   if (products.length === 0) return null;
 
   return (
-    <section className="max-w-[97%] mx-auto px-2 py-10">
-      <div className="flex items-end justify-between mb-6">
+    <section className="max-w-[97%] mx-auto px-2 py-6 sm:py-10">
+      <div className="flex items-end justify-between mb-4 sm:mb-6">
         <div className="px-1.5">
-          <h2 className="font-display text-2xl sm:text-3xl text-ink">
+          <h2 className="font-display text-xl sm:text-2xl lg:text-3xl text-ink">
             {title || "Best Selling Products"}
           </h2>
-          {subtitle && <p className="text-sm text-muted mt-1">{subtitle}</p>}
+          {subtitle && (
+            <p className="text-xs sm:text-sm text-muted mt-1">{subtitle}</p>
+          )}
         </div>
         {products.length > 4 && (
           <div className="hidden sm:flex items-center gap-2">

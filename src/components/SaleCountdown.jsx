@@ -14,7 +14,11 @@ function parts(endsAt) {
   };
 }
 
-export default function SaleCountdown({ endsAt, light = false }) {
+export default function SaleCountdown({
+  endsAt,
+  light = false,
+  compact = false,
+}) {
   const [t, setT] = useState(null); // null on both server & first client render
 
   useEffect(() => {
@@ -41,18 +45,22 @@ export default function SaleCountdown({ endsAt, light = false }) {
   }
 
   const cell = (value, label) => (
-    <div className="flex flex-col items-center min-w-[42px]">
+    <div
+      className={`flex flex-col items-center ${
+        compact ? "min-w-[26px]" : "min-w-[42px]"
+      }`}
+    >
       <span
-        className={`font-display text-lg sm:text-xl leading-none tabular-nums ${
-          light ? "text-white" : "text-ink"
-        }`}
+        className={`font-display leading-none tabular-nums ${
+          compact ? "text-sm sm:text-base" : "text-lg sm:text-xl"
+        } ${light ? "text-white" : "text-ink"}`}
       >
         {String(value).padStart(2, "0")}
       </span>
       <span
-        className={`text-[9px] uppercase tracking-wider mt-1 ${
-          light ? "text-white/60" : "text-muted"
-        }`}
+        className={`uppercase tracking-wider mt-1 ${
+          compact ? "text-[7px] sm:text-[8px]" : "text-[9px]"
+        } ${light ? "text-white/60" : "text-muted"}`}
       >
         {label}
       </span>
@@ -60,7 +68,9 @@ export default function SaleCountdown({ endsAt, light = false }) {
   );
 
   return (
-    <div className="flex items-center gap-2">
+    <div
+      className={`flex items-center gap-2 ${compact ? "gap-1.5 sm:gap-2" : ""}`}
+    >
       {t.days > 0 && cell(t.days, "Days")}
       {cell(t.hours, "Hrs")}
       {cell(t.minutes, "Min")}
