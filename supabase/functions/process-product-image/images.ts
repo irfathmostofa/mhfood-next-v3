@@ -15,7 +15,10 @@
 import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-const WATERMARK_TILE_GAP = 60;
+const WATERMARK_TEXT = "M.H.Food";
+const WATERMARK_ANGLE = -32;
+const DEFAULT_FONT_URL =
+  "https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf";
 
 export interface ImageResult {
   buffer: Uint8Array;
@@ -74,24 +77,9 @@ export async function toPng(bytes: Uint8Array): Promise<Uint8Array> {
 // Bengali). If WATERMARK_FONT_URL isn't set, this step is skipped with a
 // warning rather than failing the whole pipeline.
 const WATERMARK_FONT_FETCH_TIMEOUT_MS = 10_000;
-const DEFAULT_WATERMARK_FONT_SIZE = 26;
 
-export async function addTiledTextWatermark(
-  originalBytes: Uint8Array,
-  text: string,
-): Promise<Uint8Array> {
-  const fontUrl = Deno.env.get("WATERMARK_FONT_URL") ?? "";
-  if (!fontUrl) {
-    throw new Error(
-      "WATERMARK_FONT_URL is not set on the edge function, so no font is " +
-        "available to render a text watermark -- upload a .ttf/.otf " +
-        "somewhere public (e.g. the store-images bucket) and set that env var.",
-    );
-  }
-  const fontSize =
-    Number(Deno.env.get("WATERMARK_FONT_SIZE") ?? "") ||
-    DEFAULT_WATERMARK_FONT_SIZE;
-
+async function loadWatermarkFont(): Promise<Uint8Array> {
+  const fontUrl = Deno.env.get("WATERMARK_FONT_URL") || DEFAULT_FONT_URL;
   const fontController = new AbortController();
   const fontTimer = setTimeout(
     () => fontController.abort(),
@@ -113,22 +101,54 @@ export async function addTiledTextWatermark(
   if (!fontRes.ok) {
     throw new Error(`Could not fetch watermark font (HTTP ${fontRes.status}).`);
   }
-  const fontBytes = toUint8(await fontRes.arrayBuffer());
+  return toUint8(await fontRes.arrayBuffer());
+}
 
+function renderStamp(
+  fontBytes: Uint8Array,
+  fontSize: number,
+  text: string,
+  color: number,
+) {
+  let stamp = Image.renderText(fontBytes, fontSize, text, color);
+  try {
+    stamp = stamp.rotate(WATERMARK_ANGLE, true);
+  } catch {
+    // Keep the unrotated stamp if rotate is unavailable.
+  }
+  return stamp;
+}
+
+export async function addTiledTextWatermark(
+  originalBytes: Uint8Array,
+  text: string = WATERMARK_TEXT,
+): Promise<Uint8Array> {
+  const mark = (text || WATERMARK_TEXT).trim() || WATERMARK_TEXT;
+  const fontBytes = await loadWatermarkFont();
   const base = await Image.decode(originalBytes);
-  // White text at ~33% opacity (alpha 0x55) reads as a visible but
-  // unobtrusive watermark that doesn't hide the product.
-  const textImg = Image.renderText(fontBytes, fontSize, text, 0xffffff55);
-  const gapX = textImg.width + WATERMARK_TILE_GAP;
-  const gapY = textImg.height + WATERMARK_TILE_GAP;
+  const envSize = Number(Deno.env.get("WATERMARK_FONT_SIZE") ?? "");
+  const fontSize =
+    envSize ||
+    Math.max(
+      18,
+      Math.round(Math.min(base.width, base.height) * 0.048),
+    );
 
-  // Tile the text in a brick pattern: alternate rows are offset by half a
-  // tile so the grid doesn't read as rigid columns.
+  // Dual-tone stamps so the mark stays readable on both light and dark
+  // photos, at very low opacity (~10% white / ~8% black).
+  const light = renderStamp(fontBytes, fontSize, mark, 0xffffff1a);
+  const dark = renderStamp(fontBytes, fontSize, mark, 0x00000014);
+  const stampW = Math.max(light.width, dark.width);
+  const stampH = Math.max(light.height, dark.height);
+  const gapX = Math.round(stampW * 1.15);
+  const gapY = Math.round(stampH * 1.25);
+
   let row = 0;
-  for (let y = -textImg.height; y < base.height; y += gapY) {
-    const offsetX = row % 2 === 0 ? 0 : Math.round(gapX / 2);
-    for (let x = offsetX - textImg.width; x < base.width; x += gapX) {
-      base.composite(textImg, x, y);
+  for (let y = -stampH; y < base.height + stampH; y += gapY) {
+    const offsetX = row % 2 === 0 ? -Math.round(stampW / 4) : Math.round(gapX / 2);
+    for (let x = offsetX - stampW; x < base.width + stampW; x += gapX) {
+      base.composite(dark, x + 1, y + 1);
+      base.composite(light, x, y);
     }
     row++;
   }
@@ -141,10 +161,9 @@ export async function addTiledTextWatermark(
 // warning) rather than failing the whole listing over a brand asset.
 export async function addWatermark(
   originalBytes: Uint8Array,
-  storeName?: string,
+  _storeName?: string,
 ): Promise<{ buffer: Uint8Array; watermarked: boolean }> {
-  if (!storeName) return { buffer: originalBytes, watermarked: false };
-  const buffer = await addTiledTextWatermark(originalBytes, storeName);
+  const buffer = await addTiledTextWatermark(originalBytes, WATERMARK_TEXT);
   return { buffer, watermarked: true };
 }
 
@@ -158,8 +177,8 @@ export async function processImage(
   try {
     const result = await addWatermark(originalBytes, storeName);
     buffer = result.buffer;
-    if (!result.watermarked && !storeName) {
-      warnings.push("Watermark skipped: no store name was provided.");
+    if (!result.watermarked) {
+      warnings.push("Watermark skipped.");
     }
   } catch (err) {
     warnings.push(

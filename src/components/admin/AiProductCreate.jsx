@@ -20,11 +20,20 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { analyzeSEO } from "@/lib/seoAnalyzer";
-import { getSeoSettings } from "@/lib/site";
+import { slugify } from "@/lib/slugify";
 import VariantsEditor, { saveProductVariants } from "./VariantsEditor";
 
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+const WATERMARK_STORE_NAME = "M.H.Food";
+const AI_QUOTA_MESSAGE =
+  "AI token/quota limit reached. Wait a few minutes and try again, or check your Gemini API quota.";
+
+function isQuotaLimitMessage(msg) {
+  return /quota|rate.?limit|resource.?exhausted|\b429\b|token.?limit|exceeded your current quota|billing|usage.?limit/i.test(
+    String(msg || ""),
+  );
+}
 
 // How long the "saved" confirmation banner stays up before the whole
 // form resets and is ready for the next product.
@@ -63,16 +72,6 @@ function fileToPngBlob(file, maxWidth = 1600) {
     };
     img.src = url;
   });
-}
-
-function slugify(text) {
-  return String(text || "")
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .slice(0, 80);
 }
 
 const PROGRESS_LABELS = {
@@ -149,13 +148,6 @@ export default function AiProductCreate() {
   const [language, setLanguage] = useState("en"); // en | bn
   const [processedImage, setProcessedImage] = useState("");
 
-  // Store name used as the watermark text on processed images. Seeded
-  // from the public env var, then upgraded to the DB-backed site setting
-  // once it loads (see effect below).
-  const [storeName, setStoreName] = useState(
-    process.env.NEXT_PUBLIC_SITE_NAME || "",
-  );
-
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [variants, setVariants] = useState([]);
@@ -207,23 +199,6 @@ export default function AiProductCreate() {
       .select("id, name")
       .order("name")
       .then(({ data }) => setCategories(data || []));
-  }, []);
-
-  // Prefer the DB-backed site name (getSeoSettings().site_name) over the
-  // build-time env var, if/when it resolves. Falls back silently to the
-  // env var if this can't run (e.g. helper is server-only) or errors.
-  useEffect(() => {
-    let cancelled = false;
-    getSeoSettings()
-      .then((seo) => {
-        if (!cancelled && seo?.site_name) setStoreName(seo.site_name);
-      })
-      .catch(() => {
-        // Keep whatever storeName is already set (env var fallback).
-      });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   // Clear any pending reset timer on unmount.
@@ -304,7 +279,7 @@ export default function AiProductCreate() {
     const poller = setInterval(async () => {
       const { data } = await supabase
         .from("products")
-        .select("processing_status, processing_errors")
+        .select("id, processing_status, processing_errors, processed_image_url")
         .eq("id", productId)
         .maybeSingle();
       if (data) handleStatus(data);
@@ -349,20 +324,46 @@ export default function AiProductCreate() {
         );
       }
       if (row.processing_status === "awaiting_name") {
+        if (isQuotaLimitMessage(row.processing_errors)) {
+          setProgress(0);
+          setProcessingError(AI_QUOTA_MESSAGE);
+          setPhase("upload");
+          notify("AI token/quota limit reached", AI_QUOTA_MESSAGE);
+          return;
+        }
         setProgress(100);
         await loadProduct(row.id);
         setForm((prev) => ({ ...prev, name: "", slug: "" }));
         setPhase("naming");
+        setProcessingError("");
         notify(
           "Couldn't identify the product",
           "Add a product name to finish generating the listing.",
         );
       }
       if (row.processing_status === "failed") {
+        if (isQuotaLimitMessage(row.processing_errors)) {
+          setProgress(0);
+          setProcessingError(AI_QUOTA_MESSAGE);
+          setPhase("upload");
+          notify("AI token/quota limit reached", AI_QUOTA_MESSAGE);
+          return;
+        }
+        if (row.processed_image_url) {
+          await loadProduct(row.id);
+          setProgress(100);
+          setPhase("naming");
+          setProcessingError("");
+          notify(
+            "Couldn't identify the product",
+            "Add a product name to finish generating the listing.",
+          );
+          return;
+        }
         setProgress(0);
         setProcessingError(row.processing_errors || "Processing failed.");
         notify(
-          "Processing failed ❌",
+          "Processing failed",
           row.processing_errors ||
             "Something went wrong generating the listing.",
         );
@@ -379,9 +380,12 @@ export default function AiProductCreate() {
       .eq("id", id)
       .single();
     if (!data) return;
+    const loadedName = data.name || "";
+    const loadedSlug = data.slug || "";
+    const tempSlug = /^ai-[a-z0-9]+$/i.test(loadedSlug);
     setForm({
-      name: data.name || "",
-      slug: data.slug || "",
+      name: loadedName,
+      slug: !loadedSlug || tempSlug ? slugify(loadedName) : loadedSlug,
       short_description: data.short_description || "",
       description: data.description || "",
       cost:
@@ -476,13 +480,19 @@ export default function AiProductCreate() {
           imagePath: path,
           productId: product.id,
           language,
-          storeName,
+          storeName: WATERMARK_STORE_NAME,
         }),
       })
         .then(async (res) => {
           const data = await res.json().catch(() => ({}));
           if (!res.ok && data?.error) {
-            setProcessingError(data.error);
+            if (isQuotaLimitMessage(data.error)) {
+              setProcessingError(AI_QUOTA_MESSAGE);
+              setStatus("failed");
+              setPhase("upload");
+            } else {
+              setProcessingError(data.error);
+            }
           }
         })
         .catch(() => {});
@@ -509,6 +519,7 @@ export default function AiProductCreate() {
           productId,
           name: form.name.trim(),
           language,
+          storeName: WATERMARK_STORE_NAME,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -646,11 +657,34 @@ export default function AiProductCreate() {
       </div>
 
       {(processingError || warnings.length > 0) && (
-        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 space-y-1">
+        <div
+          className={`mb-4 rounded-xl border px-4 py-3 space-y-1 ${
+            isQuotaLimitMessage(processingError)
+              ? "border-amber-300 bg-amber-50"
+              : "border-red-200 bg-red-50"
+          }`}
+        >
           {processingError && (
-            <p className="text-sm text-red-700 flex items-start gap-2">
-              <XCircle size={16} className="shrink-0 mt-0.5" />
-              {processingError}
+            <p
+              className={`text-sm flex items-start gap-2 ${
+                isQuotaLimitMessage(processingError)
+                  ? "text-amber-900"
+                  : "text-red-700"
+              }`}
+            >
+              {isQuotaLimitMessage(processingError) ? (
+                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+              ) : (
+                <XCircle size={16} className="shrink-0 mt-0.5" />
+              )}
+              <span>
+                {isQuotaLimitMessage(processingError) && (
+                  <strong className="block mb-0.5">
+                    AI token/quota limit reached
+                  </strong>
+                )}
+                {processingError}
+              </span>
             </p>
           )}
           {warnings.map((w, i) => (

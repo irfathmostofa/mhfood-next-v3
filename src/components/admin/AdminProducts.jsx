@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { slugify } from "@/lib/slugify";
 import ImageUploader from "./ImageUploader";
 import Modal from "./Modal";
 import Pagination from "./Pagination";
@@ -37,14 +38,6 @@ const EMPTY_PRODUCT = {
   is_featured: false,
   is_active: true,
 };
-
-function slugify(str) {
-  return str
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-");
-}
 
 // Profit margin percentage based on selling price.
 function calcMargin(cost, price) {

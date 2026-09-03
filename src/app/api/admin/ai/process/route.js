@@ -5,7 +5,7 @@ export async function POST(req) {
   try {
     await requireAdmin();
 
-    const { imagePath, productId, mode, language, name } = await req
+    const { imagePath, productId, mode, language, name, storeName } = await req
       .json()
       .catch(() => ({}));
     if (!imagePath || !productId) {
@@ -28,7 +28,14 @@ export async function POST(req) {
       "process-product-image",
       {
         headers,
-        body: { imagePath, productId, mode, language, name },
+        body: {
+          imagePath,
+          productId,
+          mode,
+          language,
+          name,
+          storeName: storeName || "M.H.Food",
+        },
       },
     );
 
