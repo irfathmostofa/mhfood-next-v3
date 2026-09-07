@@ -39,9 +39,7 @@ function isQuotaLimitMessage(msg) {
 // form resets and is ready for the next product.
 const RESET_DELAY_MS = 1600;
 
-// Converts the chosen file to a PNG Blob (client-side) so the edge
-// function only ever has to deal with PNG input.
-function fileToPngBlob(file, maxWidth = 1600) {
+function fileToJpegBlob(file, maxWidth = 1600) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -54,13 +52,17 @@ function fileToPngBlob(file, maxWidth = 1600) {
         const canvas = document.createElement("canvas");
         canvas.width = w;
         canvas.height = h;
-        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
         canvas.toBlob(
           (blob) =>
             blob
               ? resolve({ blob, width: w, height: h })
               : reject(new Error("Could not encode image.")),
-          "image/png",
+          "image/jpeg",
+          0.88,
         );
       } catch (err) {
         reject(err);
@@ -423,14 +425,14 @@ export default function AiProductCreate() {
     try {
       let path = selectedImage?.path || "";
       if (file) {
-        const { blob } = await fileToPngBlob(file);
+        const { blob } = await fileToJpegBlob(file);
         path = `raw/${Date.now()}-${Math.random()
           .toString(36)
-          .slice(2, 8)}.png`;
+          .slice(2, 8)}.jpg`;
 
         const { error: upError } = await supabase.storage
           .from("product-images")
-          .upload(path, blob, { contentType: "image/png" });
+          .upload(path, blob, { contentType: "image/jpeg" });
         if (upError) throw new Error(upError.message);
       }
       sourcePathRef.current = path;
@@ -485,14 +487,10 @@ export default function AiProductCreate() {
       })
         .then(async (res) => {
           const data = await res.json().catch(() => ({}));
-          if (!res.ok && data?.error) {
-            if (isQuotaLimitMessage(data.error)) {
-              setProcessingError(AI_QUOTA_MESSAGE);
-              setStatus("failed");
-              setPhase("upload");
-            } else {
-              setProcessingError(data.error);
-            }
+          if (!res.ok && data?.error && isQuotaLimitMessage(data.error)) {
+            setProcessingError(AI_QUOTA_MESSAGE);
+            setStatus("failed");
+            setPhase("upload");
           }
         })
         .catch(() => {});
@@ -635,11 +633,11 @@ export default function AiProductCreate() {
 
   const estimate =
     status === "processing" && startedAt.current
-      ? Math.max(
+        ? Math.max(
           1,
-          Math.round((60 - (Date.now() - startedAt.current) / 1000) / 5),
+          Math.round((35 - (Date.now() - startedAt.current) / 1000) / 5),
         ) * 5
-      : 60;
+      : 35;
 
   return (
     <div className="max-w-3xl">

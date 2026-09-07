@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, requireAdmin } from "@/lib/admin";
 
+export const maxDuration = 120;
+export const dynamic = "force-dynamic";
+
 export async function POST(req) {
   try {
     await requireAdmin();

@@ -174,7 +174,7 @@ export function analyzeSEO(title, description) {
   const readabilityScore = Math.max(0, Math.min(100, Math.round(flesch)));
 
   const descriptionWords = tokenize(description || "").length;
-  const lengthScore = Math.min(100, Math.round((descriptionWords / 500) * 100));
+  const lengthScore = Math.min(100, Math.round((descriptionWords / 200) * 100));
   const densityScore = Math.max(0, 100 - Math.abs(keywordDensity - 2.5) * 18);
   const coverageScore = Math.min(100, keywords.length * 12);
 

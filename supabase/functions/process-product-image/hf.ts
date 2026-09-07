@@ -50,19 +50,20 @@ const CAPTION_MODEL = "Salesforce/blip-image-captioning-large";
 // GEMINI_MODEL env var (e.g. "gemini-2.5-flash"): callGemini() below sets
 // thinkingBudget: 0 for any "gemini-2.5*" model, which fully disables
 // thinking and is noticeably faster, at a modest quality trade-off.
-const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
+// Prefer 2.5 Flash: thinkingBudget:0 fully disables thinking and is the
+// fastest free-tier model. Override with GEMINI_MODEL if needed. A 404
+// retry below will follow Google's suggested replacement if this name
+// is retired.
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 const GEMINI_API_BASE =
   "https://generativelanguage.googleapis.com/v1beta/models";
+let resolvedGeminiModel: string | null = null;
 
-// Hard per-call ceiling. Supabase's free-tier Edge Function wall-clock
-// limit is 150s total for the whole request (per Supabase's published
-// limits), so 45s per outbound call still leaves headroom for the other
-// pipeline steps (image processing, a possible caption-expansion retry,
-// etc.) without any single call hanging the entire function.
-// Raised from 30s -> 45s: 3.x Flash's mandatory "thinking" behavior can
-// still take a while even at a low thinking level for a ~600-800 word
-// JSON response.
-const CALL_TIMEOUT_MS = 45_000;
+// Keep each outbound AI call well under the Edge Function wall-clock
+// budget. Image processing now runs in parallel with vision, so 25s
+// per call still leaves room for watermarking + a single retry.
+const CALL_TIMEOUT_MS = 25_000;
+const CAPTION_TIMEOUT_MS = 8_000;
 
 // Wraps an async call with an AbortController-based timeout. Rejects with
 // a clear "timed out" error so callers' existing catch/fallback logic
@@ -117,64 +118,33 @@ const VISION_PROMPT =
   `Do not wrap the JSON in markdown. If a value is unknown use empty string or [].`;
 
 // ------------------------------------------------------------
-// Content generation is split into two independent calls that run
-// CONCURRENTLY (see generateContent below):
-//   1. "meta" -- title, short_description, keywords (small, fast)
-//   2. "body" -- the long description (the expensive part)
-// This matters most for Bangla: Bengali script needs roughly 2-3x more
-// tokens per word than English in these models, so a single combined
-// call (title + short description + a 500-800 word body + keywords, all
-// in Bengali) was by far the largest, slowest generation in the whole
-// pipeline. Running two smaller calls in parallel means total wall-clock
-// time is roughly the SLOWER of the two, not the sum -- a meaningful cut
-// versus one big serial call, and it isolates the token-heavy piece
-// (description) so it can get a larger, language-aware token budget
-// without also inflating the fast fields' budget.
+// Content generation is a single Gemini call for title, short
+// description, body, and keywords. A 180-250 word listing is
+// enough for the storefront and stays well under the Edge Function
+// timeout; the previous 500-800 word dual-call path regularly hit
+// MAX_TOKENS and 45s timeouts.
 // ------------------------------------------------------------
 
-const META_PROMPT_EN =
+const CONTENT_PROMPT_EN =
   `You are an expert e-commerce product copywriter. Based on the product analysis below, ` +
-  `generate the metadata for a product listing. If "identifiedName" is non-empty, treat it ` +
-  `as the actual, confirmed identity of the product/dish and lead with it (e.g. use the real ` +
-  `model name or dish name, not a generic substitute). If "identifiedName" is empty, write ` +
-  `naturally from the other fields without inventing a specific name. Respond with a single ` +
-  `JSON object containing exactly these keys: "title" (SEO-optimized, 50-60 characters), ` +
-  `"short_description" (150-160 characters, persuasive), and "keywords" (array of 10-12 SEO ` +
-  `keyword phrases). Do not wrap the JSON in markdown.\n\nProduct analysis: `;
+  `write a complete product listing. If "identifiedName" is non-empty, treat it as the ` +
+  `actual identity of the product and lead with it. If empty, write from the other fields ` +
+  `without inventing a specific name. Respond with a single JSON object containing exactly ` +
+  `these keys: "title" (SEO-optimized, 50-60 characters), "short_description" (140-160 ` +
+  `characters, persuasive), "description" (180-250 words: short intro, 4-6 bullet features, ` +
+  `benefits, and a call to action), and "keywords" (array of 8-10 SEO keyword phrases). ` +
+  `Do not wrap the JSON in markdown.\n\nProduct analysis: `;
 
-const BODY_PROMPT_EN =
+const CONTENT_PROMPT_BN =
   `You are an expert e-commerce product copywriter. Based on the product analysis below, ` +
-  `write the main product description. If "identifiedName" is non-empty, treat it as the ` +
-  `actual, confirmed identity of the product/dish and lead with it in the description ` +
-  `(e.g. use the real model name or dish name, not a generic substitute). If ` +
-  `"identifiedName" is empty, write naturally from the other fields without inventing a ` +
-  `specific name. Respond with a single JSON object containing exactly one key: "description" ` +
-  `-- 500-800 words with an introduction, key features as bullet points, benefits and use ` +
-  `cases, specifications, and a call to action. Do not wrap the JSON in markdown.\n\n` +
-  `Product analysis: `;
-
-const META_PROMPT_BN =
-  `You are an expert e-commerce product copywriter. Based on the product analysis below, ` +
-  `generate the metadata for a product listing entirely in Bengali (Bangla). Write in ` +
-  `natural, native Bengali script (বাংলা), not romanized Bangla. If "identifiedName" is ` +
-  `non-empty, treat it as the actual, confirmed identity of the product/dish and lead with ` +
-  `it; if empty, write naturally from the other fields without inventing a specific name. ` +
+  `write a complete product listing entirely in Bengali (Bangla) script, not romanized. ` +
+  `If "identifiedName" is non-empty, treat it as the actual identity of the product and ` +
+  `lead with it. If empty, write from the other fields without inventing a specific name. ` +
   `Respond with a single JSON object containing exactly these keys: "title" (SEO-optimized, ` +
-  `50-60 characters, in Bengali), "short_description" (150-160 characters, persuasive, in ` +
-  `Bengali), and "keywords" (array of 10-12 SEO keyword phrases, ideally including both ` +
-  `Bengali and common English search terms). Do not wrap the JSON in markdown. Use Bengali ` +
-  `numerals and ৳ for prices where relevant.\n\nProduct analysis: `;
-
-const BODY_PROMPT_BN =
-  `You are an expert e-commerce product copywriter. Based on the product analysis below, ` +
-  `write the main product description entirely in Bengali (Bangla). Write in natural, ` +
-  `native Bengali script (বাংলা), not romanized Bangla. If "identifiedName" is non-empty, ` +
-  `treat it as the actual, confirmed identity of the product/dish and lead with it; if ` +
-  `empty, write naturally from the other fields without inventing a specific name. Respond ` +
-  `with a single JSON object containing exactly one key: "description" -- 500-800 words in ` +
-  `Bengali with an introduction, key features as bullet points, benefits and use cases, ` +
-  `specifications, and a call to action. Do not wrap the JSON in markdown. Use Bengali ` +
-  `numerals and ৳ for prices where relevant.\n\nProduct analysis: `;
+  `50-60 characters, in Bengali), "short_description" (140-160 characters, persuasive, in ` +
+  `Bengali), "description" (150-220 words in Bengali: short intro, 4-6 bullet features, ` +
+  `benefits, and a call to action), and "keywords" (array of 8-10 SEO phrases, mix Bengali ` +
+  `and common English search terms). Do not wrap the JSON in markdown.\n\nProduct analysis: `;
 
 export type ContentLanguage = "en" | "bn";
 
@@ -206,7 +176,8 @@ async function callGemini(
   >,
   opts: { maxOutputTokens: number; temperature: number },
 ): Promise<string> {
-  const model = Deno.env.get("GEMINI_MODEL") ?? DEFAULT_GEMINI_MODEL;
+  const model =
+    resolvedGeminiModel ?? Deno.env.get("GEMINI_MODEL") ?? DEFAULT_GEMINI_MODEL;
   return await callGeminiWithModel(label, model, parts, opts);
 }
 
@@ -285,6 +256,7 @@ async function callGeminiWithModel(
             `DEFAULT_GEMINI_MODEL to stop seeing this warning):`,
           bodyText.slice(0, 300),
         );
+        resolvedGeminiModel = suggested;
         return await callGeminiWithModel(label, suggested, parts, opts);
       }
     }
@@ -307,7 +279,9 @@ async function callGeminiWithModel(
     );
   }
 
-  return extractGeminiText(label, await res.json());
+  const text = extractGeminiText(label, await res.json());
+  resolvedGeminiModel = model;
+  return text;
 }
 
 // Fallback path used only when a model rejects responseMimeType outright
@@ -348,7 +322,9 @@ async function callGeminiPlainJson(
       `${label} failed (HTTP ${res.status}): ${bodyText.slice(0, 300)}`,
     );
   }
-  return extractGeminiText(label, await res.json());
+  const text = extractGeminiText(label, await res.json());
+  resolvedGeminiModel = model;
+  return text;
 }
 
 function extractGeminiText(
@@ -475,20 +451,31 @@ export async function analyzeImage(
       "Vision analysis",
       [
         { text: VISION_PROMPT },
-        { inline_data: { mime_type: "image/png", data: bytesToBase64(bytes) } },
+        { inline_data: { mime_type: "image/jpeg", data: bytesToBase64(bytes) } },
       ],
-      { maxOutputTokens: 2000, temperature: 0.3 },
+      { maxOutputTokens: 900, temperature: 0.2 },
     );
     const parsed = parseJsonObject(text);
     if (parsed && Object.keys(parsed).length > 0) {
       return normalizeAnalysis(parsed);
     }
   } catch (err) {
-    console.warn(
-      "[ai] vision analysis failed, falling back to caption:",
-      err instanceof Error ? err.message : String(err),
-    );
-    // fall through to caption-based analysis
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[ai] vision analysis failed, falling back to caption:", msg);
+    // A Gemini timeout already burned the call budget -- another HF +
+    // Gemini round-trip would push the whole function over the edge
+    // wall-clock limit. Skip straight to filename analysis instead.
+    if (/timed out/i.test(msg)) {
+      const slug = (fileName || "")
+        .replace(/\.[a-z0-9]+$/i, "")
+        .replace(/[-_]+/g, " ")
+        .trim();
+      return {
+        ...EMPTY_ANALYSIS,
+        productType: slug || "product",
+        keyFeatures: slug ? [slug] : [],
+      };
+    }
   }
 
   // Attempt 2: HF captioning model (small/legacy, likely still free),
@@ -501,7 +488,7 @@ export async function analyzeImage(
     // on (.type, .arrayBuffer(), etc.), so this call was failing on every
     // invocation and silently falling through to fallbackContent(). Wrap
     // it in an actual Blob so the request body is built correctly.
-    const imageBlob = new Blob([bytes], { type: "image/png" });
+    const imageBlob = new Blob([bytes], { type: "image/jpeg" });
     const caption = await withTimeout<{ generated_text?: string }>(
       "Caption model",
       (signal) =>
@@ -509,6 +496,7 @@ export async function analyzeImage(
           { model: CAPTION_MODEL, data: imageBlob },
           { signal },
         ) as Promise<{ generated_text?: string }>,
+      CAPTION_TIMEOUT_MS,
     );
     const captionText = (caption.generated_text || "").trim();
     if (captionText) {
@@ -536,7 +524,7 @@ export async function analyzeImage(
                 VISION_PROMPT,
             },
           ],
-          { maxOutputTokens: 1800, temperature: 0.4 },
+          { maxOutputTokens: 900, temperature: 0.3 },
         );
         const parsed = parseJsonObject(text);
         if (parsed && Object.keys(parsed).length > 0) {
@@ -573,55 +561,35 @@ export async function analyzeImage(
   };
 }
 
-// Generates title / short description / full description / keywords.
-// `language` selects the output language: "en" (default) or "bn" (Bangla).
-//
-// Runs two Gemini calls CONCURRENTLY instead of one big combined call:
-//   - meta: title + short_description + keywords (small, fast)
-//   - body: the long description (the token-heavy part, especially in
-//     Bengali -- see the block comment above the prompts)
-// Wall-clock time is roughly max(meta, body) instead of one call's full
-// duration for everything combined, and each call gets a token budget
-// sized to what it actually needs.
+// Generates title / short description / full description / keywords in
+// one Gemini call. A 180-250 word listing is enough for the storefront
+// and finishes well under the Edge Function timeout; the old 500-800
+// word dual-call path regularly hit MAX_TOKENS / 45s timeouts.
 export async function generateContent(
   analysis: ImageAnalysis,
   language: ContentLanguage = "en",
 ): Promise<GeneratedContent> {
-  const metaPrompt = language === "bn" ? META_PROMPT_BN : META_PROMPT_EN;
-  const bodyPrompt = language === "bn" ? BODY_PROMPT_BN : BODY_PROMPT_EN;
+  const prompt = language === "bn" ? CONTENT_PROMPT_BN : CONTENT_PROMPT_EN;
+  const maxOutputTokens = language === "bn" ? 2200 : 1400;
 
-  // Bengali needs meaningfully more output tokens than English for the
-  // same word count (roughly 2-3x per word with these tokenizers), so
-  // give the description call more headroom in that language to avoid a
-  // MAX_TOKENS truncation (which would otherwise force a slow fallback).
-  const bodyMaxTokens = language === "bn" ? 4500 : 2500;
+  const text = await callGemini(
+    "Content generation",
+    [{ text: prompt + JSON.stringify(analysis) }],
+    { maxOutputTokens, temperature: 0.6 },
+  );
 
-  const [metaText, bodyText] = await Promise.all([
-    callGemini(
-      "Content generation (meta)",
-      [{ text: metaPrompt + JSON.stringify(analysis) }],
-      { maxOutputTokens: 700, temperature: 0.7 },
-    ),
-    callGemini(
-      "Content generation (body)",
-      [{ text: bodyPrompt + JSON.stringify(analysis) }],
-      { maxOutputTokens: bodyMaxTokens, temperature: 0.7 },
-    ),
-  ]);
-
-  const metaParsed = parseJsonObject(metaText);
-  const bodyParsed = parseJsonObject(bodyText);
-  if (!metaParsed && !bodyParsed) {
+  const parsed = parseJsonObject(text);
+  if (!parsed) {
     throw new Error("Could not parse AI-generated content.");
   }
 
   const title =
-    asString(metaParsed?.title).slice(0, 80) ||
+    asString(parsed.title).slice(0, 80) ||
     analysis.identifiedName ||
     analysis.productType;
-  const short = asString(metaParsed?.short_description).slice(0, 200);
-  const description = asString(bodyParsed?.description);
-  const keywords = asStringArray(metaParsed?.keywords).slice(0, 12);
+  const short = asString(parsed.short_description).slice(0, 200);
+  const description = asString(parsed.description);
+  const keywords = asStringArray(parsed.keywords).slice(0, 12);
 
   if (!description) throw new Error("AI returned an empty description.");
 

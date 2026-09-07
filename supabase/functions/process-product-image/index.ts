@@ -45,7 +45,7 @@ import {
   type GeneratedContent,
   type ImageAnalysis,
 } from "./hf.ts";
-import { processImage, validateImage } from "./images.ts";
+import { prepareVisionJpeg, startImagePipeline, validateImage } from "./images.ts";
 import { analyzeSEO, type SeoResult } from "./seo.ts";
 
 const corsHeaders = {
@@ -321,38 +321,91 @@ Deno.serve(async (req: Request) => {
 
     let processedImageUrl = product.processed_image_url ?? "";
     let warnings: string[] = [];
-    if (mode !== "generate") {
+
+    const emptyAnalysis = (name = ""): ImageAnalysis => ({
+      identifiedName: name,
+      productType: name || "product",
+      category: "",
+      colors: [],
+      size: "",
+      material: "",
+      keyFeatures: [],
+      targetAudience: "",
+      sellingPoints: [],
+    });
+
+    const runVision = async (bytes: Uint8Array): Promise<ImageAnalysis> =>
+      await analyzeImage(bytes, fileName);
+
+    const uploadProcessed = async (result: {
+      buffer: Uint8Array;
+      mime: string;
+      warnings: string[];
+    }) => {
+      warnings = result.warnings;
+      const ext = result.mime === "image/jpeg" ? "jpg" : "png";
+      const processedPath = `processed/${productId}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("product-images")
+        .upload(processedPath, result.buffer, {
+          contentType: result.mime,
+          cacheControl: "3600",
+          upsert: true,
+        });
+      if (uploadError) throw new Error(uploadError.message);
+      processedImageUrl = supabase.storage
+        .from("product-images")
+        .getPublicUrl(processedPath).data.publicUrl;
+    };
+
+    // Decode once, then watermark and vision in parallel so a slow
+    // font fetch never delays Gemini (and vice versa).
+    let analysis: ImageAnalysis;
+    if (mode === "generate") {
       try {
-        const result = await processImage(originalBytes, storeName);
-        warnings = result.warnings;
-        const ext = result.mime === "image/jpeg" ? "jpg" : "png";
-        const processedPath = `processed/${productId}.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from("product-images")
-          .upload(processedPath, result.buffer, {
-            contentType: result.mime,
-            cacheControl: "3600",
-            upsert: true,
-          });
-        if (uploadError) throw new Error(uploadError.message);
-        processedImageUrl = supabase.storage
-          .from("product-images")
-          .getPublicUrl(processedPath).data.publicUrl;
+        let visionBytes = originalBytes;
+        try {
+          visionBytes = await prepareVisionJpeg(originalBytes);
+        } catch (prepErr) {
+          console.warn(
+            "[process-product-image] vision downscale skipped:",
+            prepErr instanceof Error ? prepErr.message : String(prepErr),
+          );
+        }
+        analysis = await runVision(visionBytes);
+      } catch (err) {
+        console.warn(
+          "[process-product-image] vision skipped in generate mode:",
+          err instanceof Error ? err.message : String(err),
+        );
+        analysis = emptyAnalysis(providedName);
+      }
+    } else {
+      let pipeline;
+      try {
+        pipeline = await startImagePipeline(originalBytes, storeName);
       } catch (err) {
         return await fail(
           `Image processing failed: ${err instanceof Error ? err.message : String(err)}`,
         );
       }
-    }
-
-    // -------- 4. vision analysis (shared by both modes) --------
-    let analysis: ImageAnalysis;
-    try {
-      analysis = await analyzeImage(originalBytes, fileName);
-    } catch (err) {
-      return await fail(
-        `AI analysis failed: ${err instanceof Error ? err.message : String(err)}`,
-      );
+      const [visionOutcome, imageOutcome] = await Promise.allSettled([
+        runVision(pipeline.visionJpeg),
+        pipeline.finishProcessed().then(uploadProcessed),
+      ]);
+      if (imageOutcome.status === "rejected") {
+        const reason = imageOutcome.reason;
+        return await fail(
+          `Image processing failed: ${reason instanceof Error ? reason.message : String(reason)}`,
+        );
+      }
+      if (visionOutcome.status === "rejected") {
+        const reason = visionOutcome.reason;
+        return await fail(
+          `AI analysis failed: ${reason instanceof Error ? reason.message : String(reason)}`,
+        );
+      }
+      analysis = visionOutcome.value;
     }
 
     if (mode === "generate") {

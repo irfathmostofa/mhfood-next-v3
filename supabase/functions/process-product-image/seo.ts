@@ -205,7 +205,7 @@ export function analyzeSEO(title: string, description: string): SeoResult {
 
   // Length component: a full description should be substantial (500+ words).
   const descriptionWords = tokenize(description || "").length;
-  const lengthScore = Math.min(100, Math.round((descriptionWords / 500) * 100));
+  const lengthScore = Math.min(100, Math.round((descriptionWords / 200) * 100));
 
   // Density component: penalise both under- and over-optimised copy.
   const densityScore = Math.max(0, 100 - Math.abs(keywordDensity - 2.5) * 18);
