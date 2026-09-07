@@ -24,6 +24,9 @@ const EMPTY_SLIDE = {
   title: "",
   subtitle: "",
   link_url: "",
+  button_label: "",
+  button_2_label: "",
+  button_2_url: "",
   sort_order: 1,
   is_active: true,
 };
@@ -74,6 +77,9 @@ export default function AdminHero({ embedded = false }) {
       title: slide.title || "",
       subtitle: slide.subtitle || "",
       link_url: slide.link_url || "",
+      button_label: slide.button_label || "",
+      button_2_label: slide.button_2_label || "",
+      button_2_url: slide.button_2_url || "",
       sort_order: slide.sort_order ?? slides.length + 1,
       is_active: slide.is_active !== false,
     });
@@ -89,6 +95,9 @@ export default function AdminHero({ embedded = false }) {
       title: editing.title || "",
       subtitle: editing.subtitle || "",
       link_url: editing.link_url || "",
+      button_label: editing.button_label || "",
+      button_2_label: editing.button_2_label || "",
+      button_2_url: editing.button_2_url || "",
       sort_order: Number(editing.sort_order) || 0,
       is_active: editing.is_active,
     };
@@ -297,8 +306,8 @@ export default function AdminHero({ embedded = false }) {
                 onChange={(e) =>
                   setEditing({ ...editing, title: e.target.value })
                 }
+                placeholder="Leave empty to hide"
                 className="input"
-                required
               />
             </div>
 
@@ -309,20 +318,79 @@ export default function AdminHero({ embedded = false }) {
                 onChange={(e) =>
                   setEditing({ ...editing, subtitle: e.target.value })
                 }
+                placeholder="Leave empty to hide"
                 className="input"
               />
             </div>
 
-            <div>
-              <label className="label">Link URL</label>
-              <input
-                value={editing.link_url || ""}
-                onChange={(e) =>
-                  setEditing({ ...editing, link_url: e.target.value })
-                }
-                placeholder="/shop"
-                className="input"
-              />
+            <div className="rounded-xl border border-line p-3.5 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Primary button
+              </p>
+              <p className="text-[11px] text-muted -mt-2">
+                Set both label and URL to show a button. URL only (no title or
+                buttons) makes the whole banner clickable.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Button label</label>
+                  <input
+                    value={editing.button_label || ""}
+                    onChange={(e) =>
+                      setEditing({ ...editing, button_label: e.target.value })
+                    }
+                    placeholder="Shop now"
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="label">Button URL</label>
+                  <input
+                    value={editing.link_url || ""}
+                    onChange={(e) =>
+                      setEditing({ ...editing, link_url: e.target.value })
+                    }
+                    placeholder="/shop"
+                    className="input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-line p-3.5 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Secondary button
+              </p>
+              <p className="text-[11px] text-muted -mt-2">
+                Optional. Shown only if both label and URL are set.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Button label</label>
+                  <input
+                    value={editing.button_2_label || ""}
+                    onChange={(e) =>
+                      setEditing({
+                        ...editing,
+                        button_2_label: e.target.value,
+                      })
+                    }
+                    placeholder="Browse menu"
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="label">Button URL</label>
+                  <input
+                    value={editing.button_2_url || ""}
+                    onChange={(e) =>
+                      setEditing({ ...editing, button_2_url: e.target.value })
+                    }
+                    placeholder="/shop"
+                    className="input"
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

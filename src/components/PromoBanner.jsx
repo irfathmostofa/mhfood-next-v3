@@ -5,14 +5,14 @@ export default function PromoBanner({ settings }) {
   if (!image) return null;
 
   const content = (
-    <div className="relative w-full h-[148px] sm:h-[240px] lg:h-[320px] overflow-hidden rounded-2xl bg-primary/5">
+    <div className="relative w-full h-full min-h-[180px] sm:min-h-[220px] lg:min-h-full overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/5 shadow-sm ring-1 ring-black/5 group">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={image}
         alt={settings?.store_name || "Promo banner"}
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
     </div>
   );
 
