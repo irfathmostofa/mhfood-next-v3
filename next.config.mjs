@@ -7,6 +7,9 @@ const nextConfig = {
       { protocol: "http", hostname: "**" },
     ],
   },
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+  },
   serverExternalPackages: [],
 };
 

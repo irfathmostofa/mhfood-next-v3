@@ -7,7 +7,7 @@ import {
   getProductsWithRatings,
 } from "@/lib/products";
 import { getSeoSettings, getSiteSettings, getTheme } from "@/lib/site";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, productJsonLd, getSiteOrigin } from "@/lib/seo";
 import { stripHtml } from "@/lib/richtext";
 import ProductView from "@/components/ProductView";
 import ProductCard from "@/components/ProductCard";
@@ -87,10 +87,23 @@ export default async function ProductPage({ params }) {
 
   if (!product) notFound();
 
-  const siteSettings = await getSiteSettings();
+  const [siteSettings, seo] = await Promise.all([
+    getSiteSettings(),
+    getSeoSettings(),
+  ]);
+  const structured = productJsonLd(
+    { ...product, store_name: seo?.site_name },
+    getSiteOrigin(),
+  );
 
   return (
     <div className="max-w-[97%] mx-auto px-2 py-4">
+      {structured && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structured) }}
+        />
+      )}
       <ProductView product={product} siteSettings={siteSettings} />
       <Suspense fallback={<RelatedFallback />}>
         <ProductRelatedSection product={product} />

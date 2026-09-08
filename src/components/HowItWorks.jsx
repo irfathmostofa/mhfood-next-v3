@@ -4,7 +4,7 @@ import { ShoppingBag, Truck, PackageCheck } from "lucide-react";
 const STEPS = [
   {
     icon: ShoppingBag,
-    title: "Choose your food",
+    title: "Choose your Product",
     text: "Browse our categories and add what you need to your cart.",
   },
   {
@@ -21,17 +21,15 @@ const STEPS = [
 
 export default function HowItWorks({
   title = "How it works",
-  subtitle = "Fresh food, in three easy steps",
+  subtitle = "Good Products, in three easy steps",
 }) {
   return (
     <section className="max-w-7xl mx-auto px-5 py-14 sm:py-20">
       <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
-        <p className="text-xs uppercase tracking-[0.15em] text-accent font-semibold mb-2">
-          {title}
-        </p>
-        <h2 className="font-display text-2xl sm:text-4xl text-ink">
-          {subtitle}
-        </h2>
+        <h2 className="font-display text-2xl sm:text-4xl text-ink">{title}</h2>
+        {subtitle && (
+          <p className="text-sm sm:text-base text-muted mt-2">{subtitle}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 max-w-4xl mx-auto">

@@ -1,7 +1,12 @@
 export default function StoreLoading() {
   return (
-    <div className="flex items-center justify-center py-32">
-      <div className="w-10 h-10 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+    <div className="max-w-7xl mx-auto px-5 py-8 min-h-[60vh]">
+      <div className="h-[250px] sm:h-[300px] lg:h-[350px] rounded-2xl bg-primary/5 animate-pulse" />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 mt-8">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="aspect-square rounded-2xl bg-primary/5 animate-pulse" />
+        ))}
+      </div>
     </div>
   );
 }

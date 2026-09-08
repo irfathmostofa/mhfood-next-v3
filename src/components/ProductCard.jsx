@@ -53,7 +53,7 @@ export default function ProductCard({ product }) {
           src={image || "https://placehold.co/400x400?text=No+Image"}
           alt={product.name}
           fill
-          sizes="(min-width: 1280px) 25vw, (min-width: 640px) 33vw, 50vw"
+          sizes="(min-width: 1280px) 20vw, (min-width: 640px) 33vw, 50vw"
           loading="lazy"
           className="object-cover group-hover:scale-105 transition-transform duration-500"
         />

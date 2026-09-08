@@ -41,7 +41,7 @@ export default function HeroSlider({ slides = [] }) {
     <div className="relative">
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="flex">
-          {slides.map((s) => {
+          {slides.map((s, index) => {
             const href = (s.link_url || "").trim();
             const alt = (s.title || "").trim() || "Featured offer";
 
@@ -50,6 +50,11 @@ export default function HeroSlider({ slides = [] }) {
               <img
                 src={s.image_url}
                 alt={alt}
+                width={1600}
+                height={700}
+                fetchPriority={index === 0 ? "high" : "low"}
+                loading={index === 0 ? "eager" : "lazy"}
+                decoding="async"
                 className="absolute inset-0 w-full h-full object-cover"
               />
             );

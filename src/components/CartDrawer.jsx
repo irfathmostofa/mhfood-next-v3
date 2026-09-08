@@ -103,6 +103,10 @@ export default function CartDrawer() {
                         "https://placehold.co/100x100?text=No+Image"
                       }
                       alt={item.product_name}
+                      width={64}
+                      height={64}
+                      loading="lazy"
+                      decoding="async"
                       className="w-full h-full object-cover"
                     />
                   </div>

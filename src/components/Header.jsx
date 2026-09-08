@@ -209,7 +209,10 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
         <img
           src={theme?.logo_image || "/mhfood.png"}
           alt={storeName}
-          className="h-9 sm:h-10 w-auto"
+          width={160}
+          height={40}
+          decoding="async"
+          className="h-9 sm:h-10 w-auto max-h-10 object-contain"
         />
       ) : (
         <span className="text-lg sm:text-xl font-semibold tracking-tight text-ink">
@@ -362,7 +365,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
       ========================================================= */}
 
       {parentCategories.length > 0 && (
-        <div className="hidden lg:block sticky top-0 z-40 border-b border-line bg-primary shadow-sm">
+        <div className="hidden lg:block sticky top-0 z-40 border-b border-line bg-primary shadow-sm h-12">
           <div className="max-w-[97%] mx-auto px-4 sm:px-6 lg:px-8 relative">
             {/* Left scroll button */}
             {canScrollLeft && (

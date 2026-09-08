@@ -4,7 +4,8 @@
 
 @theme inline {
   --font-display: Georgia, "Times New Roman", serif;
-  --font-body:
+  --font-body: 
+    "Noto Sans Bengali", "SolaimanLipi", "Kalpurush", "Siyam Rupali", 
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial,
     sans-serif;
 
@@ -18,19 +19,40 @@
 }
 
 @layer base {
+  :root {
+    --brand-primary: #1f2a24;
+    --brand-accent: #c77b4c;
+    --brand-background: #fbf8f3;
+    --brand-surface: #ffffff;
+    --brand-text: #1f2a24;
+    --brand-muted: #8a8578;
+    --brand-border: #e7e0d3;
+  }
+
   * {
     border-color: var(--color-line);
+  }
+
+  html {
+    overflow-x: hidden;
+  }
+
+  img,
+  video {
+    max-width: 100%;
   }
 
   body {
     @apply bg-background text-ink font-body antialiased;
   }
 
-  h1,
-  h2,
-  h3,
-  .font-display {
+  h1, h2, h3, .font-display {
     font-family: var(--font-display);
+  }
+
+  /* Auto-detect Bangla characters */
+  *:lang(bn) {
+    font-family: var(--font-body);
   }
 
   ::selection {
@@ -83,18 +105,7 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
-}
-@layer utilities {
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
 
-  /* Thin, transparent scrollbar — track is invisible, thumb only
-     appears (softly) on hover so the sidebar stays visually clean. */
   .scrollbar-ghost {
     scrollbar-width: thin;
     scrollbar-color: transparent transparent;

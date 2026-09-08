@@ -69,7 +69,11 @@ export default async function Footer({ theme }) {
               <img
                 src={theme.logo_image}
                 alt={storeName}
-                className="h-10 w-auto mb-3 object-contain"
+                width={160}
+                height={40}
+                loading="lazy"
+                decoding="async"
+                className="h-10 w-auto max-h-10 mb-3 object-contain"
               />
             ) : (
               <span className="text-xl font-semibold tracking-tight">
@@ -99,9 +103,9 @@ export default async function Footer({ theme }) {
 
           {/* Links */}
           <div className="flex flex-col items-center sm:items-start">
-            <span className="text-xs font-medium uppercase tracking-[0.1em] text-white/40 mb-4">
+            <h2 className="text-xs font-medium uppercase tracking-[0.1em] text-white/40 mb-4">
               Navigate
-            </span>
+            </h2>
             <div className="flex flex-col items-center sm:items-start gap-3">
               {shopLinks.map((link) => (
                 <Link
@@ -118,9 +122,9 @@ export default async function Footer({ theme }) {
 
           {/* Contact */}
           <div className="flex flex-col items-center sm:items-start">
-            <span className="text-xs font-medium uppercase tracking-[0.1em] text-white/40 mb-4">
+            <h2 className="text-xs font-medium uppercase tracking-[0.1em] text-white/40 mb-4">
               Contact
-            </span>
+            </h2>
             <div className="flex flex-col items-center sm:items-start gap-3">
               {contactItems.length > 0 ? (
                 contactItems.map((item) => (
@@ -153,9 +157,9 @@ export default async function Footer({ theme }) {
 
           {/* Social / built by */}
           <div className="flex flex-col items-center sm:items-start">
-            <span className="text-xs font-medium uppercase tracking-[0.1em] text-white/40 mb-4">
+            <h2 className="text-xs font-medium uppercase tracking-[0.1em] text-white/40 mb-4">
               Follow us
-            </span>
+            </h2>
             {socialItems.length > 0 ? (
               <div className="flex items-center gap-3">
                 {socialItems.map((item) => (

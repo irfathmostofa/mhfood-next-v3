@@ -51,7 +51,7 @@ async function sendEmail({ templateId, toEmail, params }) {
       // configurations. Safe to omit if EMAILJS_PRIVATE_KEY isn't set.
       ...(PRIVATE_KEY ? { accessToken: PRIVATE_KEY } : {}),
       template_params: stringifyParams({
-        from_name: "MHFood",
+        from_name: "কাঁকন বালার চুড়ি",
         to_email: toEmail,
         ...params,
       }),

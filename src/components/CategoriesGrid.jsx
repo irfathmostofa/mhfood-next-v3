@@ -12,7 +12,7 @@ export default function CategoriesGrid({
   countMap = {},
 }) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [itemsPerView, setItemsPerView] = useState(4);
+  const [itemsPerView, setItemsPerView] = useState(2);
   const sliderRef = useRef(null);
   const autoPlayTimerRef = useRef(null);
   const [isHovering, setIsHovering] = useState(false);
@@ -189,7 +189,7 @@ export default function CategoriesGrid({
       </div>
 
       <div
-        className="relative overflow-hidden"
+        className="relative overflow-hidden min-h-[140px] sm:min-h-[180px]"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
       >
@@ -218,7 +218,10 @@ export default function CategoriesGrid({
                     "https://placehold.co/400x400?text=Category"
                   }
                   alt={cat.name}
+                  width={400}
+                  height={400}
                   loading="lazy"
+                  decoding="async"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
               </div>

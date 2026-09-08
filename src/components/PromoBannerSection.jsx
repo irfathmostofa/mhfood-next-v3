@@ -13,6 +13,10 @@ export default function PromoBannerSection({ title, settings }) {
       <img
         src={image}
         alt={title || "Promo banner"}
+        width={1600}
+        height={686}
+        loading="lazy"
+        decoding="async"
         className="absolute inset-0 w-full h-full object-cover"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />

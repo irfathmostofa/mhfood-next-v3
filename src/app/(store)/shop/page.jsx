@@ -4,9 +4,35 @@ import { buildMetadata } from "@/lib/seo";
 import { getProductsWithRatings } from "@/lib/products";
 import ShopClient from "@/components/ShopClient";
 
-export async function generateMetadata() {
-  const [seo, theme] = await Promise.all([getSeoSettings(), getTheme()]);
-  return buildMetadata({ seo, theme, path: "/shop" });
+export async function generateMetadata({ searchParams }) {
+  const params = await searchParams;
+  const [seo, theme, categories] = await Promise.all([
+    getSeoSettings(),
+    getTheme(),
+    getCategories(),
+  ]);
+  const categorySlug = params?.category || "";
+  const activeCategory = categorySlug
+    ? categories.find((c) => c.slug === categorySlug)
+    : null;
+  const query = (params?.q || "").trim();
+  const title = query
+    ? `Search “${query}”`
+    : activeCategory
+      ? activeCategory.name
+      : "Shop";
+  const description = activeCategory
+    ? `Shop ${activeCategory.name} at ${seo?.site_name || "our store"}.`
+    : seo?.home_description ||
+      "Browse our full collection of fresh food and groceries.";
+
+  return buildMetadata({
+    seo,
+    theme,
+    title,
+    description,
+    path: "/shop",
+  });
 }
 
 export default async function ShopPage({ searchParams }) {
@@ -50,7 +76,10 @@ export default async function ShopPage({ searchParams }) {
         </div>
       }
     >
-      <ShopClient categories={categories} products={sortedProducts} />
+      <ShopClient
+        categories={categories}
+        products={sortedProducts}
+      />
     </Suspense>
   );
 }

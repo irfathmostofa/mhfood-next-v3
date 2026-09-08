@@ -174,7 +174,13 @@ export default function ShopClient({ categories = [], products = [] }) {
   return (
     <div className="max-w-[97%] mx-auto px-5 py-8">
       <div className="flex items-center justify-between gap-4 mb-2 flex-wrap">
-        <h1 className="font-display text-2xl sm:text-3xl text-ink">Shop</h1>
+        <h1 className="font-display text-2xl sm:text-3xl text-ink">
+          {query
+            ? `Search “${query}”`
+            : category !== "all"
+              ? categories.find((c) => c.slug === category)?.name || "Shop"
+              : "Shop"}
+        </h1>
 
         <div className="flex items-center gap-2">
           <button

@@ -12,6 +12,10 @@
 --   4. RLS enabled with documented policies (app runs on the
 --      anon key — storefront + admin write via the same client)
 --   5. Sensible seed data so the storefront renders immediately
+--   6. Later feature migrations folded in: site extras, logo,
+--      promo/home sections, expenses, product pricing, discount
+--      sessions, pickup points, logistics, SMS, storage buckets
+--   7. AI product pipeline columns + product-images bucket + realtime
 -- ============================================================
 
 -- ---------- Extensions ----------
@@ -28,6 +32,7 @@ CREATE TABLE IF NOT EXISTS public.categories (
   slug        text NOT NULL UNIQUE,
   image_url   text,
   description text,
+  parent_id   uuid REFERENCES public.categories(id) ON DELETE SET NULL,
   sort_order  integer NOT NULL DEFAULT 0,
   is_active   boolean NOT NULL DEFAULT true,
   created_at  timestamptz NOT NULL DEFAULT now(),
@@ -36,18 +41,30 @@ CREATE TABLE IF NOT EXISTS public.categories (
 
 -- ---------- Products ----------
 CREATE TABLE IF NOT EXISTS public.products (
-  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name        text NOT NULL,
-  slug        text NOT NULL UNIQUE,
-  description text,
-  category_id uuid REFERENCES public.categories(id) ON DELETE SET NULL,
-  price       numeric(12,2) NOT NULL DEFAULT 0 CHECK (price >= 0),
-  stock       integer NOT NULL DEFAULT 0 CHECK (stock >= 0),
-  unit        text,
-  is_featured boolean NOT NULL DEFAULT false,
-  is_active   boolean NOT NULL DEFAULT true,
-  created_at  timestamptz NOT NULL DEFAULT now(),
-  updated_at  timestamptz NOT NULL DEFAULT now()
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name          text NOT NULL,
+  slug          text NOT NULL UNIQUE,
+  description   text,
+  category_id   uuid REFERENCES public.categories(id) ON DELETE SET NULL,
+  price         numeric(12,2) NOT NULL DEFAULT 0 CHECK (price >= 0),
+  cost          numeric(12,2) NOT NULL DEFAULT 0 CHECK (cost >= 0),
+  regular_price numeric(12,2) NOT NULL DEFAULT 0 CHECK (regular_price >= 0),
+  stock         integer NOT NULL DEFAULT 0 CHECK (stock >= 0),
+  unit                 text,
+  is_featured          boolean NOT NULL DEFAULT false,
+  is_active            boolean NOT NULL DEFAULT true,
+  short_description    text,
+  processed_image_url  text,
+  processing_status    text NOT NULL DEFAULT 'completed'
+                       CHECK (processing_status IN ('pending','processing','awaiting_name','completed','failed')),
+  processing_errors    text,
+  publish_status       text NOT NULL DEFAULT 'published'
+                       CHECK (publish_status IN ('draft','published')),
+  seo_keywords         text[] NOT NULL DEFAULT '{}',
+  seo_score            integer,
+  seo_data             jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at           timestamptz NOT NULL DEFAULT now(),
+  updated_at           timestamptz NOT NULL DEFAULT now()
 );
 
 -- ---------- Product images ----------
@@ -78,15 +95,18 @@ CREATE TABLE IF NOT EXISTS public.product_variants (
 
 -- ---------- Hero slides ----------
 CREATE TABLE IF NOT EXISTS public.hero_slides (
-  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  title      text,
-  subtitle   text,
-  image_url  text,
-  link_url   text,
-  is_active  boolean NOT NULL DEFAULT true,
-  sort_order integer NOT NULL DEFAULT 0,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  title          text,
+  subtitle       text,
+  image_url      text,
+  link_url       text,
+  button_label   text,
+  button_2_label text,
+  button_2_url   text,
+  is_active      boolean NOT NULL DEFAULT true,
+  sort_order     integer NOT NULL DEFAULT 0,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  updated_at     timestamptz NOT NULL DEFAULT now()
 );
 
 -- ---------- Delivery zones ----------
@@ -114,6 +134,19 @@ CREATE TABLE IF NOT EXISTS public.discount_rules (
   updated_at     timestamptz NOT NULL DEFAULT now()
 );
 
+-- ---------- Pickup points ----------
+CREATE TABLE IF NOT EXISTS public.pickup_points (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL,
+  address    text NOT NULL DEFAULT '',
+  phone      text,
+  hours      text,
+  is_active  boolean NOT NULL DEFAULT true,
+  sort_order integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
 -- ---------- Coupons ----------
 CREATE TABLE IF NOT EXISTS public.coupons (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -133,24 +166,37 @@ CREATE TABLE IF NOT EXISTS public.coupons (
 
 -- ---------- Orders ----------
 CREATE TABLE IF NOT EXISTS public.orders (
-  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  tracking_code      text NOT NULL UNIQUE,
-  customer_name      text NOT NULL,
-  phone              text NOT NULL,
-  email              text,
-  address            text,
-  status             text NOT NULL DEFAULT 'pending'
-                     CHECK (status IN ('pending','confirmed','out_for_delivery','delivered','cancelled')),
-  delivery_zone_id   uuid REFERENCES public.delivery_zones(id) ON DELETE SET NULL,
-  delivery_zone_name text,
-  delivery_charge    numeric(12,2) NOT NULL DEFAULT 0 CHECK (delivery_charge >= 0),
-  discount_amount    numeric(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
-  discount_label     text,
-  coupon_code        text,
-  total_amount       numeric(12,2) NOT NULL DEFAULT 0 CHECK (total_amount >= 0),
-  notes              text,
-  created_at         timestamptz NOT NULL DEFAULT now(),
-  updated_at         timestamptz NOT NULL DEFAULT now()
+  id                     uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tracking_code          text NOT NULL UNIQUE,
+  customer_name          text NOT NULL,
+  phone                  text NOT NULL,
+  email                  text,
+  address                text,
+  status                 text NOT NULL DEFAULT 'pending'
+                         CHECK (status IN ('pending','confirmed','out_for_delivery','delivered','cancelled')),
+  delivery_zone_id       uuid REFERENCES public.delivery_zones(id) ON DELETE SET NULL,
+  delivery_zone_name     text,
+  delivery_charge        numeric(12,2) NOT NULL DEFAULT 0 CHECK (delivery_charge >= 0),
+  discount_amount        numeric(12,2) NOT NULL DEFAULT 0 CHECK (discount_amount >= 0),
+  discount_label         text,
+  coupon_code            text,
+  fulfillment_method     text NOT NULL DEFAULT 'delivery'
+                         CHECK (fulfillment_method IN ('delivery','pickup')),
+  pickup_point_id        uuid REFERENCES public.pickup_points(id) ON DELETE SET NULL,
+  pickup_point_name      text,
+  pickup_point_address   text,
+  consignment_id         bigint,
+  courier_tracking_code  text,
+  courier_status         text,
+  courier_invoice        text,
+  parcel_created_at      timestamptz,
+  parcel_note            text,
+  courier_delivery_type  integer NOT NULL DEFAULT 0,
+  courier_synced_at      timestamptz,
+  total_amount           numeric(12,2) NOT NULL DEFAULT 0 CHECK (total_amount >= 0),
+  notes                  text,
+  created_at             timestamptz NOT NULL DEFAULT now(),
+  updated_at             timestamptz NOT NULL DEFAULT now()
 );
 
 -- ---------- Order items ----------
@@ -192,6 +238,55 @@ CREATE TABLE IF NOT EXISTS public.product_order_counts (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- ---------- Discount sessions (flash sale / campaign) ----------
+CREATE TABLE IF NOT EXISTS public.discount_sessions (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       text NOT NULL,
+  slug       text NOT NULL UNIQUE,
+  subtitle   text,
+  style      text NOT NULL DEFAULT 'flash' CHECK (style IN ('flash','blackfriday','sale')),
+  starts_at  timestamptz NOT NULL,
+  ends_at    timestamptz NOT NULL,
+  is_active  boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (ends_at > starts_at)
+);
+
+CREATE TABLE IF NOT EXISTS public.discount_session_products (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id     uuid NOT NULL REFERENCES public.discount_sessions(id) ON DELETE CASCADE,
+  product_id     uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  discount_type  text NOT NULL DEFAULT 'percentage' CHECK (discount_type IN ('percentage','fixed')),
+  discount_value numeric(12,2) NOT NULL DEFAULT 0 CHECK (discount_value >= 0),
+  sort_order     integer NOT NULL DEFAULT 0,
+  created_at     timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (session_id, product_id)
+);
+
+-- ---------- Expense types ----------
+CREATE TABLE IF NOT EXISTS public.expense_types (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        text NOT NULL UNIQUE,
+  description text,
+  sort_order  integer NOT NULL DEFAULT 0,
+  is_active   boolean NOT NULL DEFAULT true,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- ---------- Expenses ledger ----------
+CREATE TABLE IF NOT EXISTS public.expenses (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  expense_type_id uuid REFERENCES public.expense_types(id) ON DELETE RESTRICT,
+  title           text NOT NULL,
+  amount          numeric(12,2) NOT NULL DEFAULT 0 CHECK (amount >= 0),
+  expense_date    timestamptz NOT NULL DEFAULT now(),
+  notes           text,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  updated_at      timestamptz NOT NULL DEFAULT now()
+);
+
 -- ---------- Home sections control ----------
 CREATE TABLE IF NOT EXISTS public.home_sections (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -212,6 +307,11 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
   store_phone              text,
   store_email              text,
   store_address            text,
+  store_description        text,
+  facebook_url             text,
+  instagram_url            text,
+  promo_banner_image       text,
+  promo_banner_link        text,
   whatsapp_enabled         boolean NOT NULL DEFAULT false,
   whatsapp_number          text,
   messenger_enabled        boolean NOT NULL DEFAULT false,
@@ -231,12 +331,36 @@ CREATE TABLE IF NOT EXISTS public.theme_settings (
   text_color            text NOT NULL DEFAULT '#1F2A24',
   muted_color           text NOT NULL DEFAULT '#8A8578',
   border_color          text NOT NULL DEFAULT '#E7E0D3',
+  header_style          text NOT NULL DEFAULT 'classic',
+  product_card_style    text NOT NULL DEFAULT 'classic',
   store_name            text NOT NULL DEFAULT 'MHFood',
   logo_text             text NOT NULL DEFAULT 'MHFood',
+  logo_image            text,
   show_announcement_bar boolean NOT NULL DEFAULT false,
   announcement_text     text,
   font_family           text NOT NULL DEFAULT 'fraunces',
   updated_at            timestamptz NOT NULL DEFAULT now()
+);
+
+-- ---------- Logistics settings (single row, id = 1) ----------
+CREATE TABLE IF NOT EXISTS public.logistics_settings (
+  id                    integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  provider              text NOT NULL DEFAULT 'steadfast',
+  api_key               text,
+  secret_key            text,
+  is_enabled            boolean NOT NULL DEFAULT false,
+  default_delivery_type integer NOT NULL DEFAULT 0,
+  updated_at            timestamptz NOT NULL DEFAULT now()
+);
+
+-- ---------- SMS settings (single row, id = 1) ----------
+CREATE TABLE IF NOT EXISTS public.sms_settings (
+  id         integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  provider   text NOT NULL DEFAULT 'bulksmsbd',
+  api_key    text,
+  sender_id  text,
+  is_enabled boolean NOT NULL DEFAULT false,
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- ---------- SEO settings (single row, id = 1) ----------
@@ -260,11 +384,25 @@ CREATE TABLE IF NOT EXISTS public.seo_settings (
 ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS unit text;
 ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS description text;
 ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS is_featured boolean NOT NULL DEFAULT false;
+ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS cost numeric(12,2) NOT NULL DEFAULT 0 CHECK (cost >= 0);
+ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS regular_price numeric(12,2) NOT NULL DEFAULT 0 CHECK (regular_price >= 0);
+ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS short_description text;
+ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS processed_image_url text;
+ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS processing_status text NOT NULL DEFAULT 'completed';
+ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS processing_errors text;
+ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS publish_status text NOT NULL DEFAULT 'published';
+ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS seo_keywords text[] NOT NULL DEFAULT '{}';
+ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS seo_score integer;
+ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS seo_data jsonb NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE public.categories      ADD COLUMN IF NOT EXISTS slug text;
 ALTER TABLE public.categories      ADD COLUMN IF NOT EXISTS image_url text;
 ALTER TABLE public.categories      ADD COLUMN IF NOT EXISTS sort_order integer NOT NULL DEFAULT 0;
+ALTER TABLE public.categories      ADD COLUMN IF NOT EXISTS parent_id uuid REFERENCES public.categories(id) ON DELETE SET NULL;
 ALTER TABLE public.hero_slides     ADD COLUMN IF NOT EXISTS is_active boolean NOT NULL DEFAULT true;
 ALTER TABLE public.hero_slides     ADD COLUMN IF NOT EXISTS sort_order integer NOT NULL DEFAULT 0;
+ALTER TABLE public.hero_slides     ADD COLUMN IF NOT EXISTS button_label text;
+ALTER TABLE public.hero_slides     ADD COLUMN IF NOT EXISTS button_2_label text;
+ALTER TABLE public.hero_slides     ADD COLUMN IF NOT EXISTS button_2_url text;
 ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS tracking_code text;
 ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS delivery_zone_name text;
 ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS delivery_charge numeric(12,2) NOT NULL DEFAULT 0;
@@ -272,10 +410,59 @@ ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS discount_amount nume
 ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS discount_label text;
 ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS coupon_code text;
 ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS notes text;
+ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS fulfillment_method text NOT NULL DEFAULT 'delivery';
+ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS pickup_point_id uuid REFERENCES public.pickup_points(id) ON DELETE SET NULL;
+ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS pickup_point_name text;
+ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS pickup_point_address text;
+ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS consignment_id bigint;
+ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS courier_tracking_code text;
+ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS courier_status text;
+ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS courier_invoice text;
+ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS parcel_created_at timestamptz;
+ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS parcel_note text;
+ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS courier_delivery_type integer NOT NULL DEFAULT 0;
+ALTER TABLE public.orders          ADD COLUMN IF NOT EXISTS courier_synced_at timestamptz;
 ALTER TABLE public.order_items     ADD COLUMN IF NOT EXISTS product_name text;
 ALTER TABLE public.order_items     ADD COLUMN IF NOT EXISTS variant_text text;
 ALTER TABLE public.order_items     ADD COLUMN IF NOT EXISTS reviewed boolean NOT NULL DEFAULT false;
 ALTER TABLE public.reviews         ADD COLUMN IF NOT EXISTS approved boolean NOT NULL DEFAULT false;
+ALTER TABLE public.site_settings   ADD COLUMN IF NOT EXISTS store_email text;
+ALTER TABLE public.site_settings   ADD COLUMN IF NOT EXISTS store_address text;
+ALTER TABLE public.site_settings   ADD COLUMN IF NOT EXISTS store_description text;
+ALTER TABLE public.site_settings   ADD COLUMN IF NOT EXISTS facebook_url text;
+ALTER TABLE public.site_settings   ADD COLUMN IF NOT EXISTS instagram_url text;
+ALTER TABLE public.site_settings   ADD COLUMN IF NOT EXISTS promo_banner_image text;
+ALTER TABLE public.site_settings   ADD COLUMN IF NOT EXISTS promo_banner_link text;
+ALTER TABLE public.theme_settings  ADD COLUMN IF NOT EXISTS logo_image text;
+ALTER TABLE public.theme_settings  ADD COLUMN IF NOT EXISTS header_style text NOT NULL DEFAULT 'classic';
+ALTER TABLE public.theme_settings  ADD COLUMN IF NOT EXISTS product_card_style text NOT NULL DEFAULT 'classic';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'orders_fulfillment_method_check'
+  ) THEN
+    ALTER TABLE public.orders
+      ADD CONSTRAINT orders_fulfillment_method_check
+      CHECK (fulfillment_method IN ('delivery', 'pickup'));
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'products_processing_status_check'
+  ) THEN
+    ALTER TABLE public.products
+      ADD CONSTRAINT products_processing_status_check
+      CHECK (processing_status IN ('pending','processing','awaiting_name','completed','failed'));
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'products_publish_status_check'
+  ) THEN
+    ALTER TABLE public.products
+      ADD CONSTRAINT products_publish_status_check
+      CHECK (publish_status IN ('draft','published'));
+  END IF;
+END $$;
 
 -- ============================================================
 -- 2. INDEXES
@@ -283,16 +470,30 @@ ALTER TABLE public.reviews         ADD COLUMN IF NOT EXISTS approved boolean NOT
 CREATE INDEX IF NOT EXISTS products_category_id_idx   ON public.products(category_id);
 CREATE INDEX IF NOT EXISTS products_is_featured_idx   ON public.products(is_featured);
 CREATE INDEX IF NOT EXISTS products_is_active_idx     ON public.products(is_active);
+CREATE INDEX IF NOT EXISTS products_processing_status_idx ON public.products(processing_status);
+CREATE INDEX IF NOT EXISTS products_publish_status_idx ON public.products(publish_status);
 CREATE INDEX IF NOT EXISTS product_images_product_idx ON public.product_images(product_id);
 CREATE INDEX IF NOT EXISTS product_variants_product_idx ON public.product_variants(product_id);
+CREATE INDEX IF NOT EXISTS categories_parent_id_idx   ON public.categories(parent_id);
 CREATE INDEX IF NOT EXISTS orders_created_at_idx      ON public.orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS orders_status_idx          ON public.orders(status);
+CREATE INDEX IF NOT EXISTS orders_fulfillment_method_idx ON public.orders(fulfillment_method);
+CREATE INDEX IF NOT EXISTS orders_pickup_point_id_idx ON public.orders(pickup_point_id);
+CREATE INDEX IF NOT EXISTS orders_consignment_id_idx  ON public.orders(consignment_id);
+CREATE INDEX IF NOT EXISTS orders_courier_status_idx  ON public.orders(courier_status);
 CREATE INDEX IF NOT EXISTS order_items_order_idx      ON public.order_items(order_id);
 CREATE INDEX IF NOT EXISTS order_items_product_idx    ON public.order_items(product_id);
 CREATE INDEX IF NOT EXISTS reviews_product_idx        ON public.reviews(product_id);
 CREATE INDEX IF NOT EXISTS hero_slides_active_idx     ON public.hero_slides(is_active);
 CREATE INDEX IF NOT EXISTS coupons_code_idx           ON public.coupons(code);
 CREATE INDEX IF NOT EXISTS delivery_zones_active_idx  ON public.delivery_zones(is_active);
+CREATE INDEX IF NOT EXISTS pickup_points_active_idx   ON public.pickup_points(is_active);
+CREATE INDEX IF NOT EXISTS expenses_date_idx          ON public.expenses(expense_date DESC);
+CREATE INDEX IF NOT EXISTS expenses_type_idx          ON public.expenses(expense_type_id);
+CREATE INDEX IF NOT EXISTS expense_types_active_idx   ON public.expense_types(is_active);
+CREATE INDEX IF NOT EXISTS discount_sessions_live_idx ON public.discount_sessions(is_active, starts_at, ends_at);
+CREATE INDEX IF NOT EXISTS discount_session_products_session_idx ON public.discount_session_products(session_id);
+CREATE INDEX IF NOT EXISTS discount_session_products_product_idx ON public.discount_session_products(product_id);
 
 -- ============================================================
 -- 3. TRIGGERS / FUNCTIONS
@@ -317,7 +518,9 @@ BEGIN
     'categories','products','product_variants','hero_slides',
     'delivery_zones','discount_rules','coupons','orders',
     'product_ratings','product_order_counts','home_sections',
-    'site_settings','theme_settings','seo_settings'
+    'site_settings','theme_settings','seo_settings',
+    'pickup_points','expense_types','expenses','discount_sessions',
+    'logistics_settings','sms_settings'
   ] LOOP
     EXECUTE format(
       'DROP TRIGGER IF EXISTS trg_set_updated_at ON public.%I;', tbl
@@ -457,7 +660,9 @@ BEGIN
     'hero_slides','delivery_zones','discount_rules','coupons',
     'orders','order_items','reviews','product_ratings',
     'product_order_counts','home_sections','site_settings',
-    'theme_settings','seo_settings'
+    'theme_settings','seo_settings','pickup_points',
+    'expense_types','expenses','discount_sessions',
+    'discount_session_products','sms_settings'
   ] LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', tbl);
 
@@ -474,6 +679,15 @@ BEGIN
     );
   END LOOP;
 END $$;
+
+-- Logistics settings: authenticated only so API keys are not
+-- readable from the storefront anon client.
+ALTER TABLE public.logistics_settings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS app_anon_all ON public.logistics_settings;
+DROP POLICY IF EXISTS app_auth_all ON public.logistics_settings;
+DROP POLICY IF EXISTS logistics_settings_auth_all ON public.logistics_settings;
+CREATE POLICY logistics_settings_auth_all ON public.logistics_settings
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
 -- ============================================================
 -- 5. SEED DATA
@@ -499,17 +713,27 @@ VALUES (
 )
 ON CONFLICT (id) DO NOTHING;
 
+INSERT INTO public.logistics_settings (id, provider, is_enabled, default_delivery_type)
+VALUES (1, 'steadfast', false, 0)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.sms_settings (id, provider, is_enabled)
+VALUES (1, 'bulksmsbd', false)
+ON CONFLICT (id) DO NOTHING;
+
 -- ---------- Home sections ----------
 INSERT INTO public.home_sections (key, title, subtitle, enabled, sort_order, items_per_page)
 VALUES
-  ('hero',        'Featured',                  'Showcase your hero banner',  true,  1, 1),
-  ('bestsellers', 'Best Selling Products',     'Our customers'' favorites',  true,  2, 12),
-  ('categories',  'Shop by Category',          'Browse our collections',     true,  3, 12),
-  ('featured',      'Featured Products',         'Handpicked for you',         true,  4, 8),
-  ('latest',        'New Arrivals',              'Fresh in store',             true,  5, 8),
-  ('feature_strip', 'Trust Features',            'Delivery, freshness, tracking and support', true, 7, 4),
-  ('how_it_works',  'How it works',              'Fresh food, in three easy steps', true, 8, 3),
-  ('cta',           'Hungry? Your order is a click away.', 'Order fresh food and groceries online and track them the whole way to your door.', true, 9, 1)
+  ('hero',          'Featured',                  'Showcase your hero banner',  true,  1, 1),
+  ('flash_sale',    'Flash Sale',                'Limited-time campaign offers', true, 2, 10),
+  ('bestsellers',   'Best Selling Products',     'Our customers'' favorites',  true,  3, 12),
+  ('categories',    'Shop by Category',          'Browse our collections',     true,  4, 12),
+  ('featured',      'Featured Products',         'Handpicked for you',         true,  5, 8),
+  ('latest',        'New Arrivals',              'Fresh in store',             true,  6, 8),
+  ('promo',         'Promotional Banner',        'Full-width banner after your products', true, 7, 1),
+  ('feature_strip', 'Trust Features',            'Delivery, freshness, tracking and support', true, 8, 4),
+  ('how_it_works',  'How it works',              'Fresh food, in three easy steps', true, 9, 3),
+  ('cta',           'Hungry? Your order is a click away.', 'Order fresh food and groceries online and track them the whole way to your door.', true, 10, 1)
 ON CONFLICT (key) DO UPDATE
 SET title = EXCLUDED.title,
     subtitle = EXCLUDED.subtitle,
@@ -648,6 +872,20 @@ SELECT p.id, 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=
 FROM public.products p WHERE p.slug = 'chocolate-brownie'
   AND NOT EXISTS (SELECT 1 FROM public.product_images pi WHERE pi.product_id = p.id);
 
+-- ---------- Expense types ----------
+INSERT INTO public.expense_types (name, description, sort_order)
+VALUES
+  ('Ingredients & Raw Materials', 'Produce, meat, spices and other raw ingredients', 1),
+  ('Packaging & Supplies',        'Bags, boxes, labels and packing materials',        2),
+  ('Rent',                        'Shop or store rent',                               3),
+  ('Salaries & Wages',            'Staff salaries and wages',                         4),
+  ('Utilities',                   'Electricity, water, gas and internet',             5),
+  ('Transport & Delivery',        'Fuel, vehicle maintenance and delivery costs',      6),
+  ('Marketing & Advertising',     'Ads, promotions and marketing spend',               7),
+  ('Equipment & Maintenance',     'Equipment purchase, repair and upkeep',             8),
+  ('Miscellaneous',               'Other day-to-day expenses',                         9)
+ON CONFLICT (name) DO NOTHING;
+
 -- ============================================================
 -- 6. BACKFILL AGGREGATES (safe on existing data)
 -- ============================================================
@@ -664,3 +902,115 @@ FROM public.order_items oi
 WHERE oi.product_id IS NOT NULL
 GROUP BY oi.product_id
 ON CONFLICT (product_id) DO NOTHING;
+
+-- ============================================================
+-- 7. STORAGE (public image buckets for admin uploads)
+-- ------------------------------------------------------------
+-- store-images: theme / site / category / promo uploads
+-- product-images: AI product pipeline
+--   admin uploads JPEG to raw/<timestamp>-<id>.jpg (anon client)
+--   edge function writes processed/<productId>.jpg (service role)
+--   both public URLs are stored on product_images + products.processed_image_url
+-- ============================================================
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES
+  (
+    'store-images',
+    'store-images',
+    true,
+    5242880,
+    ARRAY['image/png','image/jpeg','image/webp','image/gif']
+  ),
+  (
+    'product-images',
+    'product-images',
+    true,
+    10485760,
+    ARRAY['image/png','image/jpeg','image/webp']
+  )
+ON CONFLICT (id) DO NOTHING;
+
+UPDATE storage.buckets
+SET
+  public = true,
+  file_size_limit = 10485760,
+  allowed_mime_types = ARRAY['image/png','image/jpeg','image/webp']
+WHERE id = 'product-images';
+
+DO $$
+DECLARE
+  rec record;
+BEGIN
+  FOR rec IN
+    SELECT * FROM (VALUES
+      ('store-images', 'store_images_bucket'),
+      ('product-images', 'product_images_bucket')
+    ) AS t(bucket_id, prefix)
+  LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', rec.prefix || '_public_read');
+    EXECUTE format(
+      'CREATE POLICY %I ON storage.objects FOR SELECT USING (bucket_id = %L)',
+      rec.prefix || '_public_read', rec.bucket_id
+    );
+
+    EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', rec.prefix || '_anon_write');
+    EXECUTE format(
+      'CREATE POLICY %I ON storage.objects FOR INSERT TO anon WITH CHECK (bucket_id = %L)',
+      rec.prefix || '_anon_write', rec.bucket_id
+    );
+    EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', rec.prefix || '_anon_update');
+    EXECUTE format(
+      'CREATE POLICY %I ON storage.objects FOR UPDATE TO anon USING (bucket_id = %L)',
+      rec.prefix || '_anon_update', rec.bucket_id
+    );
+    EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', rec.prefix || '_anon_delete');
+    EXECUTE format(
+      'CREATE POLICY %I ON storage.objects FOR DELETE TO anon USING (bucket_id = %L)',
+      rec.prefix || '_anon_delete', rec.bucket_id
+    );
+
+    EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', rec.prefix || '_auth_write');
+    EXECUTE format(
+      'CREATE POLICY %I ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = %L)',
+      rec.prefix || '_auth_write', rec.bucket_id
+    );
+    EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', rec.prefix || '_auth_update');
+    EXECUTE format(
+      'CREATE POLICY %I ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = %L)',
+      rec.prefix || '_auth_update', rec.bucket_id
+    );
+    EXECUTE format('DROP POLICY IF EXISTS %I ON storage.objects', rec.prefix || '_auth_delete');
+    EXECUTE format(
+      'CREATE POLICY %I ON storage.objects FOR DELETE TO authenticated USING (bucket_id = %L)',
+      rec.prefix || '_auth_delete', rec.bucket_id
+    );
+  END LOOP;
+
+  -- Legacy policy names from earlier clean-schema drafts.
+  EXECUTE 'DROP POLICY IF EXISTS product_images_public_read ON storage.objects';
+  EXECUTE 'DROP POLICY IF EXISTS product_images_anon_write ON storage.objects';
+  EXECUTE 'DROP POLICY IF EXISTS product_images_anon_update ON storage.objects';
+  EXECUTE 'DROP POLICY IF EXISTS product_images_anon_delete ON storage.objects';
+  EXECUTE 'DROP POLICY IF EXISTS product_images_auth_write ON storage.objects';
+  EXECUTE 'DROP POLICY IF EXISTS product_images_auth_update ON storage.objects';
+  EXECUTE 'DROP POLICY IF EXISTS product_images_auth_delete ON storage.objects';
+END $$;
+
+-- Realtime: admin AI UI subscribes to products UPDATE filtered by id.
+-- REPLICA IDENTITY FULL is required so the payload includes row data.
+ALTER TABLE public.products REPLICA IDENTITY FULL;
+
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
+     AND NOT EXISTS (
+       SELECT 1
+       FROM pg_publication_tables
+       WHERE pubname = 'supabase_realtime'
+         AND schemaname = 'public'
+         AND tablename = 'products'
+     )
+  THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.products;
+  END IF;
+END $$;

@@ -5,6 +5,7 @@ import { themeVariables } from "@/lib/theme";
 import { buildMetadata } from "@/lib/seo";
 import { CartProvider } from "@/hooks/useCart";
 import Analytics from "@/components/Analytics";
+import JsonLd from "@/components/JsonLd";
 
 export async function generateMetadata() {
   const [seo, theme] = await Promise.all([getSeoSettings(), getTheme()]);
@@ -14,16 +15,21 @@ export async function generateMetadata() {
 export default async function RootLayout({ children }) {
   const [theme, seo] = await Promise.all([getTheme(), getSeoSettings()]);
 
-  const logo = theme?.logo_image || "/mhfood.png";
-
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="bn" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content={theme.accent_color} />
-        <meta name="application-name" content={seo.site_name} />
-        <link rel="icon" href={logo} />
-        <link rel="apple-touch-icon" href={logo} />
+        <meta
+          name="theme-color"
+          content={theme?.accent_color || "#C77B4C"}
+        />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link 
+          href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap" 
+          rel="stylesheet" 
+        />
         <style dangerouslySetInnerHTML={{ __html: themeVariables(theme) }} />
+        <JsonLd seo={seo} theme={theme} />
       </head>
       <body className="overflow-x-hidden">
         <Suspense fallback={null}>

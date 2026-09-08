@@ -24,7 +24,10 @@ export async function generateMetadata() {
 }
 
 export default async function HomePage() {
-  const [sections] = await Promise.all([getHomeSections()]);
+  const [sections, seo] = await Promise.all([
+    getHomeSections(),
+    getSeoSettings(),
+  ]);
 
   const enabled = sections.filter((s) => s.enabled);
 
@@ -149,5 +152,13 @@ export default async function HomePage() {
     }
   };
 
-  return <div className="pb-4">{enabled.map(renderSection)}</div>;
+  const pageTitle =
+    seo?.home_title || seo?.site_name || "Shop online";
+
+  return (
+    <div className="pb-4">
+      <h1 className="sr-only">{pageTitle}</h1>
+      {enabled.map(renderSection)}
+    </div>
+  );
 }

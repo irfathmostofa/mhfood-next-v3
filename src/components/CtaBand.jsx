@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
-export default function CtaBand() {
+export default function CtaBand({
+  title = "Hungry? Your order is a click away.",
+  subtitle = "Order fresh food and groceries online and track them the whole way to your door.",
+}) {
   return (
     <section className="max-w-7xl mx-auto px-5 pb-16 sm:pb-20">
       <div className="relative overflow-hidden rounded-3xl bg-primary text-white px-6 py-12 sm:px-12 sm:py-16 text-center">
@@ -9,12 +12,13 @@ export default function CtaBand() {
         <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-accent/15 blur-3xl" />
         <div className="relative">
           <h2 className="font-display text-2xl sm:text-4xl max-w-2xl mx-auto leading-tight">
-            Hungry? Your order is a click away.
+            {title}
           </h2>
-          <p className="text-white/70 text-sm sm:text-base mt-3 max-w-lg mx-auto">
-            Order fresh food and groceries online and track them the whole way
-            to your door.
-          </p>
+          {subtitle && (
+            <p className="text-white/70 text-sm sm:text-base mt-3 max-w-lg mx-auto">
+              {subtitle}
+            </p>
+          )}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/shop"

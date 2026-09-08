@@ -1,4 +1,4 @@
-import { getTheme, getSeoSettings, getCategories } from "@/lib/site";
+import { getCategories } from "@/lib/site";
 import { supabase } from "@/lib/supabase";
 
 const baseUrl =
@@ -6,23 +6,14 @@ const baseUrl =
   "http://localhost:3000";
 
 export default async function sitemap() {
-  const [seo, theme, categories] = await Promise.all([
-    getSeoSettings(),
-    getTheme(),
-    getCategories(),
-  ]);
+  const categories = await getCategories();
 
   const { data: products } = await supabase
     .from("products")
     .select("slug, updated_at")
     .eq("is_active", true);
 
-  const staticRoutes = [
-    "",
-    "/shop",
-    "/track",
-    "/checkout",
-  ].map((path) => ({
+  const staticRoutes = ["", "/shop"].map((path) => ({
     url: `${baseUrl}${path}`,
     lastModified: new Date(),
     changeFrequency: "weekly",
@@ -43,15 +34,5 @@ export default async function sitemap() {
     priority: 0.9,
   }));
 
-  return [
-    ...staticRoutes,
-    ...categoryRoutes,
-    ...productRoutes,
-    {
-      url: `${baseUrl}/admin`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.1,
-    },
-  ];
+  return [...staticRoutes, ...categoryRoutes, ...productRoutes];
 }
