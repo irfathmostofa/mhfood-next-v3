@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
-import { ChevronLeft, ChevronRight, ArrowRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function HeroSlider({ slides = [] }) {
   const [emblaRef, emblaApi] = useEmblaCarousel(
@@ -42,82 +42,25 @@ export default function HeroSlider({ slides = [] }) {
       <div className="overflow-hidden" ref={emblaRef}>
         <div className="flex">
           {slides.map((s) => {
-            const primaryUrl = (s.link_url || "").trim();
-            const primaryLabel = (s.button_label || "").trim();
-            const secondaryUrl = (s.button_2_url || "").trim();
-            const secondaryLabel = (s.button_2_label || "").trim();
-            const title = (s.title || "").trim();
-            const subtitle = (s.subtitle || "").trim();
-            const hasCopy = Boolean(title || subtitle);
-            const showPrimary = Boolean(primaryUrl && primaryLabel);
-            const showSecondary = Boolean(secondaryUrl && secondaryLabel);
-            const hasButtons = showPrimary || showSecondary;
-            const hasOverlay = hasCopy || hasButtons;
-            const bannerHref = !hasOverlay && primaryUrl ? primaryUrl : "";
+            const href = (s.link_url || "").trim();
+            const alt = (s.title || "").trim() || "Featured offer";
 
             const media = (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={s.image_url}
-                  alt={title || "Featured offer"}
-                  className="absolute inset-0 w-full h-full object-cover"
-                />
-                {hasOverlay && (
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/35 to-black/10 sm:bg-gradient-to-r sm:from-black/75 sm:via-black/35 sm:to-transparent" />
-                )}
-                {hasOverlay && (
-                  <div className="relative z-10 flex h-full items-end sm:items-center pointer-events-none">
-                    <div className="w-full px-5 pb-12 pt-16 sm:px-10 sm:py-12 lg:px-14 lg:py-16">
-                      <div className="max-w-xl text-white">
-                        {title && (
-                          <h2 className="font-display text-[1.65rem] leading-[1.15] sm:text-4xl lg:text-5xl font-medium tracking-tight">
-                            {title}
-                          </h2>
-                        )}
-                        {subtitle && (
-                          <p className="mt-2.5 sm:mt-3.5 text-sm sm:text-base lg:text-lg text-white/90 leading-relaxed max-w-md">
-                            {subtitle}
-                          </p>
-                        )}
-                        {hasButtons && (
-                          <div
-                            className={`flex flex-wrap items-center gap-2.5 sm:gap-3 pointer-events-auto ${
-                              hasCopy ? "mt-4 sm:mt-6" : ""
-                            }`}
-                          >
-                            {showPrimary && (
-                              <Link
-                                href={primaryUrl}
-                                className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-white hover:text-ink transition-colors"
-                              >
-                                {primaryLabel} <ArrowRight size={15} />
-                              </Link>
-                            )}
-                            {showSecondary && (
-                              <Link
-                                href={secondaryUrl}
-                                className="inline-flex items-center gap-2 rounded-full border border-white/45 bg-white/10 px-5 py-2.5 sm:px-6 sm:py-3 text-xs sm:text-sm font-semibold text-white backdrop-blur-sm hover:bg-white hover:text-ink transition-colors"
-                              >
-                                {secondaryLabel}
-                              </Link>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={s.image_url}
+                alt={alt}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
             );
 
             return (
               <div
                 key={s.id}
-                className="relative min-w-0 shrink-0 grow-0 basis-full h-[300px] sm:h-[400px] lg:h-[500px]"
+                className="relative min-w-0 shrink-0 grow-0 basis-full h-[250px] sm:h-[300px] lg:h-[350px]"
               >
-                {bannerHref ? (
-                  <Link href={bannerHref} className="absolute inset-0 block">
+                {href ? (
+                  <Link href={href} className="absolute inset-0 block">
                     {media}
                   </Link>
                 ) : (

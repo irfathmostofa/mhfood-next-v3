@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Plus,
   Pencil,
   Trash2,
   Save,
-  X,
   Loader2,
   Eye,
   EyeOff,
@@ -22,11 +21,7 @@ const EMPTY_SLIDE = {
   id: null,
   image_url: "",
   title: "",
-  subtitle: "",
   link_url: "",
-  button_label: "",
-  button_2_label: "",
-  button_2_url: "",
   sort_order: 1,
   is_active: true,
 };
@@ -75,11 +70,7 @@ export default function AdminHero({ embedded = false }) {
       id: slide.id,
       image_url: slide.image_url || "",
       title: slide.title || "",
-      subtitle: slide.subtitle || "",
       link_url: slide.link_url || "",
-      button_label: slide.button_label || "",
-      button_2_label: slide.button_2_label || "",
-      button_2_url: slide.button_2_url || "",
       sort_order: slide.sort_order ?? slides.length + 1,
       is_active: slide.is_active !== false,
     });
@@ -93,11 +84,11 @@ export default function AdminHero({ embedded = false }) {
     const payload = {
       image_url: editing.image_url || null,
       title: editing.title || "",
-      subtitle: editing.subtitle || "",
+      subtitle: "",
       link_url: editing.link_url || "",
-      button_label: editing.button_label || "",
-      button_2_label: editing.button_2_label || "",
-      button_2_url: editing.button_2_url || "",
+      button_label: "",
+      button_2_label: "",
+      button_2_url: "",
       sort_order: Number(editing.sort_order) || 0,
       is_active: editing.is_active,
     };
@@ -216,11 +207,11 @@ export default function AdminHero({ embedded = false }) {
 
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-ink truncate">
-                      {slide.title || "(untitled slide)"}
+                      {slide.link_url || "(no link)"}
                     </p>
                     <p className="text-xs text-muted truncate">
-                      Order {slide.sort_order} ·{" "}
-                      {slide.link_url ? slide.link_url : "no link"}
+                      Order {slide.sort_order}
+                      {slide.title ? ` · ${slide.title}` : ""}
                     </p>
                   </div>
 
@@ -300,97 +291,18 @@ export default function AdminHero({ embedded = false }) {
             </div>
 
             <div>
-              <label className="label">Title</label>
+              <label className="label">Link URL</label>
               <input
-                value={editing.title || ""}
+                value={editing.link_url || ""}
                 onChange={(e) =>
-                  setEditing({ ...editing, title: e.target.value })
+                  setEditing({ ...editing, link_url: e.target.value })
                 }
-                placeholder="Leave empty to hide"
+                placeholder="/shop"
                 className="input"
               />
-            </div>
-
-            <div>
-              <label className="label">Subtitle</label>
-              <input
-                value={editing.subtitle || ""}
-                onChange={(e) =>
-                  setEditing({ ...editing, subtitle: e.target.value })
-                }
-                placeholder="Leave empty to hide"
-                className="input"
-              />
-            </div>
-
-            <div className="rounded-xl border border-line p-3.5 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Primary button
+              <p className="mt-1.5 text-[11px] text-muted">
+                Optional. If set, the entire slide image is clickable.
               </p>
-              <p className="text-[11px] text-muted -mt-2">
-                Set both label and URL to show a button. URL only (no title or
-                buttons) makes the whole banner clickable.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Button label</label>
-                  <input
-                    value={editing.button_label || ""}
-                    onChange={(e) =>
-                      setEditing({ ...editing, button_label: e.target.value })
-                    }
-                    placeholder="Shop now"
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="label">Button URL</label>
-                  <input
-                    value={editing.link_url || ""}
-                    onChange={(e) =>
-                      setEditing({ ...editing, link_url: e.target.value })
-                    }
-                    placeholder="/shop"
-                    className="input"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-line p-3.5 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                Secondary button
-              </p>
-              <p className="text-[11px] text-muted -mt-2">
-                Optional. Shown only if both label and URL are set.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Button label</label>
-                  <input
-                    value={editing.button_2_label || ""}
-                    onChange={(e) =>
-                      setEditing({
-                        ...editing,
-                        button_2_label: e.target.value,
-                      })
-                    }
-                    placeholder="Browse menu"
-                    className="input"
-                  />
-                </div>
-                <div>
-                  <label className="label">Button URL</label>
-                  <input
-                    value={editing.button_2_url || ""}
-                    onChange={(e) =>
-                      setEditing({ ...editing, button_2_url: e.target.value })
-                    }
-                    placeholder="/shop"
-                    className="input"
-                  />
-                </div>
-              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

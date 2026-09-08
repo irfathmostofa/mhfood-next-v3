@@ -18,11 +18,11 @@ export default async function HeroSection() {
           hasBanner ? "lg:grid-cols-[minmax(0,1.7fr)_minmax(240px,1fr)] lg:items-stretch" : ""
         }`}
       >
-        <div className="rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm ring-1 ring-black/5 bg-primary/5">
+        <div className="rounded-2xl sm:rounded-3xl overflow-hidden shadow-sm h-[250px] sm:h-[300px] lg:h-[350px] ring-1 ring-black/5 bg-primary/5">
           {slides.length > 0 ? (
             <HeroSlider slides={slides} />
           ) : (
-            <div className="h-[300px] sm:h-[400px] lg:h-[500px] flex items-end bg-primary">
+            <div className="h-[250px] sm:h-[300px] lg:h-[350px] flex items-end bg-primary">
               <div className="px-6 pb-10 sm:px-10 sm:pb-14 text-white max-w-xl">
                 <h2 className="font-display text-3xl sm:text-4xl lg:text-5xl leading-tight">
                   Fresh food, delivered daily
@@ -35,7 +35,7 @@ export default async function HeroSection() {
           )}
         </div>
         {hasBanner && (
-          <div className="h-[180px] sm:h-[220px] lg:h-[500px]">
+          <div className="h-[250px] sm:h-[300px] lg:h-[350px]">
             <PromoBanner settings={settings} />
           </div>
         )}
