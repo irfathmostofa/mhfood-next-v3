@@ -18,6 +18,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { DEFAULT_THEME, THEME_PRESETS, matchThemePreset } from "@/lib/theme";
 import ImageUploader from "./ImageUploader";
 import Pagination from "./Pagination";
 import AdminHero from "./AdminHero";
@@ -164,7 +165,7 @@ export default function AdminSettings() {
         .order("sort_order", { ascending: true }),
     ]);
 
-    setTheme(themeData || {});
+    setTheme({ ...DEFAULT_THEME, ...(themeData || {}) });
     setSeo(seoData || {});
     setSite(siteData || {});
     let nextSections = sectionsData || [];
@@ -424,6 +425,21 @@ function ThemeForm({ theme, setTheme }) {
     ["border_color", "Border color"],
   ];
 
+  const activePreset = matchThemePreset(theme);
+
+  function applyPreset(preset) {
+    setTheme((prev) => ({
+      ...prev,
+      primary_color: preset.primary_color,
+      accent_color: preset.accent_color,
+      background_color: preset.background_color,
+      surface_color: preset.surface_color,
+      text_color: preset.text_color,
+      muted_color: preset.muted_color,
+      border_color: preset.border_color,
+    }));
+  }
+
   return (
     <Section title="Appearance">
       <div className="border-b border-line pb-4 mb-2">
@@ -435,6 +451,124 @@ function ThemeForm({ theme, setTheme }) {
           label="Logo"
           hint="Shown in the header, footer, favicon and SEO. Recommended 512x512px transparent PNG or WebP."
         />
+      </div>
+
+      <div>
+        <label className="label">Theme presets</label>
+        <p className="text-xs text-muted mb-3">
+          Pick a starter palette, then customize any color below.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          {THEME_PRESETS.map((preset) => {
+            const selected = activePreset === preset.id;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => applyPreset(preset)}
+                className={`text-left rounded-xl border p-2.5 transition-colors ${
+                  selected
+                    ? "border-primary ring-2 ring-primary/20 bg-primary/5"
+                    : "border-line hover:border-primary/40 bg-surface"
+                }`}
+              >
+                <span className="flex h-8 overflow-hidden rounded-lg mb-2">
+                  <span
+                    className="flex-1"
+                    style={{ backgroundColor: preset.primary_color }}
+                  />
+                  <span
+                    className="w-8"
+                    style={{ backgroundColor: preset.accent_color }}
+                  />
+                  <span
+                    className="w-8"
+                    style={{ backgroundColor: preset.background_color }}
+                  />
+                </span>
+                <span className="block text-xs font-medium text-ink">
+                  {preset.name}
+                </span>
+                <span className="block text-[10px] text-muted leading-snug mt-0.5">
+                  {preset.description}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center justify-between gap-3 mt-2">
+          {activePreset === null ? (
+            <p className="text-xs text-muted">Custom palette</p>
+          ) : (
+            <p className="text-xs text-muted">
+              Using {THEME_PRESETS.find((p) => p.id === activePreset)?.name} theme
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => applyPreset(THEME_PRESETS[0])}
+            className="text-xs text-accent hover:underline"
+          >
+            Reset to default
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="label">Live preview</label>
+        <div
+          className="rounded-xl border overflow-hidden"
+          style={{
+            backgroundColor: theme.background_color || DEFAULT_THEME.background_color,
+            borderColor: theme.border_color || DEFAULT_THEME.border_color,
+          }}
+        >
+          <div
+            className="px-4 py-2.5 flex items-center justify-between"
+            style={{
+              backgroundColor: theme.surface_color || DEFAULT_THEME.surface_color,
+              borderBottom: `1px solid ${theme.border_color || DEFAULT_THEME.border_color}`,
+            }}
+          >
+            <span
+              className="text-sm font-semibold"
+              style={{ color: theme.text_color || DEFAULT_THEME.text_color }}
+            >
+              {theme.store_name || "Your Store"}
+            </span>
+            <span
+              className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-white"
+              style={{ backgroundColor: theme.accent_color || DEFAULT_THEME.accent_color }}
+            >
+              Sale
+            </span>
+          </div>
+          <div className="p-4">
+            <p
+              className="text-xs mb-3"
+              style={{ color: theme.muted_color || DEFAULT_THEME.muted_color }}
+            >
+              Shop fresh food and groceries online.
+            </p>
+            <div className="flex gap-2">
+              <span
+                className="inline-flex text-xs font-medium text-white px-3 py-1.5 rounded-full"
+                style={{ backgroundColor: theme.primary_color || DEFAULT_THEME.primary_color }}
+              >
+                Shop now
+              </span>
+              <span
+                className="inline-flex text-xs font-medium px-3 py-1.5 rounded-full"
+                style={{
+                  color: theme.primary_color || DEFAULT_THEME.primary_color,
+                  border: `1px solid ${theme.border_color || DEFAULT_THEME.border_color}`,
+                }}
+              >
+                Track order
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -477,7 +611,7 @@ function ThemeForm({ theme, setTheme }) {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
+      <div className="flex items-center gap-3 mb-2">
         <label className="flex items-center gap-2 text-sm text-ink">
           <input
             type="checkbox"
@@ -486,7 +620,7 @@ function ThemeForm({ theme, setTheme }) {
           />
           Show announcement bar
         </label>
-        <label className="flex items-center gap-2 text-sm text-ink">
+         <label className="flex items-center gap-2 text-sm text-ink">
           <input
             type="checkbox"
             checked={theme.show_header_categories !== false}
@@ -1501,7 +1635,7 @@ function PickupPointsManager({ points, setPoints, showFlash }) {
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="e.g. MHFood Dhanmondi"
+            placeholder="e.g. কাঁকন বালার চুড়ি Dhanmondi"
             className="input"
             required
           />

@@ -3,6 +3,16 @@
 import { useState } from "react";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 
+export function hasActiveVariants(variants = []) {
+  return variants.some((v) => !v._removed && (v.name || v.value));
+}
+
+export function variantStockTotal(variants = []) {
+  return variants
+    .filter((v) => !v._removed && (v.name || v.value))
+    .reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+}
+
 export default function VariantsEditor({ variants = [], onChange }) {
   const [open, setOpen] = useState(variants.some((v) => !v._removed));
 

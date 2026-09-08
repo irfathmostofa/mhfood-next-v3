@@ -20,7 +20,11 @@ import ImageUploader from "./ImageUploader";
 import Modal from "./Modal";
 import Pagination from "./Pagination";
 import RichTextEditor from "./RichTextEditor";
-import VariantsEditor, { saveProductVariants } from "./VariantsEditor";
+import VariantsEditor, {
+  saveProductVariants,
+  hasActiveVariants,
+  variantStockTotal,
+} from "./VariantsEditor";
 
 const PAGE_SIZES = [10, 25, 50];
 
@@ -122,7 +126,9 @@ export default function AdminProducts() {
       cost: Number(editing.cost) || 0,
       regular_price: Number(editing.regular_price) || 0,
       price: Number(editing.price) || 0,
-      stock: Number(editing.stock) || 0,
+      stock: hasActiveVariants(editing.variants)
+        ? variantStockTotal(editing.variants)
+        : Number(editing.stock) || 0,
       description: editing.description || "",
       is_featured: editing.is_featured,
       is_active: editing.is_active,
@@ -630,13 +636,24 @@ export default function AdminProducts() {
                 <input
                   type="number"
                   min="0"
-                  value={editing.stock}
+                  value={
+                    hasActiveVariants(editing.variants)
+                      ? variantStockTotal(editing.variants)
+                      : editing.stock
+                  }
                   onChange={(e) =>
                     setEditing({ ...editing, stock: e.target.value })
                   }
                   className="input"
                   required
+                  readOnly={hasActiveVariants(editing.variants)}
+                  disabled={hasActiveVariants(editing.variants)}
                 />
+                {hasActiveVariants(editing.variants) && (
+                  <p className="text-[11px] text-muted mt-1">
+                    Total of variant stock. Edit stock on each variant.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -751,7 +768,15 @@ export default function AdminProducts() {
 
             <VariantsEditor
               variants={editing.variants || []}
-              onChange={(variants) => setEditing({ ...editing, variants })}
+              onChange={(variants) =>
+                setEditing({
+                  ...editing,
+                  variants,
+                  stock: hasActiveVariants(variants)
+                    ? variantStockTotal(variants)
+                    : editing.stock,
+                })
+              }
             />
 
             <ImagesEditor

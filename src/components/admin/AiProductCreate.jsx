@@ -21,7 +21,11 @@ import {
 import { supabase } from "@/lib/supabase";
 import { analyzeSEO } from "@/lib/seoAnalyzer";
 import { slugify } from "@/lib/slugify";
-import VariantsEditor, { saveProductVariants } from "./VariantsEditor";
+import VariantsEditor, {
+  saveProductVariants,
+  hasActiveVariants,
+  variantStockTotal,
+} from "./VariantsEditor";
 
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -596,7 +600,9 @@ export default function AiProductCreate() {
       cost: Number(form.cost) || 0,
       regular_price: Number(form.regular_price) || 0,
       price: Number(form.price) || 0,
-      stock: Number(form.stock) || 0,
+      stock: hasActiveVariants(variants)
+        ? variantStockTotal(variants)
+        : Number(form.stock) || 0,
       unit: form.unit.trim(),
       category_id: form.category_id || null,
       seo_keywords: keywords.filter(Boolean),
@@ -1125,11 +1131,22 @@ export default function AiProductCreate() {
                 <input
                   type="number"
                   min="0"
-                  value={form.stock}
+                  value={
+                    hasActiveVariants(variants)
+                      ? variantStockTotal(variants)
+                      : form.stock
+                  }
                   onChange={(e) => setForm({ ...form, stock: e.target.value })}
                   className="input"
                   required
+                  readOnly={hasActiveVariants(variants)}
+                  disabled={hasActiveVariants(variants)}
                 />
+                {hasActiveVariants(variants) && (
+                  <p className="text-[11px] text-muted mt-1">
+                    Total of variant stock. Edit stock on each variant.
+                  </p>
+                )}
               </div>
               <div>
                 <label className="label">Unit</label>
@@ -1160,7 +1177,18 @@ export default function AiProductCreate() {
             </div>
 
             <div className="mt-6">
-              <VariantsEditor variants={variants} onChange={setVariants} />
+              <VariantsEditor
+                variants={variants}
+                onChange={(next) => {
+                  setVariants(next);
+                  if (hasActiveVariants(next)) {
+                    setForm((prev) => ({
+                      ...prev,
+                      stock: String(variantStockTotal(next)),
+                    }));
+                  }
+                }}
+              />
             </div>
           </div>
 
