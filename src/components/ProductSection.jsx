@@ -11,7 +11,7 @@ export default function ProductSection({
   if (!products || products.length === 0) return null;
 
   return (
-    <section className="max-w-[94%] mx-auto px-2 py-6 sm:py-10">
+    <section className="max-w-[95%] mx-auto px-2 py-6 sm:py-10">
       <div className="flex items-end justify-between mb-4 sm:mb-6 px-1.5">
         <div>
           <h2 className="font-display text-xl sm:text-2xl lg:text-3xl text-ink">

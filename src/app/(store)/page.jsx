@@ -24,10 +24,7 @@ export async function generateMetadata() {
 }
 
 export default async function HomePage() {
-  const [sections, seo] = await Promise.all([
-    getHomeSections(),
-    getSeoSettings(),
-  ]);
+  const [sections] = await Promise.all([getHomeSections()]);
 
   const enabled = sections.filter((s) => s.enabled);
 
@@ -66,9 +63,11 @@ export default async function HomePage() {
       : [],
   ]);
 
-  const parentCategories = allCategories
-    .filter((c) => !c.parent_id && categoryCounts[c.id] > 0)
-    .slice(0, categoriesSection?.items_per_page || 12);
+  const topLevel = allCategories.filter((c) => !c.parent_id);
+  const parentCategories = (topLevel.length > 0 ? topLevel : allCategories).slice(
+    0,
+    categoriesSection?.items_per_page || 12,
+  );
 
   const renderSection = (section) => {
     switch (section.key) {
@@ -152,13 +151,5 @@ export default async function HomePage() {
     }
   };
 
-  const pageTitle =
-    seo?.home_title || seo?.site_name || "Shop online";
-
-  return (
-    <div className="pb-4">
-      <h1 className="sr-only">{pageTitle}</h1>
-      {enabled.map(renderSection)}
-    </div>
-  );
+  return <div className="pb-4">{enabled.map(renderSection)}</div>;
 }

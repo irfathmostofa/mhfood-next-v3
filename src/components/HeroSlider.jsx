@@ -55,7 +55,7 @@ export default function HeroSlider({ slides = [] }) {
                 fetchPriority={index === 0 ? "high" : "low"}
                 loading={index === 0 ? "eager" : "lazy"}
                 decoding="async"
-                className="absolute inset-0 w-full h-full object-cover"
+                className="absolute inset-0 w-full h-full object-fill"
               />
             );
 

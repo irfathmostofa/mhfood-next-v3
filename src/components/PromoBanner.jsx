@@ -5,7 +5,7 @@ export default function PromoBanner({ settings }) {
   if (!image) return null;
 
   const content = (
-    <div className="relative w-full h-full overflow-hidden rounded-2xl sm:rounded-3xl bg-primary/5 shadow-sm ring-1 ring-black/5 group">
+    <div className="relative w-full h-full overflow-hidden rounded-lg bg-primary/5 shadow-sm ring-1 ring-black/5 group">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={image}

@@ -6,9 +6,10 @@ import {
   Pencil,
   Trash2,
   Save,
-  X,
   Loader2,
   Search,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import ImageUploader from "./ImageUploader";
@@ -46,7 +47,8 @@ export default function AdminCategories() {
     const { data } = await supabase
       .from("categories")
       .select("*")
-      .order("name");
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
     setCategories(data || []);
     setLoading(false);
   }
@@ -58,12 +60,19 @@ export default function AdminCategories() {
 
   function openNew() {
     setError("");
+    const nextOrder =
+      categories.reduce(
+        (max, c) => Math.max(max, Number(c.sort_order) || 0),
+        0,
+      ) + 1;
     setEditing({
       id: null,
       name: "",
       slug: "",
       image_url: "",
       parent_id: null,
+      sort_order: nextOrder,
+      is_active: true,
     });
   }
 
@@ -75,6 +84,8 @@ export default function AdminCategories() {
       slug: cat.slug,
       image_url: cat.image_url || "",
       parent_id: cat.parent_id || null,
+      sort_order: cat.sort_order ?? 0,
+      is_active: cat.is_active !== false,
     });
   }
 
@@ -89,6 +100,8 @@ export default function AdminCategories() {
       slug: editing.slug || slugify(editing.name),
       image_url: editing.image_url || null,
       parent_id: editing.parent_id || null,
+      sort_order: Number(editing.sort_order) || 0,
+      is_active: editing.is_active !== false,
     };
 
     const { error: saveError } = editing.id
@@ -123,6 +136,22 @@ export default function AdminCategories() {
     }
     showFlash("Category deleted.");
     await loadAll();
+  }
+
+  async function toggleActive(cat) {
+    const { error: updateError } = await supabase
+      .from("categories")
+      .update({ is_active: !cat.is_active })
+      .eq("id", cat.id);
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+    setCategories((prev) =>
+      prev.map((c) =>
+        c.id === cat.id ? { ...c, is_active: !cat.is_active } : c,
+      ),
+    );
   }
 
   const filtered = useMemo(
@@ -223,9 +252,31 @@ export default function AdminCategories() {
                         {parent
                           ? `Sub-category of ${parent.name}`
                           : "Top level"}
-                        {childCount > 0 && ` · ${childCount} sub-categor${childCount === 1 ? "y" : "ies"}`}
+                        {childCount > 0 &&
+                          ` · ${childCount} sub-categor${childCount === 1 ? "y" : "ies"}`}
+                        {` · Order ${cat.sort_order ?? 0}`}
                       </p>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => toggleActive(cat)}
+                      className={`hidden sm:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors shrink-0 ${
+                        cat.is_active !== false
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-slate-100 text-muted border-line"
+                      }`}
+                    >
+                      {cat.is_active !== false ? (
+                        <>
+                          <Eye size={11} /> Active
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff size={11} /> Hidden
+                        </>
+                      )}
+                    </button>
 
                     <div className="flex items-center gap-1 shrink-0">
                       <button
@@ -314,6 +365,43 @@ export default function AdminCategories() {
                     </option>
                   ))}
               </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="label">Sort Order</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={editing.sort_order ?? 0}
+                  onChange={(e) =>
+                    setEditing({ ...editing, sort_order: e.target.value })
+                  }
+                  className="input"
+                />
+                <p className="mt-1.5 text-[11px] text-muted">
+                  Lower numbers appear first on the storefront.
+                </p>
+              </div>
+              <div>
+                <label className="label">Status</label>
+                <select
+                  value={editing.is_active ? "active" : "hidden"}
+                  onChange={(e) =>
+                    setEditing({
+                      ...editing,
+                      is_active: e.target.value === "active",
+                    })
+                  }
+                  className="input"
+                >
+                  <option value="active">Active</option>
+                  <option value="hidden">Hidden</option>
+                </select>
+                <p className="mt-1.5 text-[11px] text-muted">
+                  Hidden categories are not shown in the shop or menus.
+                </p>
+              </div>
             </div>
 
             <div>

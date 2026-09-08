@@ -28,7 +28,7 @@ const NAV = [
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/products/new", label: "Create with AI", icon: Wand2 },
   { href: "/admin/categories", label: "Categories", icon: Tags },
-  { href: "/admin/discounts", label: "Campaign Sessions", icon: Percent },
+  { href: "/admin/discounts", label: "Discount Sessions", icon: Percent },
   { href: "/admin/hero", label: "Hero Slides", icon: Sparkles },
   { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { href: "/admin/logistics", label: "Logistics", icon: Truck },
