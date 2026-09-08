@@ -53,6 +53,12 @@ export async function POST(req) {
         { status: 400 },
       );
     }
+    if (!customer?.email?.trim()) {
+      return NextResponse.json(
+        { error: "Email is required so we can send your order confirmation." },
+        { status: 400 },
+      );
+    }
     if (!cartItems || cartItems.length === 0) {
       return NextResponse.json(
         { error: "Your cart is empty." },
@@ -398,7 +404,7 @@ export async function POST(req) {
     const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
 
     sendOrderPlacedEmails({
-      toEmail: customer.email,
+      toEmail: customer.email.trim(),
       customerName: customer.name,
       phone: customer.phone,
       address: isPickup
@@ -417,6 +423,7 @@ export async function POST(req) {
       phone: customer.phone,
       customerName: customer.name,
       trackingCode,
+      origin,
     }).catch((err) => {
       console.error("Order confirmation SMS failed:", err.message);
     });

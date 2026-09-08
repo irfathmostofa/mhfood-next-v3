@@ -8,10 +8,19 @@ import {
   Printer,
   Loader2,
   Check,
+  Truck,
+  ExternalLink,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { printPOSInvoice } from "@/lib/posInvoice";
 import Pagination from "./Pagination";
+import Modal from "./Modal";
+import {
+  courierStatusLabel,
+  courierTrackingUrl,
+  COURIER_STATUS_PILL,
+  normalizeSteadfastPhone,
+} from "@/lib/steadfast";
 
 const STATUSES = [
   { key: "pending", label: "Pending" },
@@ -29,6 +38,18 @@ const STATUS_PILL = {
   cancelled: "bg-red-50 text-red-600 border-red-200",
 };
 
+const EMPTY_PARCEL = {
+  orderId: "",
+  recipient_name: "",
+  recipient_phone: "",
+  alternative_phone: "",
+  recipient_email: "",
+  recipient_address: "",
+  cod_amount: "",
+  note: "",
+  delivery_type: 0,
+};
+
 export default function AdminOrders() {
   const [orders, setOrders] = useState([]);
   const [expanded, setExpanded] = useState(null);
@@ -38,6 +59,12 @@ export default function AdminOrders() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [parcelForm, setParcelForm] = useState(null);
+  const [parcelSaving, setParcelSaving] = useState(false);
+  const [parcelError, setParcelError] = useState("");
+  const [selected, setSelected] = useState([]);
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [flash, setFlash] = useState("");
 
   useEffect(() => {
     loadOrders();
@@ -83,6 +110,102 @@ export default function AdminOrders() {
     setUpdatingId(null);
   }
 
+  function showFlash(msg) {
+    setFlash(msg);
+    setTimeout(() => setFlash(""), 3000);
+  }
+
+  function openParcel(order) {
+    setParcelError("");
+    setParcelForm({
+      ...EMPTY_PARCEL,
+      orderId: order.id,
+      recipient_name: order.customer_name || "",
+      recipient_phone: normalizeSteadfastPhone(order.phone),
+      recipient_email: order.email || "",
+      recipient_address: order.address || "",
+      cod_amount: String(order.total_amount ?? 0),
+      note: order.notes || "",
+      delivery_type: 0,
+    });
+  }
+
+  async function createParcel(e) {
+    e.preventDefault();
+    if (!parcelForm?.orderId) return;
+    setParcelSaving(true);
+    setParcelError("");
+    try {
+      const res = await fetch("/api/admin/logistics/parcels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parcelForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setParcelForm(null);
+      showFlash("Parcel created with Steadfast.");
+      await loadOrders();
+    } catch (err) {
+      setParcelError(err.message || "Could not create parcel.");
+    } finally {
+      setParcelSaving(false);
+    }
+  }
+
+  function toggleSelect(orderId) {
+    setSelected((prev) =>
+      prev.includes(orderId)
+        ? prev.filter((id) => id !== orderId)
+        : [...prev, orderId],
+    );
+  }
+
+  const eligibleIds = orders
+    .filter(
+      (o) =>
+        o.fulfillment_method !== "pickup" &&
+        o.status !== "cancelled" &&
+        !o.consignment_id,
+    )
+    .map((o) => o.id);
+
+  function toggleSelectPage(ids) {
+    const allSelected = ids.every((id) => selected.includes(id));
+    setSelected((prev) =>
+      allSelected
+        ? prev.filter((id) => !ids.includes(id))
+        : [...new Set([...prev, ...ids])],
+    );
+  }
+
+  async function bulkCreateParcels() {
+    const ids = selected.filter((id) => eligibleIds.includes(id));
+    if (ids.length === 0) return;
+    setBulkSaving(true);
+    try {
+      const res = await fetch("/api/admin/logistics/parcels/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderIds: ids }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const failed = (data.failed || []).length;
+      showFlash(
+        failed
+          ? `Created ${data.created?.length || 0} parcel(s), ${failed} failed.`
+          : `Created ${data.created?.length || 0} parcel(s).`,
+      );
+      setSelected([]);
+      await loadOrders();
+    } catch (err) {
+      showFlash(err.message || "Bulk parcel create failed.");
+    } finally {
+      setBulkSaving(false);
+    }
+  }
+
   const filtered = orders.filter((o) => {
     if (filter !== "all" && o.status !== filter) return false;
     if (
@@ -102,9 +225,37 @@ export default function AdminOrders() {
     currentPage * pageSize,
   );
 
+  const pageEligibleIds = paged
+    .filter((o) => eligibleIds.includes(o.id))
+    .map((o) => o.id);
+  const selectedEligible = selected.filter((id) => eligibleIds.includes(id));
+
   return (
     <div>
-      <h1 className="text-2xl font-display text-ink mb-6">Orders</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+        <h1 className="text-2xl font-display text-ink">Orders</h1>
+        {selectedEligible.length > 0 && (
+          <button
+            onClick={bulkCreateParcels}
+            disabled={bulkSaving}
+            className="btn btn-primary btn-sm"
+          >
+            {bulkSaving ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Truck size={14} />
+            )}
+            Create {selectedEligible.length} parcel
+            {selectedEligible.length === 1 ? "" : "s"}
+          </button>
+        )}
+      </div>
+
+      {flash && (
+        <p className="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
+          {flash}
+        </p>
+      )}
 
       <div className="flex flex-wrap items-center gap-2 mb-5">
         <button
@@ -152,53 +303,95 @@ export default function AdminOrders() {
         <p className="text-sm text-muted py-10 text-center">No orders found.</p>
       ) : (
         <div className="card overflow-hidden">
+          {pageEligibleIds.length > 0 && (
+            <div className="px-5 py-2.5 border-b border-line flex items-center gap-2">
+              <label className="flex items-center gap-2 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={
+                    pageEligibleIds.length > 0 &&
+                    pageEligibleIds.every((id) => selected.includes(id))
+                  }
+                  onChange={() => toggleSelectPage(pageEligibleIds)}
+                />
+                Select page ({pageEligibleIds.length} eligible)
+              </label>
+            </div>
+          )}
           <ul className="divide-y divide-line">
             {paged.map((order) => (
               <li key={order.id}>
-                <button
-                  onClick={() => toggleExpand(order.id)}
-                  className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-surface"
-                >
-                  <div className="min-w-0 pr-4">
-                    <div className="flex items-center gap-2">
-                      {expanded === order.id ? (
-                        <ChevronDown
-                          size={15}
-                          className="text-muted shrink-0"
-                        />
-                      ) : (
-                        <ChevronRight
-                          size={15}
-                          className="text-muted shrink-0"
-                        />
-                      )}
-                      <p className="text-sm font-medium text-ink truncate">
-                        {order.customer_name}
+                <div className="flex items-stretch">
+                  {eligibleIds.includes(order.id) && (
+                    <label className="flex items-center px-3 hover:bg-surface">
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(order.id)}
+                        onChange={() => toggleSelect(order.id)}
+                        aria-label={`Select ${order.tracking_code}`}
+                      />
+                    </label>
+                  )}
+                  <button
+                    onClick={() => toggleExpand(order.id)}
+                    className="flex-1 flex items-center justify-between px-5 py-4 text-left hover:bg-surface"
+                  >
+                    <div className="min-w-0 pr-4">
+                      <div className="flex items-center gap-2">
+                        {expanded === order.id ? (
+                          <ChevronDown
+                            size={15}
+                            className="text-muted shrink-0"
+                          />
+                        ) : (
+                          <ChevronRight
+                            size={15}
+                            className="text-muted shrink-0"
+                          />
+                        )}
+                        <p className="text-sm font-medium text-ink truncate">
+                          {order.customer_name}
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted mt-0.5 pl-5">
+                        {order.tracking_code} · ৳{order.total_amount} ·{" "}
+                        {order.fulfillment_method === "pickup"
+                          ? "Pickup"
+                          : "Delivery"}{" "}
+                        · {new Date(order.created_at).toLocaleDateString()}
+                        {order.courier_tracking_code
+                          ? ` · ${order.courier_tracking_code}`
+                          : ""}
                       </p>
                     </div>
-                    <p className="text-xs text-muted mt-0.5 pl-5">
-                      {order.tracking_code} · ৳{order.total_amount} ·{" "}
-                      {order.fulfillment_method === "pickup"
-                        ? "Pickup"
-                        : "Delivery"}{" "}
-                      · {new Date(order.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <span
-                    className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] uppercase tracking-wide border ${
-                      STATUS_PILL[order.status] ||
-                      "bg-primary/10 text-primary border-primary/20"
-                    }`}
-                  >
-                    {order.fulfillment_method === "pickup" &&
-                    order.status === "out_for_delivery"
-                      ? "ready for pickup"
-                      : order.fulfillment_method === "pickup" &&
-                          order.status === "delivered"
-                        ? "collected"
-                        : order.status.replace(/_/g, " ")}
-                  </span>
-                </button>
+                    <div className="shrink-0 flex items-center gap-2">
+                      {order.consignment_id && (
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-[11px] uppercase tracking-wide border ${
+                            COURIER_STATUS_PILL[order.courier_status] ||
+                            "bg-primary/10 text-primary border-primary/20"
+                          }`}
+                        >
+                          {courierStatusLabel(order.courier_status)}
+                        </span>
+                      )}
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[11px] uppercase tracking-wide border ${
+                          STATUS_PILL[order.status] ||
+                          "bg-primary/10 text-primary border-primary/20"
+                        }`}
+                      >
+                        {order.fulfillment_method === "pickup" &&
+                        order.status === "out_for_delivery"
+                          ? "ready for pickup"
+                          : order.fulfillment_method === "pickup" &&
+                              order.status === "delivered"
+                            ? "collected"
+                            : order.status.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                  </button>
+                </div>
 
                 {expanded === order.id && (
                   <div className="px-5 pb-5">
@@ -207,6 +400,7 @@ export default function AdminOrders() {
                       loadItems={loadItems}
                       updatingId={updatingId}
                       onUpdateStatus={updateStatus}
+                      onCreateParcel={openParcel}
                     />
                   </div>
                 )}
@@ -225,11 +419,172 @@ export default function AdminOrders() {
           />
         </div>
       )}
+
+      <Modal
+        open={Boolean(parcelForm)}
+        onClose={() => !parcelSaving && setParcelForm(null)}
+        title="Create Steadfast parcel"
+        subtitle="Review recipient details, then send this order to courier."
+      >
+        {parcelForm && (
+          <form onSubmit={createParcel} className="space-y-3">
+            {parcelError && (
+              <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+                {parcelError}
+              </p>
+            )}
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">Recipient name</label>
+                <input
+                  className="input"
+                  value={parcelForm.recipient_name}
+                  onChange={(e) =>
+                    setParcelForm((prev) => ({
+                      ...prev,
+                      recipient_name: e.target.value,
+                    }))
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Phone (11 digits)</label>
+                <input
+                  className="input"
+                  value={parcelForm.recipient_phone}
+                  onChange={(e) =>
+                    setParcelForm((prev) => ({
+                      ...prev,
+                      recipient_phone: e.target.value,
+                    }))
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Alternative phone</label>
+                <input
+                  className="input"
+                  value={parcelForm.alternative_phone}
+                  onChange={(e) =>
+                    setParcelForm((prev) => ({
+                      ...prev,
+                      alternative_phone: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+              <div>
+                <label className="label">Email</label>
+                <input
+                  className="input"
+                  type="email"
+                  value={parcelForm.recipient_email}
+                  onChange={(e) =>
+                    setParcelForm((prev) => ({
+                      ...prev,
+                      recipient_email: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <div>
+              <label className="label">Address</label>
+              <textarea
+                className="input min-h-24"
+                value={parcelForm.recipient_address}
+                onChange={(e) =>
+                  setParcelForm((prev) => ({
+                    ...prev,
+                    recipient_address: e.target.value,
+                  }))
+                }
+                required
+              />
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="label">COD amount</label>
+                <input
+                  className="input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={parcelForm.cod_amount}
+                  onChange={(e) =>
+                    setParcelForm((prev) => ({
+                      ...prev,
+                      cod_amount: e.target.value,
+                    }))
+                  }
+                  required
+                />
+              </div>
+              <div>
+                <label className="label">Delivery type</label>
+                <select
+                  className="input"
+                  value={parcelForm.delivery_type}
+                  onChange={(e) =>
+                    setParcelForm((prev) => ({
+                      ...prev,
+                      delivery_type: Number(e.target.value),
+                    }))
+                  }
+                >
+                  <option value={0}>Home delivery</option>
+                  <option value={1}>Point delivery / hub pickup</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="label">Note</label>
+              <input
+                className="input"
+                value={parcelForm.note}
+                onChange={(e) =>
+                  setParcelForm((prev) => ({ ...prev, note: e.target.value }))
+                }
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setParcelForm(null)}
+                disabled={parcelSaving}
+                className="btn btn-ghost btn-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={parcelSaving}
+                className="btn btn-primary btn-sm"
+              >
+                {parcelSaving ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Truck size={14} />
+                )}
+                Create parcel
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
     </div>
   );
 }
 
-function OrderDetail({ order, loadItems, updatingId, onUpdateStatus }) {
+function OrderDetail({
+  order,
+  loadItems,
+  updatingId,
+  onUpdateStatus,
+  onCreateParcel,
+}) {
   const [items, setItems] = useState(null);
   const [printing, setPrinting] = useState(false);
 
@@ -286,6 +641,17 @@ function OrderDetail({ order, loadItems, updatingId, onUpdateStatus }) {
             </button>
           );
         })}
+        {order.fulfillment_method !== "pickup" &&
+          order.status !== "cancelled" &&
+          !order.consignment_id && (
+            <button
+              onClick={() => onCreateParcel(order)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-primary bg-primary text-white"
+            >
+              <Truck size={13} />
+              Create Parcel
+            </button>
+          )}
         <button
           onClick={handlePrint}
           disabled={printing || !items}
@@ -377,6 +743,34 @@ function OrderDetail({ order, loadItems, updatingId, onUpdateStatus }) {
             )}
             <p className="mt-0.5">{order.phone}</p>
           </div>
+
+          {order.consignment_id && (
+            <div className="border-t border-line mt-3 pt-3 text-sm text-muted">
+              <p className="font-medium text-ink mb-1">Steadfast parcel</p>
+              <p>Consignment #{order.consignment_id}</p>
+              <p className="mt-0.5">
+                Status: {courierStatusLabel(order.courier_status)}
+              </p>
+              {order.courier_tracking_code && (
+                <p className="mt-0.5">
+                  Tracking:{" "}
+                  {courierTrackingUrl(order.courier_tracking_code) ? (
+                    <a
+                      href={courierTrackingUrl(order.courier_tracking_code)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 text-primary hover:underline"
+                    >
+                      {order.courier_tracking_code}
+                      <ExternalLink size={12} />
+                    </a>
+                  ) : (
+                    order.courier_tracking_code
+                  )}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

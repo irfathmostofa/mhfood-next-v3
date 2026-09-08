@@ -15,6 +15,7 @@ import {
   Truck,
   Percent,
   MapPin,
+  MessageSquare,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import ImageUploader from "./ImageUploader";
@@ -77,6 +78,13 @@ const TABS = [
     short: "Rules",
     icon: Percent,
     hint: "Automatic cart discounts",
+  },
+  {
+    id: "sms",
+    label: "SMS",
+    short: "SMS",
+    icon: MessageSquare,
+    hint: "BulkSMSBD API key and sender ID",
   },
 ];
 
@@ -392,6 +400,8 @@ export default function AdminSettings() {
               showFlash={showFlash}
             />
           )}
+
+          {activeTab === "sms" && <SmsSettingsManager showFlash={showFlash} />}
         </div>
       </div>
     </div>
@@ -1787,6 +1797,153 @@ function RulesManager({ rules, setRules, showFlash }) {
       </ul>
       {pagination}
     </Section>
+  );
+}
+
+function SmsSettingsManager({ showFlash }) {
+  const [settings, setSettings] = useState(null);
+  const [form, setForm] = useState({
+    is_enabled: false,
+    sender_id: "",
+    api_key: "",
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function load() {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/sms/settings");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSettings(data.settings);
+      setForm({
+        is_enabled: Boolean(data.settings?.is_enabled),
+        sender_id: data.settings?.sender_id || "",
+        api_key: "",
+      });
+    } catch (err) {
+      setError(
+        err.message ||
+          "Could not load SMS settings. Run 014_sms_settings.sql first.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function save(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/sms/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSettings(data.settings);
+      setForm((prev) => ({
+        ...prev,
+        is_enabled: Boolean(data.settings?.is_enabled),
+        sender_id: data.settings?.sender_id || prev.sender_id,
+        api_key: "",
+      }));
+      showFlash("SMS settings saved.");
+    } catch (err) {
+      setError(err.message || "Could not save SMS settings.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) {
+    return <p className="text-sm text-muted">Loading SMS settings...</p>;
+  }
+
+  return (
+    <form onSubmit={save} className="space-y-6">
+      <Section title="BulkSMSBD">
+        {error && (
+          <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+            {error}
+          </p>
+        )}
+        <label className="flex items-center justify-between gap-3">
+          <span>
+            <span className="block text-sm font-medium text-ink">
+              Enable SMS
+            </span>
+            <span className="block text-xs text-muted mt-0.5">
+              Send order confirmation and delivery messages via BulkSMSBD.
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={form.is_enabled}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, is_enabled: e.target.checked }))
+            }
+          />
+        </label>
+        <div>
+          <label className="label">Sender ID</label>
+          <input
+            className="input"
+            value={form.sender_id}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, sender_id: e.target.value }))
+            }
+            placeholder="Approved BulkSMSBD sender ID"
+          />
+        </div>
+        <div>
+          <label className="label">API key</label>
+          <input
+            className="input"
+            type="password"
+            value={form.api_key}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, api_key: e.target.value }))
+            }
+            placeholder={
+              settings?.api_key_masked || "Paste BulkSMSBD API key"
+            }
+          />
+          <p className="text-xs text-muted mt-1">
+            Leave blank to keep the current key.
+            {settings?.env_configured
+              ? " Environment keys are used as fallback."
+              : ""}
+          </p>
+        </div>
+      </Section>
+      <div className="flex justify-stretch sm:justify-end">
+        <button
+          type="submit"
+          disabled={saving}
+          className="btn btn-primary disabled:opacity-60 w-full sm:w-auto"
+        >
+          {saving ? (
+            <>
+              <Loader2 size={16} className="animate-spin" /> Saving...
+            </>
+          ) : (
+            <>
+              <Save size={16} /> Save SMS Settings
+            </>
+          )}
+        </button>
+      </div>
+    </form>
   );
 }
 

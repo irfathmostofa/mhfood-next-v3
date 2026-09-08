@@ -18,6 +18,7 @@ import {
   Wand2,
   Wallet,
   Percent,
+  Truck,
 } from "lucide-react";
 
 const NAV = [
@@ -47,6 +48,12 @@ const NAV = [
     label: "Orders",
     short: "Orders",
     icon: ShoppingCart,
+  },
+  {
+    href: "/admin/logistics",
+    label: "Logistics",
+    short: "Courier",
+    icon: Truck,
   },
   { href: "/admin/customers", label: "Customers", short: "Users", icon: Users },
   { href: "/admin/expenses", label: "Expenses", short: "Costs", icon: Wallet },
