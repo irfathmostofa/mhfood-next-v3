@@ -10,6 +10,7 @@ import {
   Check,
   Truck,
   ExternalLink,
+  Trash2,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { printPOSInvoice } from "@/lib/posInvoice";
@@ -55,6 +56,7 @@ export default function AdminOrders() {
   const [expanded, setExpanded] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -65,6 +67,7 @@ export default function AdminOrders() {
   const [selected, setSelected] = useState([]);
   const [bulkSaving, setBulkSaving] = useState(false);
   const [flash, setFlash] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   useEffect(() => {
     loadOrders();
@@ -108,6 +111,38 @@ export default function AdminOrders() {
       await loadOrders();
     }
     setUpdatingId(null);
+  }
+
+  async function deleteOrder(order) {
+    setDeletingId(order.id);
+    try {
+      // First delete order items
+      const { error: itemsError } = await supabase
+        .from("order_items")
+        .delete()
+        .eq("order_id", order.id);
+      
+      if (itemsError) throw itemsError;
+
+      // Then delete the order
+      const { error: orderError } = await supabase
+        .from("orders")
+        .delete()
+        .eq("id", order.id);
+      
+      if (orderError) throw orderError;
+
+      showFlash(`Order ${order.tracking_code} deleted successfully.`);
+      await loadOrders();
+      setConfirmDelete(null);
+      if (expanded === order.id) {
+        setExpanded(null);
+      }
+    } catch (err) {
+      showFlash(err.message || "Failed to delete order.");
+    } finally {
+      setDeletingId(null);
+    }
   }
 
   function showFlash(msg) {
@@ -234,21 +269,23 @@ export default function AdminOrders() {
     <div>
       <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
         <h1 className="text-2xl font-display text-ink">Orders</h1>
-        {selectedEligible.length > 0 && (
-          <button
-            onClick={bulkCreateParcels}
-            disabled={bulkSaving}
-            className="btn btn-primary btn-sm"
-          >
-            {bulkSaving ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <Truck size={14} />
-            )}
-            Create {selectedEligible.length} parcel
-            {selectedEligible.length === 1 ? "" : "s"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {selectedEligible.length > 0 && (
+            <button
+              onClick={bulkCreateParcels}
+              disabled={bulkSaving}
+              className="btn btn-primary btn-sm"
+            >
+              {bulkSaving ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Truck size={14} />
+              )}
+              Create {selectedEligible.length} parcel
+              {selectedEligible.length === 1 ? "" : "s"}
+            </button>
+          )}
+        </div>
       </div>
 
       {flash && (
@@ -257,33 +294,35 @@ export default function AdminOrders() {
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 mb-5">
-        <button
-          onClick={() => setFilter("all")}
-          className={`px-3 py-1.5 rounded-full text-xs border ${
-            filter === "all"
-              ? "bg-primary text-white border-primary"
-              : "bg-surface text-ink border-line"
-          }`}
-        >
-          All ({orders.length})
-        </button>
-        {STATUSES.map((s) => {
-          const count = orders.filter((o) => o.status === s.key).length;
-          return (
-            <button
-              key={s.key}
-              onClick={() => setFilter(s.key)}
-              className={`px-3 py-1.5 rounded-full text-xs border ${
-                filter === s.key
-                  ? "bg-primary text-white border-primary"
-                  : "bg-surface text-ink border-line"
-              }`}
-            >
-              {s.label} ({count})
-            </button>
-          );
-        })}
+      <div className="flex flex-col sm:flex-row gap-3 mb-5">
+        <div className="flex flex-wrap items-center gap-2 flex-1">
+          <button
+            onClick={() => setFilter("all")}
+            className={`px-3 py-1.5 rounded-full text-xs border ${
+              filter === "all"
+                ? "bg-primary text-white border-primary"
+                : "bg-surface text-ink border-line"
+            }`}
+          >
+            All ({orders.length})
+          </button>
+          {STATUSES.map((s) => {
+            const count = orders.filter((o) => o.status === s.key).length;
+            return (
+              <button
+                key={s.key}
+                onClick={() => setFilter(s.key)}
+                className={`px-3 py-1.5 rounded-full text-xs border ${
+                  filter === s.key
+                    ? "bg-primary text-white border-primary"
+                    : "bg-surface text-ink border-line"
+                }`}
+              >
+                {s.label} ({count})
+              </button>
+            );
+          })}
+        </div>
         <input
           value={search}
           onChange={(e) => {
@@ -291,7 +330,7 @@ export default function AdminOrders() {
             setPage(1);
           }}
           placeholder="Search name / code / phone"
-          className="input input-sm ml-auto"
+          className="input input-sm w-full sm:w-auto sm:min-w-[200px]"
         />
       </div>
 
@@ -391,6 +430,23 @@ export default function AdminOrders() {
                       </span>
                     </div>
                   </button>
+                  <div className="flex items-center pr-3 gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmDelete(order);
+                      }}
+                      disabled={deletingId === order.id}
+                      className="p-1.5 text-muted hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      aria-label="Delete order"
+                    >
+                      {deletingId === order.id ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={14} />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 {expanded === order.id && (
@@ -419,6 +475,51 @@ export default function AdminOrders() {
           />
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        open={Boolean(confirmDelete)}
+        onClose={() => !deletingId && setConfirmDelete(null)}
+        title="Delete Order"
+        subtitle={`Are you sure you want to delete order #${confirmDelete?.tracking_code}?`}
+      >
+        {confirmDelete && (
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+              <p className="font-semibold">Warning: This action cannot be undone.</p>
+              <p className="mt-1">
+                This will permanently delete the order and all associated items.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDelete(null)}
+                disabled={deletingId === confirmDelete.id}
+                className="btn btn-ghost btn-sm"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => deleteOrder(confirmDelete)}
+                disabled={deletingId === confirmDelete.id}
+                className="btn btn-danger btn-sm"
+              >
+                {deletingId === confirmDelete.id ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" /> Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={14} /> Delete Order
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         open={Boolean(parcelForm)}

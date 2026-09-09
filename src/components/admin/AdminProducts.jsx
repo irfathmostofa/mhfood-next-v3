@@ -368,8 +368,10 @@ export default function AdminProducts() {
           {error}
         </p>
       )}
-      <div className="flex flex-row justify-between ">
-        <div className="relative mb-4 max-w-sm">
+      
+      {/* Fixed: Mobile-responsive filter section */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div className="relative w-full sm:max-w-xs">
           <Search
             size={15}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-muted"
@@ -382,10 +384,11 @@ export default function AdminProducts() {
               setSelected(new Set());
             }}
             placeholder="Search products..."
-            className="input pl-9"
+            className="input pl-9 w-full"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2 mb-4">
+        
+        <div className="flex flex-wrap items-center gap-2">
           <select
             value={statusFilter}
             onChange={(e) => {
@@ -393,7 +396,7 @@ export default function AdminProducts() {
               setPage(1);
               setSelected(new Set());
             }}
-            className="input input-sm w-auto"
+            className="input input-sm w-auto min-w-[120px]"
             aria-label="Filter by status"
           >
             <option value="all">All statuses</option>
@@ -408,7 +411,7 @@ export default function AdminProducts() {
               setPage(1);
               setSelected(new Set());
             }}
-            className="input input-sm w-auto"
+            className="input input-sm w-auto min-w-[120px]"
             aria-label="Filter by featured"
           >
             <option value="all">All featured</option>
@@ -423,7 +426,7 @@ export default function AdminProducts() {
               setPage(1);
               setSelected(new Set());
             }}
-            className="input input-sm w-auto"
+            className="input input-sm w-auto min-w-[120px]"
             aria-label="Filter by stock"
           >
             <option value="all">All stock</option>
@@ -432,6 +435,7 @@ export default function AdminProducts() {
           </select>
         </div>
       </div>
+
       {loading ? (
         <p className="text-sm text-muted py-10 text-center">
           Loading products...
