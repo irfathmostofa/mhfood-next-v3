@@ -1295,13 +1295,13 @@ export default function AiProductCreate() {
               )}
               Save Draft
             </button>
-            <Link
+            {/* <Link
               href={`/product/${form.slug}`}
               target="_blank"
               className="btn btn-outline"
             >
               <Eye size={16} /> Preview
-            </Link>
+            </Link> */}
             <button
               onClick={() => save(true)}
               disabled={saving || !form.name.trim()}
