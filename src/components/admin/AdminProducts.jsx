@@ -7,20 +7,16 @@ import {
   Pencil,
   Trash2,
   Save,
-  X,
   Loader2,
-  Image as ImageIcon,
-  ChevronDown,
   Search,
   Sparkles,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { slugify } from "@/lib/slugify";
-import ImageUploader from "./ImageUploader";
 import Modal from "./Modal";
 import Pagination from "./Pagination";
-import RichTextEditor from "./RichTextEditor";
-import VariantsEditor, {
+import ProductFormFields, { calcMargin } from "./ProductFormFields";
+import {
   saveProductVariants,
   hasActiveVariants,
   variantStockTotal,
@@ -38,18 +34,12 @@ const EMPTY_PRODUCT = {
   regular_price: "",
   price: "",
   stock: 0,
+  unit: "",
+  short_description: "",
   description: "",
   is_featured: false,
   is_active: true,
 };
-
-// Profit margin percentage based on selling price.
-function calcMargin(cost, price) {
-  const c = Number(cost) || 0;
-  const p = Number(price) || 0;
-  if (c <= 0 || p <= 0) return 0;
-  return ((p - c) / p) * 100;
-}
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
@@ -129,6 +119,8 @@ export default function AdminProducts() {
       stock: hasActiveVariants(editing.variants)
         ? variantStockTotal(editing.variants)
         : Number(editing.stock) || 0,
+      unit: (editing.unit || "").trim(),
+      short_description: (editing.short_description || "").trim(),
       description: editing.description || "",
       is_featured: editing.is_featured,
       is_active: editing.is_active,
@@ -331,12 +323,6 @@ export default function AdminProducts() {
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
-
-  const editingCost = Number(editing?.cost) || 0;
-  const editingPrice = Number(editing?.price) || 0;
-  const editingProfit = editingPrice - editingCost;
-  const editingMargin =
-    editingPrice > 0 ? calcMargin(editingCost, editingPrice) : 0;
 
   return (
     <div>
@@ -592,187 +578,12 @@ export default function AdminProducts() {
       >
         {editing && (
           <form onSubmit={saveProduct} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label">Name</label>
-                <input
-                  value={editing.name}
-                  onChange={(e) =>
-                    setEditing({ ...editing, name: e.target.value })
-                  }
-                  className="input"
-                  required
-                />
-              </div>
-              <div>
-                <label className="label">Slug (URL)</label>
-                <input
-                  value={editing.slug}
-                  onChange={(e) =>
-                    setEditing({ ...editing, slug: e.target.value })
-                  }
-                  placeholder="auto-generated from name"
-                  className="input"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="label">Category</label>
-                <select
-                  value={editing.category_id || ""}
-                  onChange={(e) =>
-                    setEditing({ ...editing, category_id: e.target.value })
-                  }
-                  className="input"
-                >
-                  <option value="">— No category —</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="label">Stock</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={
-                    hasActiveVariants(editing.variants)
-                      ? variantStockTotal(editing.variants)
-                      : editing.stock
-                  }
-                  onChange={(e) =>
-                    setEditing({ ...editing, stock: e.target.value })
-                  }
-                  className="input"
-                  required
-                  readOnly={hasActiveVariants(editing.variants)}
-                  disabled={hasActiveVariants(editing.variants)}
-                />
-                {hasActiveVariants(editing.variants) && (
-                  <p className="text-[11px] text-muted mt-1">
-                    Total of variant stock. Edit stock on each variant.
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="label">Cost (৳)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={editing.cost}
-                  onChange={(e) =>
-                    setEditing({ ...editing, cost: e.target.value })
-                  }
-                  placeholder="0.00"
-                  className="input"
-                />
-                <p className="text-[11px] text-muted mt-1">
-                  What you pay per unit (for profit tracking).
-                </p>
-              </div>
-              <div>
-                <label className="label">Regular Price (৳)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={editing.regular_price}
-                  onChange={(e) =>
-                    setEditing({ ...editing, regular_price: e.target.value })
-                  }
-                  placeholder="0.00"
-                  className="input"
-                />
-                <p className="text-[11px] text-muted mt-1">
-                  List price, shown struck-through.
-                </p>
-              </div>
-              <div>
-                <label className="label">Selling Price (৳)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={editing.price}
-                  onChange={(e) =>
-                    setEditing({ ...editing, price: e.target.value })
-                  }
-                  className="input"
-                  required
-                />
-                <p className="text-[11px] text-muted mt-1">
-                  What customers pay.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className={`rounded-xl border px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-sm ${
-                editingCost > 0
-                  ? editingProfit >= 0
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : "border-red-200 bg-red-50 text-red-600"
-                  : "border-line bg-surface text-muted"
-              }`}
-            >
-              <span className="font-medium">Profit / Margin</span>
-              <span className="font-semibold">
-                {editingCost > 0 ? (
-                  <>
-                    ৳{editingProfit.toFixed(2)} ({editingMargin.toFixed(1)}%
-                    margin)
-                  </>
-                ) : (
-                  "Enter a cost to see profit"
-                )}
-              </span>
-            </div>
-
-            <div>
-              <label className="label">Description</label>
-              <RichTextEditor
-                value={editing.description || ""}
-                onChange={(html) =>
-                  setEditing({ ...editing, description: html })
-                }
-              />
-            </div>
-
-            <div className="flex flex-wrap items-center gap-5">
-              <label className="flex items-center gap-2 text-sm text-ink">
-                <input
-                  type="checkbox"
-                  checked={editing.is_featured}
-                  onChange={(e) =>
-                    setEditing({ ...editing, is_featured: e.target.checked })
-                  }
-                />
-                Featured
-              </label>
-              <label className="flex items-center gap-2 text-sm text-ink">
-                <input
-                  type="checkbox"
-                  checked={editing.is_active}
-                  onChange={(e) =>
-                    setEditing({ ...editing, is_active: e.target.checked })
-                  }
-                />
-                Active
-              </label>
-            </div>
-
-            <VariantsEditor
+            <ProductFormFields
+              product={editing}
+              onChange={setEditing}
+              categories={categories}
               variants={editing.variants || []}
-              onChange={(variants) =>
+              onVariantsChange={(variants) =>
                 setEditing({
                   ...editing,
                   variants,
@@ -781,11 +592,9 @@ export default function AdminProducts() {
                     : editing.stock,
                 })
               }
-            />
-
-            <ImagesEditor
               images={editing.images || []}
-              onChange={(images) => setEditing({ ...editing, images })}
+              onImagesChange={(images) => setEditing({ ...editing, images })}
+              showImages
             />
 
             {error && (
@@ -823,107 +632,6 @@ export default function AdminProducts() {
           </form>
         )}
       </Modal>
-    </div>
-  );
-}
-
-// ---------- Product images ----------
-function ImagesEditor({ images, onChange }) {
-  const [open, setOpen] = useState(false);
-
-  function addImage() {
-    onChange([
-      ...images,
-      {
-        id: null,
-        image_url: "",
-        sort_order: images.length + 1,
-        _removed: false,
-      },
-    ]);
-  }
-
-  function updateImage(idx, value) {
-    onChange(
-      images.map((im, i) => {
-        if (i !== idx) return im;
-        if (value === "" && im.id) return { ...im, _removed: true };
-        return { ...im, image_url: value };
-      }),
-    );
-  }
-
-  function removeImage(idx) {
-    onChange(
-      images.map((im, i) => (i === idx ? { ...im, _removed: true } : im)),
-    );
-  }
-
-  const visible = images.filter((im) => !im._removed);
-
-  return (
-    <div className="border border-line rounded-xl p-4">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between text-sm font-semibold text-ink"
-      >
-        <span className="flex items-center gap-2">
-          <ImageIcon size={15} /> Product Images
-        </span>
-        <span className="flex items-center gap-2">
-          {visible.length > 0 && (
-            <span className="text-xs text-muted font-normal">
-              {visible.length}
-            </span>
-          )}
-          <ChevronDown
-            size={15}
-            className={`transition-transform ${open ? "rotate-180" : ""}`}
-          />
-        </span>
-      </button>
-
-      {open && (
-        <div className="mt-4">
-          <p className="text-xs text-muted mb-3">
-            Images are optimized automatically before upload. The first image is
-            used as the main product photo.
-          </p>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {visible.map((img, i) => (
-              <div key={i} className="relative">
-                <ImageUploader
-                  value={img.image_url}
-                  onChange={(v) => updateImage(i, v)}
-                  folder="products"
-                  label={`Image ${i + 1}`}
-                  aspect="square"
-                />
-                {img.id && (
-                  <button
-                    type="button"
-                    onClick={() => removeImage(i)}
-                    aria-label="Delete image"
-                    className="absolute top-1.5 left-1.5 p-1.5 rounded-full bg-red-600 text-white hover:bg-red-700 transition-colors z-10"
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={addImage}
-            className="mt-3 btn btn-outline btn-sm"
-          >
-            <Plus size={14} /> Add Image
-          </button>
-        </div>
-      )}
     </div>
   );
 }

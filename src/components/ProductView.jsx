@@ -1,21 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   Check,
+  ChevronLeft,
+  ChevronRight,
   Minus,
   Phone,
   MessageCircle,
   Plus,
   ShoppingBag,
+  X,
   Zap,
   Facebook,
   Twitter,
   Send,
   Link2,
   Share2,
+  ZoomIn,
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { trackViewContent, trackAddToCart } from "@/components/Analytics";
@@ -194,20 +198,17 @@ export default function ProductView({ product, siteSettings = null }) {
               </div>
             )}
 
-            {/* Main Image */}
-            <div className="relative aspect-square rounded-2xl overflow-hidden bg-primary/5 flex-1 order-1 lg:order-2">
-              <Image
-                src={
-                  images[activeImage]?.image_url ||
-                  "https://placehold.co/600x600?text=No+Image"
-                }
-                alt={product.name}
-                fill
-                priority
-                sizes="(min-width: 1024px) 45vw, 95vw"
-                className="object-cover"
-              />
-            </div>
+            {/* Main Image with magnify */}
+            <ProductImageMagnifier
+              src={
+                images[activeImage]?.image_url ||
+                "https://placehold.co/600x600?text=No+Image"
+              }
+              alt={product.name}
+              images={images}
+              activeImage={activeImage}
+              setActiveImage={setActiveImage}
+            />
           </div>
         </div>
 
@@ -469,6 +470,224 @@ export default function ProductView({ product, siteSettings = null }) {
           </div>
         )}
       </div>
+    </>
+  );
+}
+
+function ProductImageMagnifier({
+  src,
+  alt,
+  images,
+  activeImage,
+  setActiveImage,
+}) {
+  const containerRef = useRef(null);
+  const [hovering, setHovering] = useState(false);
+  const [origin, setOrigin] = useState({ x: 50, y: 50 });
+  const [lightbox, setLightbox] = useState(false);
+  const [lbIndex, setLbIndex] = useState(activeImage);
+  const [lbZoom, setLbZoom] = useState(1);
+  const [lbOrigin, setLbOrigin] = useState({ x: 50, y: 50 });
+
+  const ZOOM = 2.4;
+  const gallery = images && images.length > 0 ? images : [{ image_url: src }];
+
+  function canHoverZoom() {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  }
+
+  function updateOrigin(clientX, clientY) {
+    const el = containerRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * 100;
+    const y = ((clientY - rect.top) / rect.height) * 100;
+    setOrigin({
+      x: Math.min(100, Math.max(0, x)),
+      y: Math.min(100, Math.max(0, y)),
+    });
+  }
+
+  function openLightbox() {
+    setLbIndex(activeImage);
+    setLbZoom(1);
+    setLbOrigin({ x: 50, y: 50 });
+    setLightbox(true);
+  }
+
+  useEffect(() => {
+    if (!lightbox) return;
+    function onKey(e) {
+      if (e.key === "Escape") setLightbox(false);
+      if (e.key === "ArrowLeft") {
+        setLbIndex((i) => (i - 1 + gallery.length) % gallery.length);
+        setLbZoom(1);
+      }
+      if (e.key === "ArrowRight") {
+        setLbIndex((i) => (i + 1) % gallery.length);
+        setLbZoom(1);
+      }
+    }
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [lightbox, gallery.length]);
+
+  const lbSrc = gallery[lbIndex]?.image_url || src;
+
+  return (
+    <>
+      <div
+        ref={containerRef}
+        className="relative aspect-square rounded-2xl overflow-hidden bg-primary/5 flex-1 order-1 lg:order-2 cursor-zoom-in group"
+        onMouseEnter={() => {
+          if (canHoverZoom()) setHovering(true);
+        }}
+        onMouseLeave={() => setHovering(false)}
+        onMouseMove={(e) => {
+          if (!canHoverZoom()) return;
+          updateOrigin(e.clientX, e.clientY);
+        }}
+        onClick={openLightbox}
+        role="button"
+        tabIndex={0}
+        aria-label={`Magnify ${alt}`}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openLightbox();
+          }
+        }}
+      >
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          priority
+          sizes="(min-width: 1024px) 45vw, 95vw"
+          className="object-cover transition-transform duration-150 ease-out will-change-transform"
+          style={{
+            transform: hovering ? `scale(${ZOOM})` : "scale(1)",
+            transformOrigin: `${origin.x}% ${origin.y}%`,
+          }}
+        />
+        <span className="pointer-events-none absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-ink/70 text-white text-[11px] font-medium px-2.5 py-1 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+          <ZoomIn size={12} />
+          Zoom
+        </span>
+      </div>
+
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/90 flex items-center justify-center"
+          onClick={() => setLightbox(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Product image lightbox"
+        >
+          <button
+            type="button"
+            onClick={() => setLightbox(false)}
+            aria-label="Close"
+            className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center"
+          >
+            <X size={20} />
+          </button>
+
+          {gallery.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLbIndex((i) => (i - 1 + gallery.length) % gallery.length);
+                  setLbZoom(1);
+                }}
+                aria-label="Previous image"
+                className="absolute left-3 sm:left-6 z-10 w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center"
+              >
+                <ChevronLeft size={22} />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLbIndex((i) => (i + 1) % gallery.length);
+                  setLbZoom(1);
+                }}
+                aria-label="Next image"
+                className="absolute right-3 sm:right-6 z-10 w-10 h-10 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center"
+              >
+                <ChevronRight size={22} />
+              </button>
+            </>
+          )}
+
+          <div
+            className="relative w-[92vw] h-[78vh] max-w-5xl"
+            onClick={(e) => {
+              e.stopPropagation();
+              setLbZoom((z) => (z > 1 ? 1 : 2.5));
+            }}
+            onMouseMove={(e) => {
+              if (lbZoom <= 1) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              setLbOrigin({
+                x: ((e.clientX - rect.left) / rect.width) * 100,
+                y: ((e.clientY - rect.top) / rect.height) * 100,
+              });
+            }}
+          >
+            <Image
+              src={lbSrc}
+              alt={alt}
+              fill
+              sizes="92vw"
+              className="object-contain transition-transform duration-200 ease-out"
+              style={{
+                transform: `scale(${lbZoom})`,
+                transformOrigin: `${lbOrigin.x}% ${lbOrigin.y}%`,
+                cursor: lbZoom > 1 ? "zoom-out" : "zoom-in",
+              }}
+            />
+          </div>
+
+          {gallery.length > 1 && (
+            <div
+              className="absolute bottom-4 inset-x-0 flex justify-center gap-2 px-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {gallery.map((img, i) => (
+                <button
+                  key={img.id || i}
+                  type="button"
+                  onClick={() => {
+                    setLbIndex(i);
+                    setLbZoom(1);
+                    setActiveImage(i);
+                  }}
+                  className={`relative w-12 h-12 rounded-md overflow-hidden border-2 ${
+                    i === lbIndex ? "border-white" : "border-transparent opacity-70"
+                  }`}
+                >
+                  <Image
+                    src={img.image_url}
+                    alt=""
+                    fill
+                    sizes="48px"
+                    className="object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }

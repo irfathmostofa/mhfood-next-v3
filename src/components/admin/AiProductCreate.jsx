@@ -14,14 +14,14 @@ import {
   Plus,
   X,
   Save,
-  Eye,
   Clock,
   AlertTriangle,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { analyzeSEO } from "@/lib/seoAnalyzer";
 import { slugify } from "@/lib/slugify";
-import VariantsEditor, {
+import ProductFormFields from "./ProductFormFields";
+import {
   saveProductVariants,
   hasActiveVariants,
   variantStockTotal,
@@ -122,13 +122,18 @@ const EMPTY_FORM = {
   stock: "0",
   unit: "",
   category_id: "",
+  is_featured: false,
+  is_active: true,
 };
 
-function calcMargin(cost, price) {
-  const c = Number(cost) || 0;
-  const p = Number(price) || 0;
-  if (c <= 0 || p <= 0) return 0;
-  return ((p - c) / p) * 100;
+function toEditorHtml(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/<[a-z][\s\S]*>/i.test(text)) return text;
+  return text
+    .split(/\n{2,}/)
+    .map((block) => `<p>${block.replace(/\n/g, "<br>")}</p>`)
+    .join("");
 }
 
 export default function AiProductCreate() {
@@ -252,11 +257,6 @@ export default function AiProductCreate() {
     () => analyzeSEO(form.name, form.description),
     [form.name, form.description],
   );
-
-  const formCost = Number(form.cost) || 0;
-  const formPrice = Number(form.price) || 0;
-  const formProfit = formPrice - formCost;
-  const formMargin = formPrice > 0 ? calcMargin(formCost, formPrice) : 0;
 
   // Real-time subscription + polling fallback for processing status.
   useEffect(() => {
@@ -393,7 +393,7 @@ export default function AiProductCreate() {
       name: loadedName,
       slug: !loadedSlug || tempSlug ? slugify(loadedName) : loadedSlug,
       short_description: data.short_description || "",
-      description: data.description || "",
+      description: toEditorHtml(data.description || ""),
       cost:
         data.cost != null && Number(data.cost) !== 0 ? String(data.cost) : "",
       regular_price:
@@ -407,6 +407,8 @@ export default function AiProductCreate() {
       stock: String(Number(data.stock) || 0),
       unit: data.unit || "",
       category_id: data.category_id || "",
+      is_featured: !!data.is_featured,
+      is_active: data.is_active !== false,
     });
     setKeywords(data.seo_keywords || []);
     const { data: variantRows } = await supabase
@@ -603,8 +605,9 @@ export default function AiProductCreate() {
       stock: hasActiveVariants(variants)
         ? variantStockTotal(variants)
         : Number(form.stock) || 0,
-      unit: form.unit.trim(),
+      unit: (form.unit || "").trim(),
       category_id: form.category_id || null,
+      is_featured: !!form.is_featured,
       seo_keywords: keywords.filter(Boolean),
       publish_status: publish ? "published" : "draft",
       is_active: publish,
@@ -996,200 +999,21 @@ export default function AiProductCreate() {
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Title</label>
-                  <input
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="input"
-                  />
-                  <p className="text-[11px] text-muted mt-1">
-                    {form.name.length}/60 characters
-                  </p>
-                </div>
-                <div>
-                  <label className="label">Slug (URL)</label>
-                  <input
-                    value={form.slug}
-                    onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                    placeholder="auto-generated from title"
-                    className="input"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="label">Short description</label>
-                <textarea
-                  value={form.short_description}
-                  onChange={(e) =>
-                    setForm({ ...form, short_description: e.target.value })
-                  }
-                  rows={2}
-                  className="input resize-none"
-                />
-                <p className="text-[11px] text-muted mt-1">
-                  {form.short_description.length}/160 characters
-                </p>
-              </div>
-
-              <div>
-                <label className="label">Description</label>
-                <textarea
-                  value={form.description}
-                  onChange={(e) =>
-                    setForm({ ...form, description: e.target.value })
-                  }
-                  rows={12}
-                  className="input resize-y"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="card p-6">
-            <h3 className="text-sm font-semibold text-ink mb-4">
-              Pricing &amp; catalog
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="label">Cost (৳)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.cost}
-                  onChange={(e) => setForm({ ...form, cost: e.target.value })}
-                  placeholder="0.00"
-                  className="input"
-                />
-                <p className="text-[11px] text-muted mt-1">
-                  What you pay per unit (for profit tracking).
-                </p>
-              </div>
-              <div>
-                <label className="label">Regular Price (৳)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.regular_price}
-                  onChange={(e) =>
-                    setForm({ ...form, regular_price: e.target.value })
-                  }
-                  placeholder="0.00"
-                  className="input"
-                />
-                <p className="text-[11px] text-muted mt-1">
-                  List price, shown struck-through.
-                </p>
-              </div>
-              <div>
-                <label className="label">Selling Price (৳)</label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
-                  placeholder="0.00"
-                  className="input"
-                  required
-                />
-                <p className="text-[11px] text-muted mt-1">
-                  What customers pay.
-                </p>
-              </div>
-            </div>
-
-            <div
-              className={`mt-4 rounded-xl border px-4 py-3 flex flex-wrap items-center justify-between gap-2 text-sm ${
-                formCost > 0
-                  ? formProfit >= 0
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : "border-red-200 bg-red-50 text-red-600"
-                  : "border-line bg-surface text-muted"
-              }`}
-            >
-              <span className="font-medium">Profit / Margin</span>
-              <span className="font-semibold">
-                {formCost > 0 ? (
-                  <>
-                    ৳{formProfit.toFixed(2)} ({formMargin.toFixed(1)}% margin)
-                  </>
-                ) : (
-                  "Enter a cost to see profit"
-                )}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-4">
-              <div>
-                <label className="label">Stock</label>
-                <input
-                  type="number"
-                  min="0"
-                  value={
-                    hasActiveVariants(variants)
-                      ? variantStockTotal(variants)
-                      : form.stock
-                  }
-                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                  className="input"
-                  required
-                  readOnly={hasActiveVariants(variants)}
-                  disabled={hasActiveVariants(variants)}
-                />
-                {hasActiveVariants(variants) && (
-                  <p className="text-[11px] text-muted mt-1">
-                    Total of variant stock. Edit stock on each variant.
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="label">Unit</label>
-                <input
-                  value={form.unit}
-                  onChange={(e) => setForm({ ...form, unit: e.target.value })}
-                  placeholder="per kg"
-                  className="input"
-                />
-              </div>
-              <div className="col-span-2 sm:col-span-1">
-                <label className="label">Category</label>
-                <select
-                  value={form.category_id}
-                  onChange={(e) =>
-                    setForm({ ...form, category_id: e.target.value })
-                  }
-                  className="input"
-                >
-                  <option value="">— None —</option>
-                  {categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <VariantsEditor
-                variants={variants}
-                onChange={(next) => {
-                  setVariants(next);
-                  if (hasActiveVariants(next)) {
-                    setForm((prev) => ({
-                      ...prev,
-                      stock: String(variantStockTotal(next)),
-                    }));
-                  }
-                }}
-              />
-            </div>
+            <ProductFormFields
+              product={form}
+              onChange={setForm}
+              categories={categories}
+              variants={variants}
+              onVariantsChange={(next) => {
+                setVariants(next);
+                if (hasActiveVariants(next)) {
+                  setForm((prev) => ({
+                    ...prev,
+                    stock: String(variantStockTotal(next)),
+                  }));
+                }
+              }}
+            />
           </div>
 
           <div className="card p-6">
