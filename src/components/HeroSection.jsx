@@ -7,7 +7,9 @@ export default async function HeroSection() {
     getHeroSlides(),
     getSiteSettings(),
   ]);
-  const hasBanner = Boolean(settings?.promo_banner_image);
+  const hasBanner =
+    Boolean(settings?.promo_banner_image) &&
+    settings?.promo_banner_enabled !== false;
 
   if (slides.length === 0 && !hasBanner) return null;
 

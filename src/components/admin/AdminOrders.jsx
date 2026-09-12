@@ -59,6 +59,8 @@ export default function AdminOrders() {
   const [deletingId, setDeletingId] = useState(null);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [parcelForm, setParcelForm] = useState(null);
@@ -241,7 +243,24 @@ export default function AdminOrders() {
     }
   }
 
-  const filtered = orders.filter((o) => {
+  function inDateRange(createdAt) {
+    if (!dateFrom && !dateTo) return true;
+    const t = new Date(createdAt).getTime();
+    if (Number.isNaN(t)) return false;
+    if (dateFrom) {
+      const start = new Date(`${dateFrom}T00:00:00`).getTime();
+      if (t < start) return false;
+    }
+    if (dateTo) {
+      const end = new Date(`${dateTo}T23:59:59.999`).getTime();
+      if (t > end) return false;
+    }
+    return true;
+  }
+
+  const datedOrders = orders.filter((o) => inDateRange(o.created_at));
+
+  const filtered = datedOrders.filter((o) => {
     if (filter !== "all" && o.status !== filter) return false;
     if (
       search &&
@@ -294,44 +313,96 @@ export default function AdminOrders() {
         </p>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <div className="flex flex-wrap items-center gap-2 flex-1">
-          <button
-            onClick={() => setFilter("all")}
-            className={`px-3 py-1.5 rounded-full text-xs border ${
-              filter === "all"
-                ? "bg-primary text-white border-primary"
-                : "bg-surface text-ink border-line"
-            }`}
-          >
-            All ({orders.length})
-          </button>
-          {STATUSES.map((s) => {
-            const count = orders.filter((o) => o.status === s.key).length;
-            return (
-              <button
-                key={s.key}
-                onClick={() => setFilter(s.key)}
-                className={`px-3 py-1.5 rounded-full text-xs border ${
-                  filter === s.key
-                    ? "bg-primary text-white border-primary"
-                    : "bg-surface text-ink border-line"
-                }`}
-              >
-                {s.label} ({count})
-              </button>
-            );
-          })}
+      <div className="flex flex-col gap-3 mb-5">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-wrap items-center gap-2 flex-1">
+            <button
+              onClick={() => {
+                setFilter("all");
+                setPage(1);
+              }}
+              className={`px-3 py-1.5 rounded-full text-xs border ${
+                filter === "all"
+                  ? "bg-primary text-white border-primary"
+                  : "bg-surface text-ink border-line"
+              }`}
+            >
+              All ({datedOrders.length})
+            </button>
+            {STATUSES.map((s) => {
+              const count = datedOrders.filter((o) => o.status === s.key)
+                .length;
+              return (
+                <button
+                  key={s.key}
+                  onClick={() => {
+                    setFilter(s.key);
+                    setPage(1);
+                  }}
+                  className={`px-3 py-1.5 rounded-full text-xs border ${
+                    filter === s.key
+                      ? "bg-primary text-white border-primary"
+                      : "bg-surface text-ink border-line"
+                  }`}
+                >
+                  {s.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+          <input
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Search name / code / phone"
+            className="input input-sm w-full sm:w-auto sm:min-w-[200px]"
+          />
         </div>
-        <input
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-          placeholder="Search name / code / phone"
-          className="input input-sm w-full sm:w-auto sm:min-w-[200px]"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-xs text-muted">
+            From
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                setPage(1);
+              }}
+              className="input input-sm w-auto"
+              aria-label="From date"
+            />
+          </label>
+          <label className="flex items-center gap-2 text-xs text-muted">
+            To
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                setPage(1);
+              }}
+              className="input input-sm w-auto"
+              aria-label="To date"
+            />
+          </label>
+          {(dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={() => {
+                setDateFrom("");
+                setDateTo("");
+                setPage(1);
+              }}
+              className="text-xs text-accent hover:underline"
+            >
+              Clear dates
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (

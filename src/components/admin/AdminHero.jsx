@@ -155,7 +155,7 @@ export default function AdminHero({ embedded = false }) {
             }
           >
             {embedded
-              ? "Carousel on the left of the homepage hero. Recommended 1920x700px."
+              ? "Carousel on the left of the homepage hero. Recommended 1920x300px."
               : "Slides shown in the storefront hero carousel, ordered by sort order."}
           </p>
         </div>
@@ -286,7 +286,7 @@ export default function AdminHero({ embedded = false }) {
                 folder="hero-slides"
                 label="Image"
                 aspect="wide"
-                hint="Recommended 1920x700px — optimized automatically on upload."
+                hint="Recommended 1920x300px — optimized automatically on upload."
               />
             </div>
 

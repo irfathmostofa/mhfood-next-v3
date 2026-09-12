@@ -1148,6 +1148,7 @@ function HeroSideBannerEditor({ site, setSite, showFlash }) {
       .update({
         promo_banner_image: next.promo_banner_image || null,
         promo_banner_link: next.promo_banner_link || null,
+        promo_banner_enabled: next.promo_banner_enabled !== false,
       })
       .eq("id", 1);
     setSaving(false);
@@ -1163,6 +1164,14 @@ function HeroSideBannerEditor({ site, setSite, showFlash }) {
         Portrait banner on the right of the hero slider. Recommended 600x700px.
         {saving ? " Saving..." : ""}
       </p>
+      <label className="flex items-center gap-2 text-sm text-ink mb-3">
+        <input
+          type="checkbox"
+          checked={site?.promo_banner_enabled !== false}
+          onChange={(e) => persist({ promo_banner_enabled: e.target.checked })}
+        />
+        Show on homepage
+      </label>
       <ImageUploader
         value={site?.promo_banner_image || ""}
         onChange={(v) => persist({ promo_banner_image: v })}

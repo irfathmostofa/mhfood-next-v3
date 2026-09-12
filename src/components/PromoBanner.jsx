@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export default function PromoBanner({ settings }) {
   const image = settings?.promo_banner_image;
-  if (!image) return null;
+  if (!image || settings?.promo_banner_enabled === false) return null;
 
   const content = (
     <div className="relative w-full h-full overflow-hidden rounded-lg bg-primary/5 shadow-sm ring-1 ring-black/5 group">

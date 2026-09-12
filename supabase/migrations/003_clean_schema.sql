@@ -312,6 +312,7 @@ CREATE TABLE IF NOT EXISTS public.site_settings (
   instagram_url            text,
   promo_banner_image       text,
   promo_banner_link        text,
+  promo_banner_enabled     boolean NOT NULL DEFAULT true,
   whatsapp_enabled         boolean NOT NULL DEFAULT false,
   whatsapp_number          text,
   messenger_enabled        boolean NOT NULL DEFAULT false,
