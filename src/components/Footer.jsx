@@ -196,7 +196,15 @@ export default async function Footer({ theme }) {
             © {year} {storeName}. All rights reserved.
           </span>
           <span className="text-xs text-white/40">
-            Any category. Any business. One store.
+            Developed by{" "}
+            <a
+              href="https://irfathchowdhuryjoy.web.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
+             Md. Irfath Chowdhury
+            </a>
           </span>
         </div>
       </div>
