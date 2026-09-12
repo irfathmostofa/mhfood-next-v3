@@ -7,6 +7,7 @@ const PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY; // server-only, never NEXT_
 const TEMPLATE_CONFIRM = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_CONFIRM;
 const TEMPLATE_DELIVERED = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_DELIVERED;
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME||"Admin";
 
 function formatItems(items) {
   return (items || [])
@@ -51,7 +52,7 @@ async function sendEmail({ templateId, toEmail, params }) {
       // configurations. Safe to omit if EMAILJS_PRIVATE_KEY isn't set.
       ...(PRIVATE_KEY ? { accessToken: PRIVATE_KEY } : {}),
       template_params: stringifyParams({
-        from_name: "কাঁকন বালার চুড়ি",
+        from_name: SITE_NAME,
         to_email: toEmail,
         ...params,
       }),
