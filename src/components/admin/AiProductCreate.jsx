@@ -583,7 +583,6 @@ export default function AiProductCreate() {
     setForm(EMPTY_FORM);
     setVariants([]);
     setKeywords([]);
-    setSavedFlash("");
     sourcePathRef.current = "";
     startedAt.current = null;
   }
@@ -591,7 +590,6 @@ export default function AiProductCreate() {
   async function save(publish) {
     if (!productId) return;
     setSaving(true);
-    setSavedFlash("");
     const payload = {
       name: form.name.trim(),
       slug:
@@ -613,33 +611,37 @@ export default function AiProductCreate() {
       publish_status: publish ? "published" : "draft",
       is_active: publish,
     };
-    const { error } = await supabase
-      .from("products")
-      .update(payload)
-      .eq("id", productId);
-    if (error) {
+    try {
+      const { error } = await supabase
+        .from("products")
+        .update(payload)
+        .eq("id", productId);
+      if (error) {
+        setProcessingError(error.message);
+        toastError(error.message);
+        return;
+      }
+      await saveProductVariants(supabase, productId, variants);
+      success(
+        publish
+          ? "Product published to your store."
+          : "Draft saved. You can edit it from the Products page.",
+      );
+      notify(
+        publish ? "Product published" : "Draft saved",
+        publish
+          ? `"${payload.name}" is now live on your store.`
+          : `"${payload.name}" was saved as a draft.`,
+      );
+      if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+      resetTimerRef.current = setTimeout(resetAll, RESET_DELAY_MS);
+    } catch (err) {
+      const msg = err.message || "Could not save product.";
+      setProcessingError(msg);
+      toastError(msg);
+    } finally {
       setSaving(false);
-      setProcessingError(error.message);
-      toastError(error.message);
-      return;
     }
-    await saveProductVariants(supabase, productId, variants);
-    setSaving(false);
-    success(
-      publish
-        ? "Product published to your store."
-        : "Draft saved. You can edit it from the Products page.",
-    );
-    notify(
-      publish ? "Product published" : "Draft saved",
-      publish
-        ? `"${payload.name}" is now live on your store.`
-        : `"${payload.name}" was saved as a draft.`,
-    );
-    // Show the confirmation briefly, then reset the whole form so the
-    // admin can immediately start creating the next product.
-    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    resetTimerRef.current = setTimeout(resetAll, RESET_DELAY_MS);
   }
 
   const estimate =
