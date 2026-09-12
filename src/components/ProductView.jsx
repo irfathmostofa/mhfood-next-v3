@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { trackViewContent, trackAddToCart } from "@/components/Analytics";
+import { useToast } from "@/components/Toast";
 import StarRating from "./StarRating";
 import ReviewsList from "./ReviewsList";
 import { toHtml } from "@/lib/richtext";
@@ -30,6 +31,7 @@ import { toHtml } from "@/lib/richtext";
 export default function ProductView({ product, siteSettings = null }) {
   const router = useRouter();
   const { addItem } = useCart();
+  const { success } = useToast();
   const [activeImage, setActiveImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [addedMsg, setAddedMsg] = useState(false);
@@ -133,6 +135,7 @@ export default function ProductView({ product, siteSettings = null }) {
       };
     });
     addItem(product, quantity, selection);
+    success(`${product.name} added to cart`);
     trackAddToCart({
       content_type: "product",
       content_ids: [product.id],
@@ -707,6 +710,7 @@ function WhatsAppIcon() {
 }
 
 function ShareBar({ product }) {
+  const { success } = useToast();
   const [copied, setCopied] = useState(false);
 
   function shareUrl() {
@@ -727,6 +731,7 @@ function ShareBar({ product }) {
     if (!navigator.clipboard) return;
     navigator.clipboard.writeText(shareUrl()).then(() => {
       setCopied(true);
+      success("Link copied.");
       setTimeout(() => setCopied(false), 2000);
     });
   }

@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Lock } from "lucide-react";
+import { useToast } from "@/components/Toast";
 
 export default function AdminLogin() {
   const router = useRouter();
+  const { error: toastError } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,7 +27,9 @@ export default function AdminLogin() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Invalid email or password.");
+        const msg = data.error || "Invalid email or password.";
+        setError(msg);
+        toastError(msg);
         setLoading(false);
         return;
       }
@@ -34,6 +38,7 @@ export default function AdminLogin() {
       router.refresh();
     } catch {
       setError("Could not sign in. Try again.");
+      toastError("Could not sign in. Try again.");
       setLoading(false);
     }
   }

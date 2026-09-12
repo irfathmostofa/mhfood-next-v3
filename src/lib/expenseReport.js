@@ -95,9 +95,9 @@ export function printExpenseReport({
 
   const win = window.open("", "_blank", "width=860,height=640");
   if (!win) {
-    alert("Please allow pop-ups to print the expense report.");
-    return;
+    return false;
   }
   win.document.write(html);
   win.document.close();
+  return true;
 }

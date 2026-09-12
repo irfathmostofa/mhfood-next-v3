@@ -107,9 +107,9 @@ export function printPOSInvoice({ order, items, site }) {
 
   const win = window.open("", "_blank", "width=420,height=640");
   if (!win) {
-    alert("Please allow pop-ups to print the invoice.");
-    return;
+    return false;
   }
   win.document.write(html);
   win.document.close();
+  return true;
 }

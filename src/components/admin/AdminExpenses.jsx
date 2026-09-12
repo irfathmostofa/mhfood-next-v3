@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { printExpenseReport } from "@/lib/expenseReport";
+import { useToast } from "@/components/Toast";
 import Modal from "./Modal";
 import Pagination from "./Pagination";
 
@@ -62,10 +63,10 @@ export default function AdminExpenses() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
 
+  const { success, error: toastError } = useToast();
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [flash, setFlash] = useState("");
 
   useEffect(() => {
     loadAll();
@@ -112,11 +113,6 @@ export default function AdminExpenses() {
 
     const { data } = await query;
     setExpenses(data || []);
-  }
-
-  function showFlash(msg) {
-    setFlash(msg);
-    setTimeout(() => setFlash(""), 2500);
   }
 
   function openNew() {
@@ -173,7 +169,7 @@ export default function AdminExpenses() {
     }
 
     setEditing(null);
-    showFlash(editing.id ? "Expense updated." : "Expense added.");
+    success(editing.id ? "Expense updated." : "Expense added.");
     await loadExpenses();
     setSaving(false);
   }
@@ -186,10 +182,10 @@ export default function AdminExpenses() {
       .delete()
       .eq("id", expense.id);
     if (deleteError) {
-      setError(deleteError.message);
+      toastError(deleteError.message);
       return;
     }
-    showFlash("Expense deleted.");
+    success("Expense deleted.");
     await loadExpenses();
   }
 
@@ -230,16 +226,19 @@ export default function AdminExpenses() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() =>
-              printExpenseReport({
+            onClick={() => {
+              const printed = printExpenseReport({
                 from,
                 to,
                 typeLabel: activeTypeLabel,
                 expenses,
                 typeBreakdown,
                 site,
-              })
-            }
+              });
+              if (printed === false) {
+                toastError("Please allow pop-ups to print the expense report.");
+              }
+            }}
             disabled={loading || expenses.length === 0}
             className="btn btn-outline"
           >
@@ -252,11 +251,6 @@ export default function AdminExpenses() {
         </div>
       </div>
 
-      {flash && (
-        <p className="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2">
-          {flash}
-        </p>
-      )}
       {error && (
         <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
           {error}

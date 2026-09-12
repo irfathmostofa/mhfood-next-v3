@@ -26,6 +26,7 @@ import {
   hasActiveVariants,
   variantStockTotal,
 } from "./VariantsEditor";
+import { useToast } from "@/components/Toast";
 
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
@@ -137,6 +138,7 @@ function toEditorHtml(value) {
 }
 
 export default function AiProductCreate() {
+  const { success, error: toastError } = useToast();
   const inputRef = useRef(null);
   const dragDepth = useRef(0);
 
@@ -164,7 +166,6 @@ export default function AiProductCreate() {
   const [variants, setVariants] = useState([]);
   const [keywords, setKeywords] = useState([]);
   const [saving, setSaving] = useState(false);
-  const [savedFlash, setSavedFlash] = useState("");
 
   const startedAt = useRef(null);
   const sourcePathRef = useRef("");
@@ -619,17 +620,18 @@ export default function AiProductCreate() {
     if (error) {
       setSaving(false);
       setProcessingError(error.message);
+      toastError(error.message);
       return;
     }
     await saveProductVariants(supabase, productId, variants);
     setSaving(false);
-    setSavedFlash(
+    success(
       publish
         ? "Product published to your store."
         : "Draft saved. You can edit it from the Products page.",
     );
     notify(
-      publish ? "Product published 🎉" : "Draft saved",
+      publish ? "Product published" : "Draft saved",
       publish
         ? `"${payload.name}" is now live on your store.`
         : `"${payload.name}" was saved as a draft.`,
@@ -704,12 +706,6 @@ export default function AiProductCreate() {
             </p>
           ))}
         </div>
-      )}
-
-      {savedFlash && (
-        <p className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-700">
-          {savedFlash}
-        </p>
       )}
 
       {/* ---------- STEP 1: UPLOAD ---------- */}

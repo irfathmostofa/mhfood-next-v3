@@ -126,4 +126,19 @@
   .scrollbar-ghost:hover {
     scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
   }
+
+  @keyframes toast-bar {
+    from {
+      transform: scaleX(1);
+    }
+    to {
+      transform: scaleX(0);
+    }
+  }
+
+  .animate-toast-bar {
+    animation-name: toast-bar;
+    animation-timing-function: linear;
+    animation-fill-mode: forwards;
+  }
 }

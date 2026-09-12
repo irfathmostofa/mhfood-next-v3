@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { Search, Check } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/Toast";
 
 const DELIVERY_STEPS = [
   { key: "pending", label: "Received" },
@@ -23,6 +24,7 @@ export default function TrackClient() {
   const { code } = useParams();
   const searchParams = useSearchParams();
   const justPlaced = searchParams.get("placed") === "1";
+  const { error: toastError } = useToast();
 
   const [inputCode, setInputCode] = useState(code || "");
   const [order, setOrder] = useState(null);
@@ -50,6 +52,7 @@ export default function TrackClient() {
       setError(
         "No order found with that tracking code. Please check and try again.",
       );
+      toastError("No order found with that tracking code.");
       setLoading(false);
       return;
     }

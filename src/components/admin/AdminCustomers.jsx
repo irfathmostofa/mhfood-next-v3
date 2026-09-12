@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Search, Send, Loader2, ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import Pagination from "./Pagination";
+import { useToast } from "@/components/Toast";
 
 const STATUS_PILL = {
   pending: "bg-amber-50 text-amber-700 border-amber-200",
@@ -28,10 +29,10 @@ export default function AdminCustomers() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
+  const { success, error: toastError } = useToast();
   const [smsOpen, setSmsOpen] = useState(false);
   const [smsMessage, setSmsMessage] = useState("");
   const [sending, setSending] = useState(false);
-  const [smsResult, setSmsResult] = useState("");
   const [expanded, setExpanded] = useState(null);
   const [orderItems, setOrderItems] = useState({});
   const [loadingItems, setLoadingItems] = useState(false);
@@ -146,18 +147,17 @@ export default function AdminCustomers() {
     if (phones.length === 0 || !smsMessage.trim()) return;
 
     setSending(true);
-    setSmsResult("");
     const res = await fetch("/api/admin/sms", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phones, message: smsMessage }),
     });
     const data = await res.json();
-    setSmsResult(
-      data.ok
-        ? `SMS sent to ${phones.length} customer(s).`
-        : data.error || "Could not send SMS.",
-    );
+    if (data.ok) {
+      success(`SMS sent to ${phones.length} customer(s).`);
+    } else {
+      toastError(data.error || "Could not send SMS.");
+    }
     setSending(false);
   }
 
@@ -228,17 +228,7 @@ export default function AdminCustomers() {
               )}
             </button>
           </div>
-          {smsResult && (
-            <p
-              className={`text-sm rounded-lg px-3 py-2 border ${
-                smsResult.startsWith("SMS")
-                  ? "text-emerald-700 bg-emerald-50 border-emerald-200"
-                  : "text-red-600 bg-red-50 border-red-200"
-              }`}
-            >
-              {smsResult}
-            </p>
-          )}
+
         </form>
       )}
 

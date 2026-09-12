@@ -5,9 +5,11 @@ import { useParams } from "next/navigation";
 import { Loader2, Send, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import StarRating from "@/components/StarRating";
+import { useToast } from "@/components/Toast";
 
 export default function ReviewClient() {
   const { orderId } = useParams();
+  const { success, error: toastError } = useToast();
 
   const [order, setOrder] = useState(null);
   const [items, setItems] = useState([]);
@@ -88,6 +90,7 @@ export default function ReviewClient() {
           setSubmittingId(null);
           return;
         }
+        toastError(insertError.message || "Could not submit review.");
         setSubmitError(insertError.message || "Could not submit review.");
         setSubmittingId(null);
         return;
@@ -99,9 +102,11 @@ export default function ReviewClient() {
         .eq("id", item.id);
 
       setSubmittedId(item.id);
+      success("Thank you for your review.");
       setSubmittingId(null);
     } catch (err) {
       setSubmitError(err.message || "Could not submit review.");
+      toastError(err.message || "Could not submit review.");
       setSubmittingId(null);
     }
   }

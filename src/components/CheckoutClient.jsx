@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useCart } from "@/hooks/useCart";
 import { pickBestDiscount } from "@/lib/pricing";
 import { trackInitiateCheckout, trackPurchase } from "@/components/Analytics";
+import { useToast } from "@/components/Toast";
 
 export default function CheckoutClient() {
   const {
@@ -17,6 +18,7 @@ export default function CheckoutClient() {
     updateQuantity,
     removeItem,
   } = useCart();
+  const { success, error: toastError } = useToast();
   const router = useRouter();
 
   const [form, setForm] = useState({
@@ -129,13 +131,16 @@ export default function CheckoutClient() {
         setCouponApplied(data.coupon);
         setCouponDiscount(data.discount);
         setCouponCode("");
+        success("Coupon applied.");
       } else {
         setCouponError(data.reason || "Invalid coupon.");
         setCouponApplied(null);
         setCouponDiscount(0);
+        toastError(data.reason || "Invalid coupon.");
       }
     } catch {
       setCouponError("Could not validate coupon. Try again.");
+      toastError("Could not validate coupon. Try again.");
     } finally {
       setCouponLoading(false);
     }
@@ -154,10 +159,12 @@ export default function CheckoutClient() {
     if (isPickup) {
       if (pickupPoints.length === 0 || !pickupPointId) {
         setError("Please select a pickup point.");
+        toastError("Please select a pickup point.");
         return;
       }
     } else if (zones.length > 0 && !zoneId) {
       setError("Please select your delivery area.");
+      toastError("Please select your delivery area.");
       return;
     }
 
@@ -181,6 +188,7 @@ export default function CheckoutClient() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Something went wrong placing your order.");
+        toastError(data.error || "Something went wrong placing your order.");
         setLoading(false);
         return;
       }
@@ -198,9 +206,11 @@ export default function CheckoutClient() {
       });
 
       clearCart();
+      success("Order placed successfully.");
       router.push(`/track/${data.trackingCode}?placed=1`);
     } catch (err) {
       setError(err.message || "Something went wrong placing your order.");
+      toastError(err.message || "Something went wrong placing your order.");
       setLoading(false);
     }
   }

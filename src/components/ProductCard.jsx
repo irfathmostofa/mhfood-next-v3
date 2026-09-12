@@ -6,9 +6,11 @@ import Link from "next/link";
 import { ShoppingBag, Check } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { trackAddToCart } from "@/components/Analytics";
+import { useToast } from "@/components/Toast";
 
 export default function ProductCard({ product }) {
   const { addItem } = useCart();
+  const { success } = useToast();
   const [added, setAdded] = useState(false);
 
   const image = product.product_images?.[0]?.image_url;
@@ -30,6 +32,7 @@ export default function ProductCard({ product }) {
     e.stopPropagation();
     if (outOfStock) return;
     addItem(product, 1);
+    success(`${product.name} added to cart`);
     trackAddToCart({
       content_type: "product",
       content_ids: [product.id],

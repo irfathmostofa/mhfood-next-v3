@@ -22,6 +22,7 @@ import { DEFAULT_THEME, THEME_PRESETS, matchThemePreset } from "@/lib/theme";
 import ImageUploader from "./ImageUploader";
 import Pagination from "./Pagination";
 import AdminHero from "./AdminHero";
+import { useToast } from "@/components/Toast";
 
 const TABS = [
   {
@@ -90,9 +91,9 @@ const TABS = [
 ];
 
 export default function AdminSettings() {
+  const { success, error: toastError } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [flash, setFlash] = useState("");
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("appearance");
 
@@ -193,8 +194,11 @@ export default function AdminSettings() {
   }
 
   function showFlash(msg) {
-    setFlash(msg);
-    setTimeout(() => setFlash(""), 2500);
+    if (/^error:/i.test(String(msg || ""))) {
+      toastError(String(msg).replace(/^error:\s*/i, ""));
+      return;
+    }
+    success(msg);
   }
 
   async function saveAll(e) {
@@ -209,6 +213,7 @@ export default function AdminSettings() {
       showFlash("Settings saved.");
     } catch (err) {
       setError(err.message);
+      toastError(err.message);
     }
     setSaving(false);
   }
@@ -232,11 +237,6 @@ export default function AdminSettings() {
         </p>
       </div>
 
-      {flash && (
-        <p className="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">
-          {flash}
-        </p>
-      )}
       {error && (
         <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
           {error}
@@ -2010,7 +2010,9 @@ function SmsSettingsManager({ showFlash }) {
       }));
       showFlash("SMS settings saved.");
     } catch (err) {
-      setError(err.message || "Could not save SMS settings.");
+      const msg = err.message || "Could not save SMS settings.";
+      setError(msg);
+      showFlash(`Error: ${msg}`);
     } finally {
       setSaving(false);
     }

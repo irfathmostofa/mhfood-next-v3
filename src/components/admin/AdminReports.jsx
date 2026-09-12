@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { printSalesReport } from "@/lib/salesReport";
+import { useToast } from "@/components/Toast";
 
 const STATUSES = [
   { key: "pending", label: "Pending" },
@@ -49,6 +50,7 @@ export default function AdminReports() {
     return toLocalDateInput(d);
   });
   const [to, setTo] = useState(() => toLocalDateInput(new Date()));
+  const { error: toastError } = useToast();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [site, setSite] = useState(null);
@@ -158,16 +160,19 @@ export default function AdminReports() {
         </div>
 
         <button
-          onClick={() =>
-            printSalesReport({
+          onClick={() => {
+            const printed = printSalesReport({
               from,
               to,
               stats,
               statusBreakdown,
               orders,
               site,
-            })
-          }
+            });
+            if (printed === false) {
+              toastError("Please allow pop-ups to print the sales report.");
+            }
+          }}
           disabled={loading || orders.length === 0}
           className="btn btn-primary"
         >

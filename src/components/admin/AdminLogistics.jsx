@@ -18,6 +18,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import Pagination from "./Pagination";
 import Modal from "./Modal";
+import { useToast } from "@/components/Toast";
 import {
   courierStatusLabel,
   courierTrackingUrl,
@@ -75,9 +76,9 @@ export default function AdminLogistics() {
   const [syncing, setSyncing] = useState(false);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const { success, error: toastError } = useToast();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [flash, setFlash] = useState("");
   const [error, setError] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
   const [manualSaving, setManualSaving] = useState(false);
@@ -88,11 +89,6 @@ export default function AdminLogistics() {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  function showFlash(msg) {
-    setFlash(msg);
-    setTimeout(() => setFlash(""), 3000);
-  }
 
   async function loadAll() {
     setLoading(true);
@@ -108,7 +104,7 @@ export default function AdminLogistics() {
       if (!res.ok) throw new Error(data.error);
       setSettings(data.settings);
     } catch (err) {
-      setError(err.message || "Could not load logistics settings.");
+      toastError(err.message || "Could not load logistics settings.");
     }
   }
 
@@ -159,7 +155,7 @@ export default function AdminLogistics() {
       if (!res.ok) throw new Error(data.error);
       setManualOpen(false);
       setManualForm(EMPTY_MANUAL);
-      showFlash("Manual order created and sent to Steadfast.");
+      success("Manual order created and sent to Steadfast.");
       setTab("parcels");
       await Promise.all([loadOrders(), loadBalance()]);
     } catch (err) {
@@ -180,10 +176,10 @@ export default function AdminLogistics() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      showFlash(`Synced ${data.updated || 0} parcel(s).`);
+      success(`Synced ${data.updated || 0} parcel(s).`);
       await Promise.all([loadOrders(), loadBalance()]);
     } catch (err) {
-      setError(err.message || "Could not sync statuses.");
+      toastError(err.message || "Could not sync statuses.");
     } finally {
       setSyncing(false);
     }
@@ -249,11 +245,6 @@ export default function AdminLogistics() {
         </div>
       </div>
 
-      {flash && (
-        <p className="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
-          {flash}
-        </p>
-      )}
       {error && (
         <p className="mb-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-2">
           {error}
@@ -306,10 +297,13 @@ export default function AdminLogistics() {
           settings={settings}
           onSaved={(next) => {
             setSettings(next);
-            showFlash("Logistics settings saved.");
+            success("Logistics settings saved.");
             loadBalance();
           }}
-          onError={setError}
+          onError={(msg) => {
+            setError(msg);
+            if (msg) toastError(msg);
+          }}
         />
       )}
 

@@ -16,6 +16,7 @@ import { slugify } from "@/lib/slugify";
 import Modal from "./Modal";
 import Pagination from "./Pagination";
 import ProductFormFields, { calcMargin } from "./ProductFormFields";
+import { useToast } from "@/components/Toast";
 import {
   saveProductVariants,
   hasActiveVariants,
@@ -52,10 +53,10 @@ export default function AdminProducts() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
 
+  const { success, error: toastError } = useToast();
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [flash, setFlash] = useState("");
   const [selected, setSelected] = useState(() => new Set());
 
   useEffect(() => {
@@ -74,11 +75,6 @@ export default function AdminProducts() {
     setProducts(productsData || []);
     setCategories(categoryData || []);
     setLoading(false);
-  }
-
-  function showFlash(msg) {
-    setFlash(msg);
-    setTimeout(() => setFlash(""), 2500);
   }
 
   function openNew() {
@@ -180,7 +176,7 @@ export default function AdminProducts() {
     }
 
     setEditing(null);
-    showFlash(editing.id ? "Product updated." : "Product added.");
+    success(editing.id ? "Product updated." : "Product added.");
     await loadAll();
     setSaving(false);
   }
@@ -225,10 +221,10 @@ export default function AdminProducts() {
       .delete()
       .eq("id", product.id);
     if (deleteError) {
-      setError(deleteError.message);
+      toastError(deleteError.message);
       return;
     }
-    showFlash("Product deleted.");
+    success("Product deleted.");
     setSelected((prev) => {
       const next = new Set(prev);
       next.delete(product.id);
@@ -279,10 +275,10 @@ export default function AdminProducts() {
       .delete()
       .in("id", ids);
     if (deleteError) {
-      setError(deleteError.message);
+      toastError(deleteError.message);
       return;
     }
-    showFlash(`${ids.length} ${label} deleted.`);
+    success(`${ids.length} ${label} deleted.`);
     setSelected(new Set());
     await loadAll();
   }
@@ -344,11 +340,6 @@ export default function AdminProducts() {
         </div>
       </div>
 
-      {flash && (
-        <p className="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2">
-          {flash}
-        </p>
-      )}
       {error && (
         <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
           {error}

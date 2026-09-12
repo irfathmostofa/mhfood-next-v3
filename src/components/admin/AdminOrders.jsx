@@ -16,6 +16,7 @@ import { supabase } from "@/lib/supabase";
 import { printPOSInvoice } from "@/lib/posInvoice";
 import Pagination from "./Pagination";
 import Modal from "./Modal";
+import { useToast } from "@/components/Toast";
 import {
   courierStatusLabel,
   courierTrackingUrl,
@@ -68,8 +69,8 @@ export default function AdminOrders() {
   const [parcelError, setParcelError] = useState("");
   const [selected, setSelected] = useState([]);
   const [bulkSaving, setBulkSaving] = useState(false);
-  const [flash, setFlash] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const { success, error: toastError, warning } = useToast();
 
   useEffect(() => {
     loadOrders();
@@ -134,22 +135,17 @@ export default function AdminOrders() {
       
       if (orderError) throw orderError;
 
-      showFlash(`Order ${order.tracking_code} deleted successfully.`);
+      success(`Order ${order.tracking_code} deleted successfully.`);
       await loadOrders();
       setConfirmDelete(null);
       if (expanded === order.id) {
         setExpanded(null);
       }
     } catch (err) {
-      showFlash(err.message || "Failed to delete order.");
+      toastError(err.message || "Failed to delete order.");
     } finally {
       setDeletingId(null);
     }
-  }
-
-  function showFlash(msg) {
-    setFlash(msg);
-    setTimeout(() => setFlash(""), 3000);
   }
 
   function openParcel(order) {
@@ -181,7 +177,7 @@ export default function AdminOrders() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setParcelForm(null);
-      showFlash("Parcel created with Steadfast.");
+      success("Parcel created with Steadfast.");
       await loadOrders();
     } catch (err) {
       setParcelError(err.message || "Could not create parcel.");
@@ -229,15 +225,17 @@ export default function AdminOrders() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       const failed = (data.failed || []).length;
-      showFlash(
-        failed
-          ? `Created ${data.created?.length || 0} parcel(s), ${failed} failed.`
-          : `Created ${data.created?.length || 0} parcel(s).`,
-      );
+      if (failed) {
+        warning(
+          `Created ${data.created?.length || 0} parcel(s), ${failed} failed.`,
+        );
+      } else {
+        success(`Created ${data.created?.length || 0} parcel(s).`);
+      }
       setSelected([]);
       await loadOrders();
     } catch (err) {
-      showFlash(err.message || "Bulk parcel create failed.");
+      toastError(err.message || "Bulk parcel create failed.");
     } finally {
       setBulkSaving(false);
     }
@@ -306,12 +304,6 @@ export default function AdminOrders() {
           )}
         </div>
       </div>
-
-      {flash && (
-        <p className="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
-          {flash}
-        </p>
-      )}
 
       <div className="flex flex-col gap-3 mb-5">
         <div className="flex flex-col sm:flex-row gap-3">
@@ -757,6 +749,7 @@ function OrderDetail({
   onUpdateStatus,
   onCreateParcel,
 }) {
+  const { error: toastError } = useToast();
   const [items, setItems] = useState(null);
   const [printing, setPrinting] = useState(false);
 
@@ -774,9 +767,12 @@ function OrderDetail({
         .select("*")
         .eq("id", 1)
         .maybeSingle();
-      printPOSInvoice({ order, items, site: site || {} });
+      const printed = printPOSInvoice({ order, items, site: site || {} });
+      if (printed === false) {
+        toastError("Please allow pop-ups to print the invoice.");
+      }
     } catch (err) {
-      alert("Could not print the invoice.");
+      toastError("Could not print the invoice.");
     } finally {
       setPrinting(false);
     }

@@ -4,6 +4,7 @@ import { getTheme, getSeoSettings } from "@/lib/site";
 import { themeVariables } from "@/lib/theme";
 import { buildMetadata } from "@/lib/seo";
 import { CartProvider } from "@/hooks/useCart";
+import { ToastProvider } from "@/components/Toast";
 import Analytics from "@/components/Analytics";
 import JsonLd from "@/components/JsonLd";
 
@@ -39,7 +40,9 @@ export default async function RootLayout({ children }) {
             tiktokPixelId={seo?.tiktok_pixel_id}
           />
         </Suspense>
-        <CartProvider>{children}</CartProvider>
+        <ToastProvider>
+          <CartProvider>{children}</CartProvider>
+        </ToastProvider>
       </body>
     </html>
   );

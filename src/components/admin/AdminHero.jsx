@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabase";
 import ImageUploader from "./ImageUploader";
 import Modal from "./Modal";
 import Pagination from "./Pagination";
+import { useToast } from "@/components/Toast";
 
 const PAGE_SIZES = [5, 10, 20];
 
@@ -32,10 +33,10 @@ export default function AdminHero({ embedded = false }) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0]);
 
+  const { success, error: toastError } = useToast();
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [flash, setFlash] = useState("");
 
   useEffect(() => {
     loadAll();
@@ -49,11 +50,6 @@ export default function AdminHero({ embedded = false }) {
       .order("sort_order", { ascending: true });
     setSlides(data || []);
     setLoading(false);
-  }
-
-  function showFlash(msg) {
-    setFlash(msg);
-    setTimeout(() => setFlash(""), 2500);
   }
 
   function openNew() {
@@ -104,7 +100,7 @@ export default function AdminHero({ embedded = false }) {
     }
 
     setEditing(null);
-    showFlash(editing.id ? "Slide saved." : "Slide added.");
+    success(editing.id ? "Slide saved." : "Slide added.");
     await loadAll();
     setSaving(false);
   }
@@ -124,10 +120,10 @@ export default function AdminHero({ embedded = false }) {
       .delete()
       .eq("id", id);
     if (deleteError) {
-      setError(deleteError.message);
+      toastError(deleteError.message);
       return;
     }
-    showFlash("Slide deleted.");
+    success("Slide deleted.");
     await loadAll();
   }
 
@@ -167,11 +163,6 @@ export default function AdminHero({ embedded = false }) {
         </button>
       </div>
 
-      {flash && (
-        <p className="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2">
-          {flash}
-        </p>
-      )}
       {error && (
         <p className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
           {error}

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import Modal from "./Modal";
+import { useToast } from "@/components/Toast";
 import {
   computeSalePrice,
   sessionStatus,
@@ -67,9 +68,9 @@ export default function AdminDiscountSessions() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
+  const { success } = useToast();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [flash, setFlash] = useState("");
   const [productQuery, setProductQuery] = useState("");
   const [bulkPercent, setBulkPercent] = useState("");
 
@@ -94,11 +95,6 @@ export default function AdminDiscountSessions() {
     setSessions(sessionRows || []);
     setProducts(productRows || []);
     setLoading(false);
-  }
-
-  function showFlash(msg) {
-    setFlash(msg);
-    setTimeout(() => setFlash(""), 2500);
   }
 
   function openNew() {
@@ -264,7 +260,7 @@ export default function AdminDiscountSessions() {
     }
 
     setEditing(null);
-    showFlash(editing.id ? "Session updated." : "Session created.");
+    success(editing.id ? "Session updated." : "Session created.");
     await loadAll();
     setSaving(false);
   }
@@ -272,7 +268,7 @@ export default function AdminDiscountSessions() {
   async function deleteSession(session) {
     if (!confirm(`Delete session "${session.name}"?`)) return;
     await supabase.from("discount_sessions").delete().eq("id", session.id);
-    showFlash("Session deleted.");
+    success("Session deleted.");
     await loadAll();
   }
 
@@ -315,12 +311,6 @@ export default function AdminDiscountSessions() {
           <Plus size={16} /> New Session
         </button>
       </div>
-
-      {flash && (
-        <p className="mb-4 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2">
-          {flash}
-        </p>
-      )}
 
       {loading ? (
         <div className="py-16 flex justify-center text-muted">
