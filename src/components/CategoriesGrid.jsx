@@ -62,13 +62,13 @@ export default function CategoriesGrid({
           {categories.map((cat) => (
             <div
               key={cat.id}
-              className="min-w-0 shrink-0 grow-0 basis-1/3 sm:basis-1/4 lg:basis-[12.5%] px-1.5 sm:px-2.5"
+              className="min-w-0  shrink-0 grow-0 basis-1/3 sm:basis-1/4 lg:basis-[12.5%] px-1.5 sm:px-2.5"
             >
               <Link
                 href={`/shop?category=${cat.slug || cat.id}`}
                 className="group block"
               >
-                <div className="aspect-square bg-primary/5 overflow-hidden rounded-lg">
+                <div className="aspect-square bg-primary/5 overflow-hidden rounded-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={
@@ -77,7 +77,7 @@ export default function CategoriesGrid({
                     }
                     alt={cat.name}
                     loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className="w-full rounded-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 </div>
                 <p className="mt-2 text-center font-medium text-sm sm:text-base text-ink group-hover:text-accent transition-colors truncate">
