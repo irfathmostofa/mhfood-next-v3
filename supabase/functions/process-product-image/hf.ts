@@ -54,7 +54,7 @@ const CAPTION_MODEL = "Salesforce/blip-image-captioning-large";
 // fastest free-tier model. Override with GEMINI_MODEL if needed. A 404
 // retry below will follow Google's suggested replacement if this name
 // is retired.
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-3.6-flash";
 const GEMINI_API_BASE =
   "https://generativelanguage.googleapis.com/v1beta/models";
 let resolvedGeminiModel: string | null = null;
