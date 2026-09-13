@@ -208,9 +208,15 @@ export default function AdminSettings() {
     setError("");
 
     try {
+      const seoPayload = {
+        ...seo,
+        ga_measurement_id: String(seo.ga_measurement_id || "").trim(),
+        facebook_pixel_id: String(seo.facebook_pixel_id || "").trim(),
+        tiktok_pixel_id: String(seo.tiktok_pixel_id || "").trim(),
+      };
       const updates = await Promise.all([
         supabase.from("theme_settings").update(theme).eq("id", 1),
-        supabase.from("seo_settings").update(seo).eq("id", 1),
+        supabase.from("seo_settings").update(seoPayload).eq("id", 1),
         supabase.from("site_settings").update(site).eq("id", 1),
       ]);
       const failed = updates.find((res) => res.error);

@@ -1,7 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import Script from "next/script";
+
+function sanitizeGaId(id) {
+  const value = String(id || "").trim();
+  return /^(G|GT|AW|DC)-[A-Z0-9]+$/i.test(value) ? value : "";
+}
+
+function sanitizePixelId(id) {
+  return String(id || "").trim();
+}
 
 export default function Analytics({
   gaId = "",
@@ -10,62 +20,70 @@ export default function Analytics({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const firstPageView = useRef(true);
 
-  const GA_ID = gaId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "";
-  const PIXEL_ID = metaPixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || "";
-  const TTQ_ID = tiktokPixelId || process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID || "";
+  const GA_ID = sanitizeGaId(
+    gaId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "",
+  );
+  const PIXEL_ID = sanitizePixelId(
+    metaPixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || "",
+  );
+  const TTQ_ID = sanitizePixelId(
+    tiktokPixelId || process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID || "",
+  );
 
-  useEffect(() => {
-    if (!GA_ID && !PIXEL_ID && !TTQ_ID) return;
-
-    let idleId;
-    let timeoutId;
-    const start = () => loadPixels(GA_ID, PIXEL_ID, TTQ_ID);
-
-    if (typeof window.requestIdleCallback === "function") {
-      idleId = window.requestIdleCallback(start, { timeout: 2500 });
-    } else {
-      timeoutId = window.setTimeout(start, 1800);
-    }
-
-    return () => {
-      if (idleId && window.cancelIdleCallback) window.cancelIdleCallback(idleId);
-      if (timeoutId) window.clearTimeout(timeoutId);
-    };
-  }, [GA_ID, PIXEL_ID, TTQ_ID]);
+  const isAdmin = pathname?.startsWith("/admin");
 
   useEffect(() => {
+    if (isAdmin) return;
+    if (!PIXEL_ID && !TTQ_ID) return;
+    loadAdPixels(PIXEL_ID, TTQ_ID);
+  }, [PIXEL_ID, TTQ_ID, isAdmin]);
+
+  useEffect(() => {
+    if (isAdmin) return;
     if (!GA_ID && !PIXEL_ID && !TTQ_ID) return;
-    const url = `${pathname}${searchParams ? `?${searchParams}` : ""}`;
 
-    if (window.gtag) {
-      window.gtag("event", "page_view", { page_path: url });
-    }
-    if (window.fbq) {
-      window.fbq("track", "PageView");
-    }
-    if (window.ttq) {
-      window.ttq.track("Pageview");
-    }
-  }, [pathname, searchParams, GA_ID, PIXEL_ID, TTQ_ID]);
+    const url = `${pathname}${searchParams?.toString() ? `?${searchParams}` : ""}`;
 
-  return null;
+    if (GA_ID) {
+      if (firstPageView.current) {
+        firstPageView.current = false;
+      } else if (window.gtag) {
+        window.gtag("config", GA_ID, {
+          page_path: url,
+          page_location: window.location.href,
+          page_title: document.title,
+        });
+      }
+    }
+
+    if (window.fbq) window.fbq("track", "PageView");
+    if (window.ttq) window.ttq.track("Pageview");
+  }, [pathname, searchParams, GA_ID, PIXEL_ID, TTQ_ID, isAdmin]);
+
+  if (isAdmin || !GA_ID) return null;
+
+  return (
+    <>
+      <Script
+        src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
+        strategy="afterInteractive"
+      />
+      <Script id="ga4-init" strategy="afterInteractive">
+        {`
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          window.gtag = gtag;
+          gtag('js', new Date());
+          gtag('config', '${GA_ID}', { send_page_view: true });
+        `}
+      </Script>
+    </>
+  );
 }
 
-function loadPixels(GA_ID, PIXEL_ID, TTQ_ID) {
-  if (GA_ID && !window.gtag) {
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = function () {
-      window.dataLayer.push(arguments);
-    };
-    window.gtag("js", new Date());
-    const s = document.createElement("script");
-    s.async = true;
-    s.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
-    document.head.appendChild(s);
-    window.gtag("config", GA_ID, { send_page_view: false });
-  }
-
+function loadAdPixels(PIXEL_ID, TTQ_ID) {
   if (PIXEL_ID && !window.fbq) {
     window.fbq = function () {
       window.fbq.callMethod

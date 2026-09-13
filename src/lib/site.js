@@ -57,7 +57,7 @@ async function fetchSeoSettings() {
       .select("*")
       .eq("id", 1)
       .maybeSingle();
-    return data || DEFAULT_SEO;
+    return { ...DEFAULT_SEO, ...(data || {}) };
   } catch {
     return DEFAULT_SEO;
   }
