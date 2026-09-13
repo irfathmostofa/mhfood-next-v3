@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_THEME, THEME_PRESETS, matchThemePreset } from "@/lib/theme";
+import { DEFAULT_SEO } from "@/lib/defaults";
 import ImageUploader from "./ImageUploader";
 import Pagination from "./Pagination";
 import AdminHero from "./AdminHero";
@@ -167,7 +168,7 @@ export default function AdminSettings() {
     ]);
 
     setTheme({ ...DEFAULT_THEME, ...(themeData || {}) });
-    setSeo(seoData || {});
+    setSeo({ ...DEFAULT_SEO, ...(seoData || {}) });
     setSite(siteData || {});
     let nextSections = sectionsData || [];
     const existingKeys = new Set(nextSections.map((s) => s.key));
@@ -207,9 +208,13 @@ export default function AdminSettings() {
     setError("");
 
     try {
-      await supabase.from("theme_settings").update(theme).eq("id", 1);
-      await supabase.from("seo_settings").update(seo).eq("id", 1);
-      await supabase.from("site_settings").update(site).eq("id", 1);
+      const updates = await Promise.all([
+        supabase.from("theme_settings").update(theme).eq("id", 1),
+        supabase.from("seo_settings").update(seo).eq("id", 1),
+        supabase.from("site_settings").update(site).eq("id", 1),
+      ]);
+      const failed = updates.find((res) => res.error);
+      if (failed?.error) throw failed.error;
       showFlash("Settings saved.");
     } catch (err) {
       setError(err.message);

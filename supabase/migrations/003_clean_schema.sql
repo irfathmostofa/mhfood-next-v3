@@ -373,6 +373,9 @@ CREATE TABLE IF NOT EXISTS public.seo_settings (
   home_description text,
   home_keywords    text,
   og_image         text,
+  ga_measurement_id text NOT NULL DEFAULT '',
+  facebook_pixel_id text NOT NULL DEFAULT '',
+  tiktok_pixel_id   text NOT NULL DEFAULT '',
   updated_at       timestamptz NOT NULL DEFAULT now()
 );
 
@@ -382,6 +385,9 @@ CREATE TABLE IF NOT EXISTS public.seo_settings (
 -- Safe on databases that were created before this migration.
 -- Never drops data; only adds what the app reads/writes.
 -- ============================================================
+ALTER TABLE public.seo_settings    ADD COLUMN IF NOT EXISTS ga_measurement_id text NOT NULL DEFAULT '';
+ALTER TABLE public.seo_settings    ADD COLUMN IF NOT EXISTS facebook_pixel_id text NOT NULL DEFAULT '';
+ALTER TABLE public.seo_settings    ADD COLUMN IF NOT EXISTS tiktok_pixel_id text NOT NULL DEFAULT '';
 ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS unit text;
 ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS description text;
 ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS is_featured boolean NOT NULL DEFAULT false;
