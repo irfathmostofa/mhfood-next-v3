@@ -53,11 +53,18 @@ Get a free Hugging Face token at https://huggingface.co/settings/tokens.
 The edge function reads the same `HUGGINGFACE_API_KEY` (set via `supabase secrets`),
 and the service-role key automatically via `SUPABASE_SERVICE_ROLE_KEY`.
 
+Watermark text comes from the edge function secret `WATERMARK_TEXT` (or `STORE_NAME`):
+
+```bash
+supabase secrets set WATERMARK_TEXT="Your Store"
+```
+
 ## 4. Deploy the edge function
 
 ```bash
 supabase functions deploy process-product-image --no-verify-jwt
 supabase secrets set HUGGINGFACE_API_KEY=hf_...
+supabase secrets set WATERMARK_TEXT="Your Store"
 ```
 
 `--no-verify-jwt` is required — auth is enforced in the function itself using the

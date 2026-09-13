@@ -16,7 +16,7 @@
 import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-const WATERMARK_TEXT = "M.H.Food";
+const WATERMARK_TEXT = "";
 const WATERMARK_ANGLE = -32;
 const DEFAULT_FONT_URL =
   "https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf";
@@ -149,7 +149,8 @@ export async function addTiledTextWatermark(
   originalBytes: Uint8Array,
   text: string = WATERMARK_TEXT,
 ): Promise<Uint8Array> {
-  const mark = (text || WATERMARK_TEXT).trim() || WATERMARK_TEXT;
+  const mark = (text || WATERMARK_TEXT).trim();
+  if (!mark) return originalBytes;
   const fontBytes = await loadWatermarkFont();
   const base = await Image.decode(originalBytes);
   applyTiledWatermark(base, mark, fontBytes);
@@ -160,7 +161,8 @@ export async function addWatermark(
   originalBytes: Uint8Array,
   storeName?: string,
 ): Promise<{ buffer: Uint8Array; watermarked: boolean }> {
-  const mark = (storeName || WATERMARK_TEXT).trim() || WATERMARK_TEXT;
+  const mark = (storeName || WATERMARK_TEXT).trim();
+  if (!mark) return { buffer: originalBytes, watermarked: false };
   const buffer = await addTiledTextWatermark(originalBytes, mark);
   return { buffer, watermarked: true };
 }
@@ -198,9 +200,11 @@ export async function startImagePipeline(
 
   const finishProcessed = async (): Promise<ImageResult> => {
     try {
-      const mark = (storeName || WATERMARK_TEXT).trim() || WATERMARK_TEXT;
-      const fontBytes = await loadWatermarkFont();
-      applyTiledWatermark(img, mark, fontBytes);
+      const mark = (storeName || WATERMARK_TEXT).trim();
+      if (mark) {
+        const fontBytes = await loadWatermarkFont();
+        applyTiledWatermark(img, mark, fontBytes);
+      }
     } catch (err) {
       warnings.push(
         `Watermark skipped: ${err instanceof Error ? err.message : String(err)}`,

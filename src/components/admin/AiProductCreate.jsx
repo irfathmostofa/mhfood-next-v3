@@ -30,7 +30,6 @@ import { useToast } from "@/components/Toast";
 
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
-const WATERMARK_STORE_NAME = "M.H.Food";
 const AI_QUOTA_MESSAGE =
   "AI token/quota limit reached. Wait a few minutes and try again, or check your Gemini API quota.";
 
@@ -489,7 +488,6 @@ export default function AiProductCreate() {
           imagePath: path,
           productId: product.id,
           language,
-          storeName: WATERMARK_STORE_NAME,
         }),
       })
         .then(async (res) => {
@@ -524,7 +522,6 @@ export default function AiProductCreate() {
           productId,
           name: form.name.trim(),
           language,
-          storeName: WATERMARK_STORE_NAME,
         }),
       });
       const data = await res.json().catch(() => ({}));

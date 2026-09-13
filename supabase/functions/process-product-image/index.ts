@@ -5,7 +5,7 @@
 //
 // Expected payload (full pipeline):
 //   { "imagePath": "raw/<file>.png", "productId": "<uuid>",
-//     "language": "en" | "bn", "storeName": "<optional store name>" }
+//     "language": "en" | "bn" }
 //
 // Regenerate-content payload (mode = "generate", used when the AI could
 // not identify the product OR could not generate content, and the admin
@@ -234,13 +234,6 @@ Deno.serve(async (req: Request) => {
     const language: ContentLanguage = body.language === "bn" ? "bn" : "en";
     const providedName =
       typeof body.name === "string" ? body.name.trim().slice(0, 120) : "";
-    // Store name for the watermark, supplied by the caller (env var or
-    // site settings on the frontend -- see page.jsx). Falls back to
-    // theme_settings below if the caller didn't send one.
-    const providedStoreName =
-      typeof body.storeName === "string"
-        ? body.storeName.trim().slice(0, 120)
-        : "";
     if (!imagePath || !productId) {
       return json({ error: "imagePath and productId are required." }, 400);
     }
@@ -305,19 +298,12 @@ Deno.serve(async (req: Request) => {
 
     // -------- 3. process image (tiled store-name watermark only --
     // background removal has been removed from the pipeline) --------
-    let storeName = providedStoreName;
-    if (!storeName) {
-      try {
-        const { data: theme } = await supabase
-          .from("theme_settings")
-          .select("store_name")
-          .eq("id", 1)
-          .maybeSingle();
-        storeName = theme?.store_name ?? "";
-      } catch {
-        // Non-critical -- just means no text watermark is available.
-      }
-    }
+    const storeName = String(
+      Deno.env.get("WATERMARK_TEXT") ||
+        Deno.env.get("STORE_NAME") ||
+        Deno.env.get("WATERMARK_STORE_NAME") ||
+        "",
+    ).trim();
 
     let processedImageUrl = product.processed_image_url ?? "";
     let warnings: string[] = [];
