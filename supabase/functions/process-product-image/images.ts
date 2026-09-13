@@ -124,14 +124,14 @@ function applyTiledWatermark(base: Image, text: string, fontBytes: Uint8Array) {
   const envSize = Number(Deno.env.get("WATERMARK_FONT_SIZE") ?? "");
   const fontSize =
     envSize ||
-    Math.max(16, Math.round(Math.min(base.width, base.height) * 0.042));
+    Math.max(22, Math.round(Math.min(base.width, base.height) * 0.078));
 
-  const light = renderStamp(fontBytes, fontSize, text, 0xffffff1a);
-  const dark = renderStamp(fontBytes, fontSize, text, 0x00000014);
+  const light = renderStamp(fontBytes, fontSize, text, 0xffffff55);
+  const dark = renderStamp(fontBytes, fontSize, text, 0x00000040);
   const stampW = Math.max(light.width, dark.width);
   const stampH = Math.max(light.height, dark.height);
-  const gapX = Math.round(stampW * 1.55);
-  const gapY = Math.round(stampH * 1.7);
+  const gapX = Math.round(stampW * 1.22);
+  const gapY = Math.round(stampH * 1.35);
 
   let row = 0;
   for (let y = -stampH; y < base.height + stampH; y += gapY) {
