@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
@@ -12,23 +12,37 @@ export default function CategoriesGrid({
   categories = [],
 }) {
   const canLoop = categories.length > 4;
-  const [emblaRef, emblaApi] = useEmblaCarousel(
-    { loop: canLoop, align: "start", skipSnaps: false, containScroll: "trimSnaps" },
-    canLoop
-      ? [
-          Autoplay({
-            delay: 4000,
-            stopOnInteraction: false,
-            stopOnMouseEnter: true,
-            stopOnFocusIn: false,
-          }),
-        ]
-      : [],
+
+  // Stable plugin instance — created once, not on every render.
+  const autoplayRef = useRef(
+    Autoplay({
+      delay: 4000,
+      stopOnInteraction: false,
+      stopOnMouseEnter: true,
+      stopOnFocusIn: false,
+      playOnInit: true,
+    })
   );
 
+  const [emblaRef, emblaApi] = useEmblaCarousel(
+    { loop: canLoop, align: "start", skipSnaps: false, containScroll: "trimSnaps" },
+    canLoop ? [autoplayRef.current] : [],
+  );
+
+  // Reinit only when the actual set of categories changes (not on every
+  // render / reference change), and explicitly resume autoplay afterward
+  // — reInit() alone does NOT restart the Autoplay plugin's timer.
+  const categoriesKey = categories.map((c) => c.id).join(",");
   useEffect(() => {
-    if (emblaApi) emblaApi.reInit();
-  }, [emblaApi, categories]);
+    if (!emblaApi) return;
+    emblaApi.reInit();
+
+    const autoplay = emblaApi.plugins()?.autoplay;
+    if (autoplay && canLoop) {
+      autoplay.reset(); // restart the delay timer
+      autoplay.play();  // keep it looping forward
+    }
+  }, [emblaApi, categoriesKey, canLoop]);
 
   if (categories.length === 0) return null;
 
@@ -45,14 +59,8 @@ export default function CategoriesGrid({
         </div>
         {canLoop && (
           <div className="hidden sm:flex items-center gap-2">
-            <CarouselButton
-              direction="prev"
-              onClick={() => emblaApi?.scrollPrev()}
-            />
-            <CarouselButton
-              direction="next"
-              onClick={() => emblaApi?.scrollNext()}
-            />
+            <CarouselButton direction="prev" onClick={() => emblaApi?.scrollPrev()} />
+            <CarouselButton direction="next" onClick={() => emblaApi?.scrollNext()} />
           </div>
         )}
       </div>
@@ -62,19 +70,13 @@ export default function CategoriesGrid({
           {categories.map((cat) => (
             <div
               key={cat.id}
-              className="min-w-0  shrink-0 grow-0 basis-1/3 sm:basis-1/4 lg:basis-[12.5%] px-1.5 sm:px-2.5"
+              className="min-w-0 shrink-0 grow-0 basis-1/3 sm:basis-1/4 lg:basis-[12.5%] px-1.5 sm:px-2.5"
             >
-              <Link
-                href={`/shop?category=${cat.slug || cat.id}`}
-                className="group block"
-              >
+              <Link href={`/shop?category=${cat.slug || cat.id}`} className="group block">
                 <div className="aspect-square bg-primary/5 overflow-hidden rounded-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={
-                      cat.image_url ||
-                      "https://placehold.co/400x400?text=Category"
-                    }
+                    src={cat.image_url || "https://placehold.co/400x400?text=Category"}
                     alt={cat.name}
                     loading="lazy"
                     className="w-full rounded-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -91,14 +93,8 @@ export default function CategoriesGrid({
 
       {canLoop && (
         <div className="sm:hidden flex items-center justify-center gap-3 mt-5">
-          <CarouselButton
-            direction="prev"
-            onClick={() => emblaApi?.scrollPrev()}
-          />
-          <CarouselButton
-            direction="next"
-            onClick={() => emblaApi?.scrollNext()}
-          />
+          <CarouselButton direction="prev" onClick={() => emblaApi?.scrollPrev()} />
+          <CarouselButton direction="next" onClick={() => emblaApi?.scrollNext()} />
         </div>
       )}
     </section>
@@ -112,11 +108,7 @@ function CarouselButton({ direction, onClick }) {
       aria-label={direction === "prev" ? "Previous" : "Next"}
       className="p-2 rounded-full border border-line text-ink hover:border-primary hover:bg-primary hover:text-white transition-colors"
     >
-      {direction === "prev" ? (
-        <ChevronLeft size={18} />
-      ) : (
-        <ChevronRight size={18} />
-      )}
+      {direction === "prev" ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
     </button>
   );
 }
