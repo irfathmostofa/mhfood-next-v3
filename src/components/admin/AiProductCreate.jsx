@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { analyzeSEO } from "@/lib/seoAnalyzer";
-import { slugify } from "@/lib/slugify";
+import { slugFromEnglishName } from "@/lib/slugify";
 import ProductFormFields from "./ProductFormFields";
 import {
   saveProductVariants,
@@ -42,6 +42,70 @@ function isQuotaLimitMessage(msg) {
 // How long the "saved" confirmation banner stays up before the whole
 // form resets and is ready for the next product.
 const RESET_DELAY_MS = 1600;
+const TYPICAL_FULL_MS = { en: 38_000, bn: 48_000 };
+const TYPICAL_GENERATE_MS = { en: 18_000, bn: 28_000 };
+const DURATION_STORAGE_KEY = "ai-product-typical-ms";
+
+function durationKey(mode, lang) {
+  return `${mode === "generate" ? "generate" : "full"}:${lang === "bn" ? "bn" : "en"}`;
+}
+
+function defaultTypicalMs(mode, lang) {
+  const table = mode === "generate" ? TYPICAL_GENERATE_MS : TYPICAL_FULL_MS;
+  return table[lang] || table.en;
+}
+
+function loadTypicalMs(mode, lang) {
+  const fallback = defaultTypicalMs(mode, lang);
+  if (typeof window === "undefined") return fallback;
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(DURATION_STORAGE_KEY) || "{}",
+    );
+    const value = Number(parsed?.[durationKey(mode, lang)]);
+    if (value >= 8_000 && value <= 180_000) return value;
+  } catch {
+    // ignore
+  }
+  return fallback;
+}
+
+function recordTypicalMs(mode, lang, ms) {
+  if (typeof window === "undefined") return;
+  if (!ms || ms < 5_000 || ms > 180_000) return;
+  try {
+    const parsed = JSON.parse(
+      window.localStorage.getItem(DURATION_STORAGE_KEY) || "{}",
+    );
+    const key = durationKey(mode, lang);
+    const prev = Number(parsed[key]) || 0;
+    parsed[key] = prev ? Math.round(prev * 0.6 + ms * 0.4) : Math.round(ms);
+    window.localStorage.setItem(DURATION_STORAGE_KEY, JSON.stringify(parsed));
+  } catch {
+    // ignore
+  }
+}
+
+function formatDuration(ms) {
+  const total = Math.max(0, Math.round(Number(ms) / 1000));
+  if (total < 60) return `${total}s`;
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return s ? `${m}m ${s}s` : `${m}m`;
+}
+
+function remainingSeconds(startedAtMs, typicalMs, nowMs) {
+  if (!startedAtMs) return Math.round(typicalMs / 1000);
+  const elapsed = nowMs - startedAtMs;
+  if (elapsed >= typicalMs) {
+    const extra = elapsed - typicalMs;
+    return Math.max(
+      3,
+      Math.round((typicalMs * 0.12) / (1 + extra / 8000) / 1000),
+    );
+  }
+  return Math.max(1, Math.round((typicalMs - elapsed) / 1000));
+}
 
 function fileToJpegBlob(file, maxWidth = 1600) {
   return new Promise((resolve, reject) => {
@@ -158,7 +222,15 @@ export default function AiProductCreate() {
   const [warnings, setWarnings] = useState([]);
 
   const [language, setLanguage] = useState("en"); // en | bn
+  const [nameHint, setNameHint] = useState("");
   const [processedImage, setProcessedImage] = useState("");
+  const [englishName, setEnglishName] = useState("");
+  const [seoData, setSeoData] = useState(null);
+  const [generationMs, setGenerationMs] = useState(0);
+  const [nowTick, setNowTick] = useState(0);
+  const pipelineModeRef = useRef("full");
+  const nameHintRef = useRef("");
+  const languageRef = useRef(language);
 
   const [categories, setCategories] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -169,6 +241,20 @@ export default function AiProductCreate() {
   const startedAt = useRef(null);
   const sourcePathRef = useRef("");
   const resetTimerRef = useRef(null);
+
+  useEffect(() => {
+    nameHintRef.current = nameHint;
+  }, [nameHint]);
+
+  useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
+
+  useEffect(() => {
+    if (phase !== "processing") return;
+    const id = setInterval(() => setNowTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [phase]);
 
   // Lists previously uploaded raw images so the admin can reuse one instead
   // of uploading a new photo. Reloads each time the upload step is shown.
@@ -301,14 +387,15 @@ export default function AiProductCreate() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId, status]);
 
-  // Animate the progress bar while processing.
+  // Animate the progress bar while processing, scaled to the typical
+  // duration for this language / pipeline mode.
   useEffect(() => {
     if (status !== "processing") return;
     const id = setInterval(() => {
-      const elapsed = startedAt.current
-        ? (Date.now() - startedAt.current) / 1000
-        : 0;
-      setProgress(Math.min(82, 24 + elapsed * 1.4));
+      const typical = loadTypicalMs(pipelineModeRef.current, languageRef.current);
+      const elapsed = startedAt.current ? Date.now() - startedAt.current : 0;
+      const ratio = Math.min(1, elapsed / typical);
+      setProgress(Math.min(92, Math.round(8 + ratio * 84)));
     }, 500);
     return () => clearInterval(id);
   }, [status]);
@@ -322,10 +409,15 @@ export default function AiProductCreate() {
       }
       if (row.processing_status === "completed") {
         setProgress(100);
+        if (startedAt.current) {
+          const ms = Date.now() - startedAt.current;
+          setGenerationMs(ms);
+          recordTypicalMs(pipelineModeRef.current, languageRef.current, ms);
+        }
         await loadProduct(row.id);
         setPhase("review");
         notify(
-          "Listing ready ✅",
+          "Listing ready",
           "Your AI-generated product listing is ready to review.",
         );
       }
@@ -339,7 +431,11 @@ export default function AiProductCreate() {
         }
         setProgress(100);
         await loadProduct(row.id);
-        setForm((prev) => ({ ...prev, name: "", slug: "" }));
+        setForm((prev) => ({
+          ...prev,
+          name: nameHintRef.current || prev.name || "",
+          slug: "",
+        }));
         setPhase("naming");
         setProcessingError("");
         notify(
@@ -389,9 +485,17 @@ export default function AiProductCreate() {
     const loadedName = data.name || "";
     const loadedSlug = data.slug || "";
     const tempSlug = /^ai-[a-z0-9]+$/i.test(loadedSlug);
+    const loadedEnglish =
+      (data.seo_data && data.seo_data.englishName) || "";
+    setEnglishName(loadedEnglish);
+    setSeoData(data.seo_data || null);
+    const nextSlug =
+      !loadedSlug || tempSlug
+        ? slugFromEnglishName(loadedEnglish, loadedName)
+        : loadedSlug;
     setForm({
       name: loadedName,
-      slug: !loadedSlug || tempSlug ? slugify(loadedName) : loadedSlug,
+      slug: nextSlug,
       short_description: data.short_description || "",
       description: toEditorHtml(data.description || ""),
       cost:
@@ -476,11 +580,14 @@ export default function AiProductCreate() {
       setProductId(product.id);
       setStatus("pending");
       setProgress(8);
+      setGenerationMs(0);
+      pipelineModeRef.current = "full";
       startedAt.current = Date.now();
       setPhase("processing");
 
       // Fire the pipeline. Status transitions are tracked via realtime/polling
       // so the UI keeps updating even if this request is slow.
+      const hint = nameHint.trim();
       fetch("/api/admin/ai/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -488,6 +595,7 @@ export default function AiProductCreate() {
           imagePath: path,
           productId: product.id,
           language,
+          ...(hint ? { name: hint } : {}),
         }),
       })
         .then(async (res) => {
@@ -512,6 +620,12 @@ export default function AiProductCreate() {
     setStarting(true);
     setProcessingError("");
     setWarnings([]);
+    setGenerationMs(0);
+    pipelineModeRef.current = "generate";
+    startedAt.current = Date.now();
+    setStatus("processing");
+    setProgress(8);
+    setPhase("processing");
     try {
       const res = await fetch("/api/admin/ai/process", {
         method: "POST",
@@ -530,10 +644,17 @@ export default function AiProductCreate() {
       }
       setStatus("completed");
       setProgress(100);
+      if (startedAt.current) {
+        const ms = Date.now() - startedAt.current;
+        setGenerationMs(ms);
+        recordTypicalMs(pipelineModeRef.current, languageRef.current, ms);
+      }
       await loadProduct(productId);
       setPhase("review");
     } catch (err) {
       setProcessingError(err.message || "Could not generate content.");
+      setStatus("awaiting_name");
+      setPhase("naming");
     } finally {
       setStarting(false);
     }
@@ -580,6 +701,11 @@ export default function AiProductCreate() {
     setForm(EMPTY_FORM);
     setVariants([]);
     setKeywords([]);
+    setNameHint("");
+    setEnglishName("");
+    setSeoData(null);
+    setGenerationMs(0);
+    pipelineModeRef.current = "full";
     sourcePathRef.current = "";
     startedAt.current = null;
   }
@@ -591,7 +717,7 @@ export default function AiProductCreate() {
       name: form.name.trim(),
       slug:
         form.slug.trim() ||
-        slugify(form.name) ||
+        slugFromEnglishName(englishName, form.name) ||
         `ai-${Date.now().toString(36)}`,
       short_description: form.short_description.trim(),
       description: form.description.trim(),
@@ -605,6 +731,10 @@ export default function AiProductCreate() {
       category_id: form.category_id || null,
       is_featured: !!form.is_featured,
       seo_keywords: keywords.filter(Boolean),
+      seo_data: {
+        ...(seoData && typeof seoData === "object" ? seoData : {}),
+        englishName: englishName.trim(),
+      },
       publish_status: publish ? "published" : "draft",
       is_active: publish,
     };
@@ -641,13 +771,9 @@ export default function AiProductCreate() {
     }
   }
 
-  const estimate =
-    status === "processing" && startedAt.current
-        ? Math.max(
-          1,
-          Math.round((35 - (Date.now() - startedAt.current) / 1000) / 5),
-        ) * 5
-      : 35;
+  void nowTick;
+  const typicalMs = loadTypicalMs(pipelineModeRef.current, language);
+  const remaining = remainingSeconds(startedAt.current, typicalMs, Date.now());
 
   return (
     <div className="max-w-3xl">
@@ -813,6 +939,21 @@ export default function AiProductCreate() {
             )}
           </div>
 
+          <div className="mt-5">
+            <label className="label">Product name (optional)</label>
+            <input
+              value={nameHint}
+              onChange={(e) => setNameHint(e.target.value)}
+              placeholder="e.g. Mustard oil 1L, খাঁটি সরিষার তেল"
+              className="input"
+            />
+            <p className="text-[11px] text-muted mt-1">
+              Optional hint for the AI. If the listing is in Bangla, keep the
+              title in Bangla — an English name is generated automatically for
+              the URL slug.
+            </p>
+          </div>
+
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted">Listing language:</span>
@@ -849,7 +990,10 @@ export default function AiProductCreate() {
                 {PROGRESS_LABELS[status] || "Processing…"}
               </p>
               <p className="text-xs text-muted flex items-center gap-1 mt-0.5">
-                <Clock size={12} /> About {estimate}s remaining
+                <Clock size={12} />
+                {startedAt.current
+                  ? `${formatDuration(Date.now() - startedAt.current)} elapsed · about ${formatDuration(remaining * 1000)} remaining`
+                  : `About ${formatDuration(typicalMs)} remaining`}
               </p>
             </div>
           </div>
@@ -931,8 +1075,8 @@ export default function AiProductCreate() {
               autoFocus
             />
             <p className="text-[11px] text-muted mt-1">
-              Supports English and বাংলা names — the listing will use it as the
-              title.
+              English or বাংলা. Bangla listings stay in Bangla; an English name
+              is generated for the SEO URL slug.
             </p>
           </div>
 
@@ -977,7 +1121,14 @@ export default function AiProductCreate() {
         <div className="space-y-5">
           <div className="card p-6">
             <div className="flex items-center justify-between gap-3 mb-5">
-              <h2 className="text-lg font-display text-ink">Review content</h2>
+              <div>
+                <h2 className="text-lg font-display text-ink">Review content</h2>
+                {generationMs > 0 && (
+                  <p className="text-xs text-muted flex items-center gap-1 mt-1">
+                    <Clock size={12} /> Generated in {formatDuration(generationMs)}
+                  </p>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted">SEO score</span>
                 <span
@@ -1009,6 +1160,27 @@ export default function AiProductCreate() {
                 }
               }}
             />
+
+            <div className="mt-4">
+              <label className="label">English name (for URL slug)</label>
+              <input
+                value={englishName}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setEnglishName(next);
+                  setForm((prev) => ({
+                    ...prev,
+                    slug: slugFromEnglishName(next, prev.name) || prev.slug,
+                  }));
+                }}
+                placeholder="e.g. mustard oil 1 litre"
+                className="input"
+              />
+              <p className="text-[11px] text-muted mt-1">
+                Used for the SEO URL. Bangla titles stay as the listing name;
+                this English name becomes the slug.
+              </p>
+            </div>
           </div>
 
           <div className="card p-6">

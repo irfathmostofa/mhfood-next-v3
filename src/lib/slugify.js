@@ -72,9 +72,14 @@ export function slugify(text) {
   return romanizeBangla(text)
     .toLowerCase()
     .trim()
+    .replace(/[\u0980-\u09FF]+/g, "")
     .replace(/[^\w\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 80);
+}
+
+export function slugFromEnglishName(englishName, fallbackName = "") {
+  return slugify(englishName) || slugify(fallbackName);
 }

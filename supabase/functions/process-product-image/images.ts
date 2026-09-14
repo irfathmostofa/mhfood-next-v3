@@ -105,6 +105,12 @@ async function loadWatermarkFont(): Promise<Uint8Array> {
   return cachedFontBytes;
 }
 
+function padStamp(stamp: Image, pad: number): Image {
+  const out = new Image(stamp.width + pad * 2, stamp.height + pad * 2);
+  out.composite(stamp, pad, pad);
+  return out;
+}
+
 function renderStamp(
   fontBytes: Uint8Array,
   fontSize: number,
@@ -112,6 +118,7 @@ function renderStamp(
   color: number,
 ) {
   let stamp = Image.renderText(fontBytes, fontSize, text, color);
+  stamp = padStamp(stamp, Math.max(8, Math.round(fontSize * 0.28)));
   try {
     stamp = stamp.rotate(WATERMARK_ANGLE, true);
   } catch {
@@ -120,18 +127,52 @@ function renderStamp(
   return stamp;
 }
 
-function applyTiledWatermark(base: Image, text: string, fontBytes: Uint8Array) {
+function fitWatermarkFontSize(
+  fontBytes: Uint8Array,
+  text: string,
+  imageWidth: number,
+  imageHeight: number,
+): number {
   const envSize = Number(Deno.env.get("WATERMARK_FONT_SIZE") ?? "");
-  const fontSize =
-    envSize ||
-    Math.max(22, Math.round(Math.min(base.width, base.height) * 0.078));
+  if (envSize > 0) return envSize;
 
-  const light = renderStamp(fontBytes, fontSize, text, 0xffffff55);
-  const dark = renderStamp(fontBytes, fontSize, text, 0x00000040);
+  const shortest = Math.min(imageWidth, imageHeight);
+  const maxStampW = Math.max(160, Math.round(imageWidth * 0.72));
+  let fontSize = Math.max(18, Math.round(shortest * 0.07));
+  const charCount = Math.max(1, text.length);
+  const estimated = charCount * fontSize * 0.58;
+  if (estimated > maxStampW) {
+    fontSize = Math.max(16, Math.round(fontSize * (maxStampW / estimated)));
+  }
+
+  for (let i = 0; i < 4; i++) {
+    const probe = Image.renderText(fontBytes, fontSize, text, 0xffffffff);
+    if (probe.width <= maxStampW || fontSize <= 16) break;
+    fontSize = Math.max(
+      16,
+      Math.round(fontSize * (maxStampW / Math.max(1, probe.width))),
+    );
+  }
+  return fontSize;
+}
+
+function applyTiledWatermark(base: Image, text: string, fontBytes: Uint8Array) {
+  const mark = String(text || "").replace(/\s+/g, " ").trim();
+  if (!mark) return;
+
+  const fontSize = fitWatermarkFontSize(
+    fontBytes,
+    mark,
+    base.width,
+    base.height,
+  );
+
+  const light = renderStamp(fontBytes, fontSize, mark, 0xffffff66);
+  const dark = renderStamp(fontBytes, fontSize, mark, 0x00000048);
   const stampW = Math.max(light.width, dark.width);
   const stampH = Math.max(light.height, dark.height);
-  const gapX = Math.round(stampW * 1.22);
-  const gapY = Math.round(stampH * 1.35);
+  const gapX = Math.round(stampW * 1.18);
+  const gapY = Math.round(stampH * 1.28);
 
   let row = 0;
   for (let y = -stampH; y < base.height + stampH; y += gapY) {
