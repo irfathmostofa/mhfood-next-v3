@@ -16,7 +16,7 @@ export default function PromoBanner({ settings }) {
         decoding="async"
         className="absolute inset-0 w-full h-full object-fill transition-transform duration-700 group-hover:scale-105"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
+      {/* <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" /> */}
     </div>
   );
 
