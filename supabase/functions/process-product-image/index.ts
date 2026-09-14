@@ -5,7 +5,7 @@
 //
 // Expected payload (full pipeline):
 //   { "imagePath": "raw/<file>.png", "productId": "<uuid>",
-//     "language": "en" | "bn" }
+//     "language": "en" | "bn", "name": "<optional product name hint>" }
 //
 // Regenerate-content payload (mode = "generate", used when the AI could
 // not identify the product OR could not generate content, and the admin
@@ -61,14 +61,37 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
+const BANGLA_MAP: Record<string, string> = {
+  অ: "o", আ: "a", ই: "i", ঈ: "i", উ: "u", ঊ: "u", ঋ: "ri", এ: "e", ঐ: "oi",
+  ও: "o", ঔ: "ou", ক: "k", খ: "kh", গ: "g", ঘ: "gh", ঙ: "ng", চ: "ch", ছ: "chh",
+  জ: "j", ঝ: "jh", ঞ: "n", ট: "t", ঠ: "th", ড: "d", ঢ: "dh", ণ: "n", ত: "t",
+  থ: "th", দ: "d", ধ: "dh", ন: "n", প: "p", ফ: "ph", ব: "b", ভ: "bh", ম: "m",
+  য: "j", র: "r", ল: "l", শ: "sh", ষ: "sh", স: "s", হ: "h", ড়: "r", ঢ়: "rh",
+  য়: "y", ৎ: "t", "া": "a", "ি": "i", "ী": "i", "ু": "u", "ূ": "u", "ৃ": "ri",
+  "ে": "e", "ৈ": "oi", "ো": "o", "ৌ": "ou", "ং": "ng", "ঃ": "h", "ঁ": "n", "্": "",
+};
+
+function romanizeBangla(text: string): string {
+  return Array.from(String(text || ""))
+    .map((ch) => BANGLA_MAP[ch] ?? ch)
+    .join("");
+}
+
 function slugify(text: string): string {
-  return String(text || "")
+  return romanizeBangla(text)
     .toLowerCase()
     .trim()
+    .replace(/[\u0980-\u09FF]+/g, " ")
+    .replace(/[^\x00-\x7F]/g, " ")
     .replace(/[^\w\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
     .slice(0, 80);
+}
+
+function slugSource(generated: GeneratedContent): string {
+  return generated.englishName || generated.title;
 }
 
 // Turns raw AI/fallback description text into clean plain text: keeps
@@ -166,6 +189,7 @@ async function deferToNaming(
       keywordDensity: draft.seo.keywordDensity,
       readabilityScore: draft.seo.readabilityScore,
       stats: draft.seo.stats,
+      englishName: draft.generated.englishName || "",
     };
   }
 
@@ -237,6 +261,8 @@ Deno.serve(async (req: Request) => {
     if (!imagePath || !productId) {
       return json({ error: "imagePath and productId are required." }, 400);
     }
+    // providedName is optional on the first pass (a seller hint) and
+    // required when mode is generate (admin confirming the product).
     if (mode === "generate" && !providedName) {
       return json({ error: "name is required when mode is generate." }, 400);
     }
@@ -394,12 +420,10 @@ Deno.serve(async (req: Request) => {
       analysis = visionOutcome.value;
     }
 
-    if (mode === "generate") {
-      // The admin typed the product name manually -- either because the
-      // AI couldn't recognize it, or because AI content generation failed
-      // on the first pass. Treat that name as authoritative. Both the
-      // content generation prompt and the SEO keywords derive from it (via
-      // identifiedName/productType), in the chosen language.
+    if (providedName) {
+      // Seller hint (first pass) or confirmed name (generate mode). Treat
+      // it as the product identity so copy, keywords, and the English slug
+      // name are based on it rather than a generic vision guess.
       analysis = {
         ...analysis,
         identifiedName: providedName,
@@ -458,7 +482,10 @@ Deno.serve(async (req: Request) => {
 
     const seo: SeoResult = analyzeSEO(generated.title, generated.description);
     const description = normalizeDescription(generated.description);
-    const slug = await ensureUniqueSlug(supabase, slugify(generated.title));
+    const slug = await ensureUniqueSlug(
+      supabase,
+      slugify(slugSource(generated)),
+    );
 
     // -------- 7. save everything --------
     const { error: saveError } = await supabase
@@ -476,6 +503,7 @@ Deno.serve(async (req: Request) => {
           keywordDensity: seo.keywordDensity,
           readabilityScore: seo.readabilityScore,
           stats: seo.stats,
+          englishName: generated.englishName || "",
         },
         processing_status: "completed",
         processing_errors: warnings.length > 0 ? warnings.join("\n") : null,

@@ -34,6 +34,7 @@ export interface GeneratedContent {
   short_description: string;
   description: string;
   keywords: string[];
+  englishName: string;
 }
 
 const CAPTION_MODEL = "Salesforce/blip-image-captioning-large";
@@ -132,19 +133,26 @@ const CONTENT_PROMPT_EN =
   `without inventing a specific name. Respond with a single JSON object containing exactly ` +
   `these keys: "title" (SEO-optimized, 50-60 characters), "short_description" (140-160 ` +
   `characters, persuasive), "description" (180-250 words: short intro, 4-6 bullet features, ` +
-  `benefits, and a call to action), and "keywords" (array of 8-10 SEO keyword phrases). ` +
+  `benefits, and a call to action), "keywords" (array of 8-10 SEO keyword phrases), and ` +
+  `"englishName" (plain ASCII English product name, 2-8 words, no slogans or filler, used ` +
+  `for the URL slug — e.g. "mustard oil 1 litre", "handwoven cane basket"). ` +
   `Do not wrap the JSON in markdown.\n\nProduct analysis: `;
 
 const CONTENT_PROMPT_BN =
   `You are an expert e-commerce product copywriter. Based on the product analysis below, ` +
   `write a complete product listing entirely in Bengali (Bangla) script, not romanized. ` +
   `If "identifiedName" is non-empty, treat it as the actual identity of the product and ` +
-  `lead with it. If empty, write from the other fields without inventing a specific name. ` +
+  `lead with it — keep the listing title and body in Bengali even if that name is English. ` +
+  `If empty, write from the other fields without inventing a specific name. ` +
   `Respond with a single JSON object containing exactly these keys: "title" (SEO-optimized, ` +
   `50-60 characters, in Bengali), "short_description" (140-160 characters, persuasive, in ` +
   `Bengali), "description" (150-220 words in Bengali: short intro, 4-6 bullet features, ` +
-  `benefits, and a call to action), and "keywords" (array of 8-10 SEO phrases, mix Bengali ` +
-  `and common English search terms). Do not wrap the JSON in markdown.\n\nProduct analysis: `;
+  `benefits, and a call to action), "keywords" (array of 8-10 SEO phrases, mix Bengali ` +
+  `and common English search terms), and "englishName" (REQUIRED: ASCII English product ` +
+  `name that matches the Bangla title, 2-8 words, no marketing filler, suitable for a URL ` +
+  `slug — e.g. if title is "খাঁটি সরিষার তেল ১ লিটার" then englishName is "pure mustard oil 1 litre"; ` +
+  `if title is "হাতের তৈরি বেতের ঝুড়ি" then englishName is "handwoven cane basket". ` +
+  `Never put Bengali script in englishName). Do not wrap the JSON in markdown.\n\nProduct analysis: `;
 
 export type ContentLanguage = "en" | "bn";
 
@@ -590,6 +598,13 @@ export async function generateContent(
   const short = asString(parsed.short_description).slice(0, 200);
   const description = asString(parsed.description);
   const keywords = asStringArray(parsed.keywords).slice(0, 12);
+  const englishName = sanitizeEnglishName(
+    asString(parsed.englishName) ||
+      asString(parsed.english_name) ||
+      (looksEnglish(analysis.identifiedName) ? analysis.identifiedName : "") ||
+      (looksEnglish(title) ? title : "") ||
+      (looksEnglish(analysis.productType) ? analysis.productType : ""),
+  );
 
   if (!description) throw new Error("AI returned an empty description.");
 
@@ -598,7 +613,28 @@ export async function generateContent(
     short_description: short,
     description,
     keywords,
+    englishName:
+      englishName ||
+      sanitizeEnglishName(analysis.productType) ||
+      "product",
   };
+}
+
+function looksEnglish(value: string): boolean {
+  const text = String(value || "").trim();
+  if (!text || /[\u0980-\u09FF]/.test(text)) return false;
+  return /[A-Za-z]/.test(text);
+}
+
+function sanitizeEnglishName(value: string): string {
+  const cleaned = String(value || "")
+    .replace(/[\u0980-\u09FF]+/g, " ")
+    .replace(/[^\x00-\x7F]/g, " ")
+    .replace(/[_/\\]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80);
+  return cleaned;
 }
 
 // Non-AI fallback so a transient AI outage can never block the pipeline.
@@ -660,5 +696,9 @@ export function fallbackContent(
       : `Discover our ${subject} — quality you can trust.`,
     description,
     keywords: keywordPhrases,
+    englishName:
+      sanitizeEnglishName(titleBase) ||
+      sanitizeEnglishName(analysis.productType) ||
+      "product",
   };
 }
