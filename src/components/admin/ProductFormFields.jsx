@@ -61,7 +61,9 @@ export default function ProductFormFields({
           <label className="label">Slug (URL)</label>
           <input
             value={product.slug || ""}
-            onChange={(e) => patch({ slug: e.target.value })}
+            onChange={(e) =>
+              patch({ slug: String(e.target.value || "").replace(/\s+/g, "") })
+            }
             placeholder="auto-generated from name"
             className="input"
           />

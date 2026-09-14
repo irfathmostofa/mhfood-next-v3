@@ -83,3 +83,7 @@ export function slugify(text) {
 export function slugFromEnglishName(englishName, fallbackName = "") {
   return slugify(englishName) || slugify(fallbackName);
 }
+
+export function stripSlugSpaces(value) {
+  return String(value || "").replace(/\s+/g, "");
+}

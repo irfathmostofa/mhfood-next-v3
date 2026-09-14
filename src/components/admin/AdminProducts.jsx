@@ -12,7 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { slugify } from "@/lib/slugify";
+import { slugify, stripSlugSpaces } from "@/lib/slugify";
 import Modal from "./Modal";
 import Pagination from "./Pagination";
 import ProductFormFields, { calcMargin } from "./ProductFormFields";
@@ -105,7 +105,7 @@ export default function AdminProducts() {
     const payload = {
       name: editing.name,
       slug:
-        editing.slug ||
+        stripSlugSpaces(editing.slug) ||
         slugify(editing.name) +
           (editing.id ? "" : `-${Date.now().toString(36).slice(-4)}`),
       category_id: editing.category_id || null,

@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { analyzeSEO } from "@/lib/seoAnalyzer";
-import { slugFromEnglishName } from "@/lib/slugify";
+import { slugFromEnglishName, stripSlugSpaces } from "@/lib/slugify";
 import ProductFormFields from "./ProductFormFields";
 import {
   saveProductVariants,
@@ -716,7 +716,7 @@ export default function AiProductCreate() {
     const payload = {
       name: form.name.trim(),
       slug:
-        form.slug.trim() ||
+        stripSlugSpaces(form.slug) ||
         slugFromEnglishName(englishName, form.name) ||
         `ai-${Date.now().toString(36)}`,
       short_description: form.short_description.trim(),
