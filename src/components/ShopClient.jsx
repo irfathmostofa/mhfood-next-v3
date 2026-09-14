@@ -172,7 +172,7 @@ export default function ShopClient({ categories = [], products = [] }) {
   );
 
   return (
-    <div className="max-w-[97%] mx-auto px-3 py-8">
+    <div className="max-w-[97%] mx-auto px-2 lg:px-3 py-8">
       <div className="flex items-center justify-between gap-4 mb-2 flex-wrap">
         <h1 className="font-display text-2xl sm:text-3xl text-ink">
           {query
