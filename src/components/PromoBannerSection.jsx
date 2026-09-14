@@ -17,7 +17,7 @@ export default function PromoBannerSection({ title, settings }) {
         height={686}
         loading="lazy"
         decoding="async"
-        className="absolute inset-0 w-full h-full object-cover"
+        className="absolute inset-0 w-full h-full object-fill"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
     </div>

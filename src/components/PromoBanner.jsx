@@ -14,7 +14,7 @@ export default function PromoBanner({ settings }) {
         height={700}
         loading="lazy"
         decoding="async"
-        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+        className="absolute inset-0 w-full h-full object-fill transition-transform duration-700 group-hover:scale-105"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-transparent" />
     </div>
