@@ -91,12 +91,12 @@ export default function CategoriesGrid({
         </div>
       </div>
 
-      {canLoop && (
+      {/* {canLoop && (
         <div className="sm:hidden flex items-center justify-center gap-3 mt-5">
           <CarouselButton direction="prev" onClick={() => emblaApi?.scrollPrev()} />
           <CarouselButton direction="next" onClick={() => emblaApi?.scrollNext()} />
         </div>
-      )}
+      )} */}
     </section>
   );
 }
