@@ -172,7 +172,7 @@ export default function ShopClient({ categories = [], products = [] }) {
   );
 
   return (
-    <div className="max-w-[96%] mx-auto px-5 py-8">
+    <div className="max-w-[97%] mx-auto px-3 py-8">
       <div className="flex items-center justify-between gap-4 mb-2 flex-wrap">
         <h1 className="font-display text-2xl sm:text-3xl text-ink">
           {query
@@ -238,7 +238,7 @@ export default function ShopClient({ categories = [], products = [] }) {
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
-                  className="aspect-[3/4] bg-primary/5 rounded-2xl animate-pulse"
+                  className="aspect-3/4 bg-primary/5 rounded-2xl animate-pulse"
                 />
               ))}
             </div>
@@ -267,12 +267,12 @@ export default function ShopClient({ categories = [], products = [] }) {
       {/* Mobile filter drawer */}
       <div
         onClick={() => setFiltersOpen(false)}
-        className={`fixed inset-0 bg-black/40 z-[60] transition-opacity duration-300 lg:hidden ${
+        className={`fixed inset-0 bg-black/40 z-60 transition-opacity duration-300 lg:hidden ${
           filtersOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
       />
       <aside
-        className={`fixed top-0 left-0 h-full w-full sm:w-96 bg-background z-[70] shadow-2xl flex flex-col transform transition-transform duration-300 lg:hidden ${
+        className={`fixed top-0 left-0 h-full w-full sm:w-96 bg-background z-70 shadow-2xl flex flex-col transform transition-transform duration-300 lg:hidden ${
           filtersOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
