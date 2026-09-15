@@ -20,7 +20,7 @@ export default async function HeroSection() {
           hasBanner ? "lg:grid-cols-[minmax(0,1.7fr)_minmax(240px,1fr)] lg:items-stretch" : ""
         }`}
       >
-        <div className="rounded-lg overflow-hidden shadow-sm h-[250px] sm:h-[300px] lg:h-[350px] ring-1 ring-black/5 bg-primary/5">
+        <div className="rounded-lg overflow-hidden shadow-sm h-[150px] sm:h-[300px] lg:h-[350px] ring-1 ring-black/5 bg-primary/5">
           {slides.length > 0 ? (
             <HeroSlider slides={slides} />
           ) : (
