@@ -62,7 +62,7 @@ export default function HeroSlider({ slides = [] }) {
             return (
               <div
                 key={s.id}
-                className="relative min-w-0 shrink-0 grow-0 basis-full h-[250px] sm:h-[300px] lg:h-[350px]"
+                className="relative min-w-0 shrink-0 grow-0 basis-full h-[150px] sm:h-[300px] lg:h-[350px]"
               >
                 {href ? (
                   <Link href={href} className="absolute inset-0 block">
@@ -83,7 +83,7 @@ export default function HeroSlider({ slides = [] }) {
             type="button"
             onClick={() => emblaApi?.scrollPrev()}
             aria-label="Previous slide"
-            className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 inline-flex items-center justify-center rounded-full bg-white/90 text-ink shadow-md hover:bg-white transition-colors"
+            className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-20 w-5 h-5 sm:w-11 sm:h-11 inline-flex items-center justify-center rounded-full bg-white/90 text-ink shadow-md hover:bg-white transition-colors"
           >
             <ChevronLeft size={18} />
           </button>
@@ -91,7 +91,7 @@ export default function HeroSlider({ slides = [] }) {
             type="button"
             onClick={() => emblaApi?.scrollNext()}
             aria-label="Next slide"
-            className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-9 h-9 sm:w-11 sm:h-11 inline-flex items-center justify-center rounded-full bg-white/90 text-ink shadow-md hover:bg-white transition-colors"
+            className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-20 w-5 h-5 sm:w-11 sm:h-11 inline-flex items-center justify-center rounded-full bg-white/90 text-ink shadow-md hover:bg-white transition-colors"
           >
             <ChevronRight size={18} />
           </button>
