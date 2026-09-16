@@ -1470,13 +1470,17 @@ function CouponsManager({ coupons, setCoupons, showFlash }) {
 }
 
 // ---------- Delivery zones ----------
+const EMPTY_ZONE = {
+  id: null,
+  name: "",
+  charge: 0,
+  base_weight_kg: 1,
+  extra_kg_charge: 0,
+  is_active: true,
+};
+
 function ZonesManager({ zones, setZones, showFlash }) {
-  const [form, setForm] = useState({
-    id: null,
-    name: "",
-    charge: 0,
-    is_active: true,
-  });
+  const [form, setForm] = useState(EMPTY_ZONE);
   const { paged, pagination } = usePagedList(zones);
 
   async function save(e) {
@@ -1484,6 +1488,8 @@ function ZonesManager({ zones, setZones, showFlash }) {
     const payload = {
       name: form.name,
       charge: Number(form.charge) || 0,
+      base_weight_kg: Number(form.base_weight_kg) || 0,
+      extra_kg_charge: Number(form.extra_kg_charge) || 0,
       is_active: form.is_active,
     };
     const { error } = form.id
@@ -1493,7 +1499,7 @@ function ZonesManager({ zones, setZones, showFlash }) {
       showFlash(`Error: ${error.message}`);
     } else {
       showFlash(form.id ? "Zone updated." : "Zone added.");
-      setForm({ id: null, name: "", charge: 0, is_active: true });
+      setForm(EMPTY_ZONE);
       const { data } = await supabase
         .from("delivery_zones")
         .select("*")
@@ -1511,23 +1517,57 @@ function ZonesManager({ zones, setZones, showFlash }) {
 
   return (
     <Section title="Delivery Zones">
-      <form onSubmit={save} className="flex flex-col sm:flex-row gap-2 mb-4">
-        <input
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          placeholder="Zone name (e.g. Dhaka City)"
-          className="input"
-          required
-        />
-        <input
-          type="number"
-          value={form.charge}
-          onChange={(e) => setForm({ ...form, charge: e.target.value })}
-          placeholder="Charge (৳)"
-          className="input sm:w-32"
-          required
-        />
-        <div className="flex gap-2">
+      <p className="text-xs text-muted -mt-2">
+        Charge covers the first weight, and the add-on applies to every extra
+        (started) kg. Eg. 1kg = ৳60, add-on ৳20: 3kg = ৳60 + (2 × ৳20) = ৳100.
+      </p>
+      <form
+        onSubmit={save}
+        className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end mb-4"
+      >
+        <div className="col-span-2">
+          <label className="label">Zone name</label>
+          <input
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Dhaka City"
+            className="input"
+            required
+          />
+        </div>
+        <div>
+          <label className="label">Base charge (৳)</label>
+          <input
+            type="number"
+            value={form.charge}
+            onChange={(e) => setForm({ ...form, charge: e.target.value })}
+            placeholder="60"
+            className="input"
+            required
+          />
+        </div>
+        <div>
+          <label className="label">Base weight (kg)</label>
+          <input
+            type="number"
+            step="0.001"
+            value={form.base_weight_kg}
+            onChange={(e) => setForm({ ...form, base_weight_kg: e.target.value })}
+            placeholder="1"
+            className="input"
+          />
+        </div>
+        <div>
+          <label className="label">Add-on / extra kg (৳)</label>
+          <input
+            type="number"
+            value={form.extra_kg_charge}
+            onChange={(e) => setForm({ ...form, extra_kg_charge: e.target.value })}
+            placeholder="20"
+            className="input"
+          />
+        </div>
+        <div className="col-span-2 sm:col-span-5 flex gap-2">
           <button
             type="submit"
             className="btn btn-primary shrink-0 flex-1 sm:flex-none"
@@ -1537,9 +1577,7 @@ function ZonesManager({ zones, setZones, showFlash }) {
           {form.id && (
             <button
               type="button"
-              onClick={() =>
-                setForm({ id: null, name: "", charge: 0, is_active: true })
-              }
+              onClick={() => setForm(EMPTY_ZONE)}
               className="btn btn-ghost shrink-0"
             >
               Cancel
@@ -1556,7 +1594,12 @@ function ZonesManager({ zones, setZones, showFlash }) {
           >
             <div>
               <p className="text-sm text-ink">{zone.name}</p>
-              <p className="text-xs text-muted">৳{zone.charge}</p>
+              <p className="text-xs text-muted">
+                ৳{zone.charge} / first {Number(zone.base_weight_kg ?? 1)}kg
+                {Number(zone.extra_kg_charge || 0) > 0
+                  ? ` · +৳${zone.extra_kg_charge} per extra kg`
+                  : ""}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <button

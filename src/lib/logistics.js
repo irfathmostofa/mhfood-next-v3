@@ -1,6 +1,36 @@
 import { createAdminClient } from "@/lib/admin";
 import { resolveSteadfastCredentials } from "@/lib/steadfast";
 
+// Loads the logistics settings without requiring Steadfast to be enabled.
+// Use this for flows (like manual orders) that should still work offline.
+export async function loadLogisticsContext() {
+  const supabase = await createAdminClient();
+  const { data: settings, error } = await supabase
+    .from("logistics_settings")
+    .select("*")
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (error && /logistics_settings/i.test(error.message || "")) {
+    const err = new Error(
+      "Run the logistics migration (013_logistics.sql) in Supabase first.",
+    );
+    err.status = 500;
+    throw err;
+  }
+  if (error) {
+    const err = new Error(error.message);
+    err.status = 500;
+    throw err;
+  }
+
+  return {
+    supabase,
+    settings,
+    credentials: resolveSteadfastCredentials(settings),
+  };
+}
+
 export async function loadSteadfastCredentials() {
   const supabase = await createAdminClient();
   const { data: settings, error } = await supabase

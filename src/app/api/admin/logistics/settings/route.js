@@ -9,6 +9,7 @@ function publicSettings(row) {
     provider: row?.provider || "steadfast",
     is_enabled: Boolean(row?.is_enabled),
     default_delivery_type: Number(row?.default_delivery_type || 0) === 1 ? 1 : 0,
+    cod_percent: Number(row?.cod_percent ?? 1),
     api_key_masked: maskSecret(row?.api_key),
     secret_key_masked: maskSecret(row?.secret_key),
     has_api_key: Boolean(row?.api_key),
@@ -57,11 +58,13 @@ export async function PATCH(req) {
     const supabase = await createAdminClient();
     const body = await req.json();
 
+    const codPercent = Math.max(0, Number(body.cod_percent));
     const payload = {
       id: 1,
       provider: "steadfast",
       is_enabled: Boolean(body.is_enabled),
       default_delivery_type: Number(body.default_delivery_type) === 1 ? 1 : 0,
+      cod_percent: Number.isFinite(codPercent) ? codPercent : 1,
     };
 
     if (typeof body.api_key === "string" && body.api_key.trim()) {
@@ -71,11 +74,22 @@ export async function PATCH(req) {
       payload.secret_key = body.secret_key.trim();
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("logistics_settings")
       .upsert(payload, { onConflict: "id" })
       .select("*")
       .single();
+
+    if (error && /cod_percent/i.test(error.message || "")) {
+      const { cod_percent, ...legacy } = payload;
+      const retry = await supabase
+        .from("logistics_settings")
+        .upsert(legacy, { onConflict: "id" })
+        .select("*")
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       return NextResponse.json(

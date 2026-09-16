@@ -92,7 +92,7 @@ export default function ProductFormFields({
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="sm:col-span-1">
           <label className="label">Category</label>
           <select
@@ -136,6 +136,21 @@ export default function ProductFormFields({
             placeholder="per kg"
             className="input"
           />
+        </div>
+        <div>
+          <label className="label">Weight (kg)</label>
+          <input
+            type="number"
+            step="0.001"
+            min="0"
+            value={product.weight ?? ""}
+            onChange={(e) => patch({ weight: e.target.value })}
+            placeholder="0.000"
+            className="input"
+          />
+          <p className="text-[11px] text-muted mt-1">
+            Used to calculate delivery weight charge.
+          </p>
         </div>
       </div>
 

@@ -185,6 +185,7 @@ const EMPTY_FORM = {
   price: "",
   stock: "0",
   unit: "",
+  weight: "",
   category_id: "",
   is_featured: false,
   is_active: true,
@@ -510,6 +511,10 @@ export default function AiProductCreate() {
           : "",
       stock: String(Number(data.stock) || 0),
       unit: data.unit || "",
+      weight:
+        data.weight != null && Number(data.weight) !== 0
+          ? String(data.weight)
+          : "",
       category_id: data.category_id || "",
       is_featured: !!data.is_featured,
       is_active: data.is_active !== false,
@@ -728,6 +733,7 @@ export default function AiProductCreate() {
         ? variantStockTotal(variants)
         : Number(form.stock) || 0,
       unit: (form.unit || "").trim(),
+      weight: Number(form.weight) || 0,
       category_id: form.category_id || null,
       is_featured: !!form.is_featured,
       seo_keywords: keywords.filter(Boolean),
@@ -780,7 +786,7 @@ export default function AiProductCreate() {
       <div className="flex items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-display text-ink">Create with AI</h1>
-          <p className="text-sm text-muted mt-1">
+          <p className="text-sm text-muted mt-1 hidden sm:block">
             Upload a product photo — or pick one you have already uploaded — and
             generate a complete, SEO-ready listing.
           </p>

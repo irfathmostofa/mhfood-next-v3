@@ -467,6 +467,11 @@ export default function AdminOrders() {
                       </p>
                     </div>
                     <div className="shrink-0 flex items-center gap-2">
+                      {order.order_type === "manual" && (
+                        <span className="px-2.5 py-1 rounded-full text-[11px] uppercase tracking-wide border border-accent/30 bg-accent/10 text-accent">
+                          Manual
+                        </span>
+                      )}
                       {order.consignment_id && (
                         <span
                           className={`px-2.5 py-1 rounded-full text-[11px] uppercase tracking-wide border ${
@@ -888,10 +893,30 @@ function OrderDetail({
                 <span>−৳{Number(order.discount_amount).toFixed(2)}</span>
               </div>
             )}
+            {Number(order.total_weight) > 0 && (
+              <div className="flex justify-between">
+                <span>Weight</span>
+                <span>
+                  {Number(order.total_weight)} kg
+                  {Number(order.extra_weight_kg) > 0
+                    ? ` (${Number(order.extra_weight_kg)} kg extra)`
+                    : ""}
+                </span>
+              </div>
+            )}
             <div className="flex justify-between font-semibold text-ink">
               <span>Total</span>
               <span>৳{order.total_amount}</span>
             </div>
+            {Number(order.cod_charge) > 0 && (
+              <div className="flex justify-between text-xs text-red-600 pt-1">
+                <span>
+                  COD fee {Number(order.cod_percent)}% (admin cost, not charged
+                  to customer)
+                </span>
+                <span>−৳{Number(order.cod_charge).toFixed(2)}</span>
+              </div>
+            )}
           </div>
 
           <div className="border-t border-line mt-3 pt-3 text-sm text-muted">

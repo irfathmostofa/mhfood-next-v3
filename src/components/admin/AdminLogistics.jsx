@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import Pagination from "./Pagination";
-import Modal from "./Modal";
+import ManualParcelModal from "./ManualParcelModal";
 import { useToast } from "@/components/Toast";
 import {
   courierStatusLabel,
@@ -53,20 +53,6 @@ function asList(data) {
   return [];
 }
 
-const EMPTY_MANUAL = {
-  invoice: "",
-  recipient_name: "",
-  recipient_phone: "",
-  alternative_phone: "",
-  recipient_email: "",
-  recipient_address: "",
-  cod_amount: "0",
-  note: "",
-  item_description: "",
-  total_lot: "1",
-  delivery_type: 0,
-};
-
 export default function AdminLogistics() {
   const [tab, setTab] = useState("parcels");
   const [settings, setSettings] = useState(null);
@@ -81,9 +67,6 @@ export default function AdminLogistics() {
   const [pageSize, setPageSize] = useState(10);
   const [error, setError] = useState("");
   const [manualOpen, setManualOpen] = useState(false);
-  const [manualSaving, setManualSaving] = useState(false);
-  const [manualError, setManualError] = useState("");
-  const [manualForm, setManualForm] = useState(EMPTY_MANUAL);
 
   useEffect(() => {
     loadAll();
@@ -133,36 +116,12 @@ export default function AdminLogistics() {
   }
 
   function openManual() {
-    setManualError("");
-    setManualForm({
-      ...EMPTY_MANUAL,
-      delivery_type: Number(settings?.default_delivery_type || 0),
-    });
     setManualOpen(true);
   }
 
-  async function createManualOrder(e) {
-    e.preventDefault();
-    setManualSaving(true);
-    setManualError("");
-    try {
-      const res = await fetch("/api/admin/logistics/parcels/manual", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(manualForm),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setManualOpen(false);
-      setManualForm(EMPTY_MANUAL);
-      success("Manual order created and sent to Steadfast.");
-      setTab("parcels");
-      await Promise.all([loadOrders(), loadBalance()]);
-    } catch (err) {
-      setManualError(err.message || "Could not create manual order.");
-    } finally {
-      setManualSaving(false);
-    }
+  async function handleManualCreated() {
+    setTab("parcels");
+    await Promise.all([loadOrders(), loadBalance()]);
   }
 
   async function syncStatuses() {
@@ -307,198 +266,12 @@ export default function AdminLogistics() {
         />
       )}
 
-      <Modal
+      <ManualParcelModal
         open={manualOpen}
-        onClose={() => !manualSaving && setManualOpen(false)}
-        title="Create manual order"
-        subtitle="Creates a store order and sends the parcel to Steadfast."
-      >
-        <form onSubmit={createManualOrder} className="space-y-3">
-          {manualError && (
-            <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
-              {manualError}
-            </p>
-          )}
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className="label">Invoice / tracking code</label>
-              <input
-                className="input"
-                value={manualForm.invoice}
-                onChange={(e) =>
-                  setManualForm((prev) => ({ ...prev, invoice: e.target.value }))
-                }
-                placeholder="Leave blank to auto-generate"
-              />
-            </div>
-            <div>
-              <label className="label">Recipient name</label>
-              <input
-                className="input"
-                value={manualForm.recipient_name}
-                onChange={(e) =>
-                  setManualForm((prev) => ({
-                    ...prev,
-                    recipient_name: e.target.value,
-                  }))
-                }
-                required
-              />
-            </div>
-            <div>
-              <label className="label">Phone (11 digits)</label>
-              <input
-                className="input"
-                value={manualForm.recipient_phone}
-                onChange={(e) =>
-                  setManualForm((prev) => ({
-                    ...prev,
-                    recipient_phone: e.target.value,
-                  }))
-                }
-                required
-              />
-            </div>
-            <div>
-              <label className="label">Alternative phone</label>
-              <input
-                className="input"
-                value={manualForm.alternative_phone}
-                onChange={(e) =>
-                  setManualForm((prev) => ({
-                    ...prev,
-                    alternative_phone: e.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div>
-              <label className="label">Email</label>
-              <input
-                className="input"
-                type="email"
-                value={manualForm.recipient_email}
-                onChange={(e) =>
-                  setManualForm((prev) => ({
-                    ...prev,
-                    recipient_email: e.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div>
-              <label className="label">COD amount</label>
-              <input
-                className="input"
-                type="number"
-                min="0"
-                step="0.01"
-                value={manualForm.cod_amount}
-                onChange={(e) =>
-                  setManualForm((prev) => ({
-                    ...prev,
-                    cod_amount: e.target.value,
-                  }))
-                }
-                required
-              />
-            </div>
-          </div>
-          <div>
-            <label className="label">Address</label>
-            <textarea
-              className="input min-h-24"
-              value={manualForm.recipient_address}
-              onChange={(e) =>
-                setManualForm((prev) => ({
-                  ...prev,
-                  recipient_address: e.target.value,
-                }))
-              }
-              required
-            />
-          </div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div>
-              <label className="label">Item description</label>
-              <input
-                className="input"
-                value={manualForm.item_description}
-                onChange={(e) =>
-                  setManualForm((prev) => ({
-                    ...prev,
-                    item_description: e.target.value,
-                  }))
-                }
-                placeholder="e.g. Mixed fruits 2kg"
-              />
-            </div>
-            <div>
-              <label className="label">Total lot</label>
-              <input
-                className="input"
-                type="number"
-                min="1"
-                value={manualForm.total_lot}
-                onChange={(e) =>
-                  setManualForm((prev) => ({
-                    ...prev,
-                    total_lot: e.target.value,
-                  }))
-                }
-              />
-            </div>
-            <div>
-              <label className="label">Delivery type</label>
-              <select
-                className="input"
-                value={manualForm.delivery_type}
-                onChange={(e) =>
-                  setManualForm((prev) => ({
-                    ...prev,
-                    delivery_type: Number(e.target.value),
-                  }))
-                }
-              >
-                <option value={0}>Home delivery</option>
-                <option value={1}>Point delivery / hub pickup</option>
-              </select>
-            </div>
-            <div>
-              <label className="label">Note</label>
-              <input
-                className="input"
-                value={manualForm.note}
-                onChange={(e) =>
-                  setManualForm((prev) => ({ ...prev, note: e.target.value }))
-                }
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={() => setManualOpen(false)}
-              disabled={manualSaving}
-              className="btn btn-ghost btn-sm"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={manualSaving}
-              className="btn btn-primary btn-sm"
-            >
-              {manualSaving ? (
-                <Loader2 size={14} className="animate-spin" />
-              ) : (
-                <Truck size={14} />
-              )}
-              Create order
-            </button>
-          </div>
-        </form>
-      </Modal>
+        settings={settings}
+        onClose={() => setManualOpen(false)}
+        onCreated={handleManualCreated}
+      />
     </div>
   );
 }
@@ -638,6 +411,7 @@ function SettingsPanel({ settings, onSaved, onError }) {
   const [form, setForm] = useState({
     is_enabled: false,
     default_delivery_type: 0,
+    cod_percent: 1,
     api_key: "",
     secret_key: "",
   });
@@ -648,6 +422,7 @@ function SettingsPanel({ settings, onSaved, onError }) {
     setForm({
       is_enabled: Boolean(settings.is_enabled),
       default_delivery_type: Number(settings.default_delivery_type || 0),
+      cod_percent: Number(settings.cod_percent ?? 1),
       api_key: "",
       secret_key: "",
     });
@@ -709,6 +484,24 @@ function SettingsPanel({ settings, onSaved, onError }) {
           <option value={0}>Home delivery</option>
           <option value={1}>Point delivery / Steadfast hub pickup</option>
         </select>
+      </div>
+
+      <div>
+        <label className="label">COD fee (%)</label>
+        <input
+          className="input"
+          type="number"
+          min="0"
+          step="0.001"
+          value={form.cod_percent}
+          onChange={(e) =>
+            setForm((prev) => ({ ...prev, cod_percent: e.target.value }))
+          }
+        />
+        <p className="text-xs text-muted mt-1">
+          Percentage of the COD amount kept as the courier/COD fee. This cost is
+          borne by the admin and is not added to the customer total.
+        </p>
       </div>
 
       <div>

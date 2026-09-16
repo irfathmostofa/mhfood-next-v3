@@ -36,6 +36,7 @@ const EMPTY_PRODUCT = {
   price: "",
   stock: 0,
   unit: "",
+  weight: "",
   short_description: "",
   description: "",
   is_featured: false,
@@ -116,6 +117,7 @@ export default function AdminProducts() {
         ? variantStockTotal(editing.variants)
         : Number(editing.stock) || 0,
       unit: (editing.unit || "").trim(),
+      weight: Number(editing.weight) || 0,
       short_description: (editing.short_description || "").trim(),
       description: editing.description || "",
       is_featured: editing.is_featured,
