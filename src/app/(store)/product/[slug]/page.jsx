@@ -56,7 +56,7 @@ async function ProductRelatedSection({ product }) {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3  sm:gap-6">
         {products.map((relatedProduct) => (
           <ProductCard key={relatedProduct.id} product={relatedProduct} />
         ))}
@@ -97,7 +97,7 @@ export default async function ProductPage({ params }) {
   );
 
   return (
-    <div className="max-w-[94%] mx-auto px-2 py-4">
+    <div className="max-w-[94%] mx-auto px-1 sm:px-2 py-4">
       {structured && (
         <script
           type="application/ld+json"
