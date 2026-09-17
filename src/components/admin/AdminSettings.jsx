@@ -16,6 +16,7 @@ import {
   Percent,
   MapPin,
   MessageSquare,
+  Plus,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { DEFAULT_THEME, THEME_PRESETS, matchThemePreset } from "@/lib/theme";
@@ -214,11 +215,26 @@ export default function AdminSettings() {
         facebook_pixel_id: String(seo.facebook_pixel_id || "").trim(),
         tiktok_pixel_id: String(seo.tiktok_pixel_id || "").trim(),
       };
-      const updates = await Promise.all([
-        supabase.from("theme_settings").update(theme).eq("id", 1),
-        supabase.from("seo_settings").update(seoPayload).eq("id", 1),
-        supabase.from("site_settings").update(site).eq("id", 1),
-      ]);
+      const sitePayload = { ...site, enquiry_enabled: site.enquiry_enabled !== false };
+      let siteUpdate = await supabase
+        .from("site_settings")
+        .update(sitePayload)
+        .eq("id", 1);
+      if (
+        siteUpdate.error &&
+        /enquiry_enabled/i.test(siteUpdate.error.message || "")
+      ) {
+        const { enquiry_enabled, ...withoutEnquiry } = sitePayload;
+        siteUpdate = await supabase
+          .from("site_settings")
+          .update(withoutEnquiry)
+          .eq("id", 1);
+      }
+      const updates = [
+        await supabase.from("theme_settings").update(theme).eq("id", 1),
+        await supabase.from("seo_settings").update(seoPayload).eq("id", 1),
+        siteUpdate,
+      ];
       const failed = updates.find((res) => res.error);
       if (failed?.error) throw failed.error;
       showFlash("Settings saved.");
@@ -889,6 +905,24 @@ function ContactForm({ site, setSite }) {
           className="input"
         />
       </div>
+
+      <div className="border-t border-line pt-4">
+        <h3 className="text-sm font-semibold text-ink mb-1">
+          Out-of-stock enquiry
+        </h3>
+        <p className="text-xs text-muted mb-3">
+          Show a request enquiry button on products with no stock. Submissions
+          appear under Admin &gt; Enquiries.
+        </p>
+        <label className="flex items-center gap-2 text-sm text-ink">
+          <input
+            type="checkbox"
+            checked={site.enquiry_enabled !== false}
+            onChange={(e) => set("enquiry_enabled", e.target.checked)}
+          />
+          Show request enquiry button
+        </label>
+      </div>
     </Section>
   );
 }
@@ -906,6 +940,19 @@ const SECTION_KEYS = {
   how_it_works: "How It Works",
   cta: "Call to Action",
 };
+
+function isCategoryProductsSection(section) {
+  return String(section?.key || "").startsWith("category_products");
+}
+
+function sectionLabel(section) {
+  if (isCategoryProductsSection(section)) {
+    return section.title
+      ? `Category Products — ${section.title}`
+      : "Category Products";
+  }
+  return SECTION_KEYS[section.key] || section.key;
+}
 
 const STATIC_SECTION_KEYS = [
   "hero",
@@ -944,6 +991,20 @@ const MISSING_HOME_SECTIONS = [
 ];
 
 function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
+  const [categories, setCategories] = useState([]);
+  const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("categories")
+      .select("id, name, slug, is_active, parent_id")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true })
+      .then(({ data }) => setCategories(data || []));
+  }, []);
+
+  const activeCategories = categories.filter((c) => c.is_active !== false);
+
   async function toggle(key, enabled) {
     const updated = sections.map((s) =>
       s.key === key ? { ...s, enabled } : s,
@@ -991,12 +1052,87 @@ function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
     );
   }
 
+  async function addCategorySection() {
+    if (adding) return;
+    setAdding(true);
+    const sortOrder =
+      sections.reduce((max, s) => Math.max(max, Number(s.sort_order) || 0), 0) +
+      1;
+    const payload = {
+      key: `category_products_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      title: "Category Products",
+      subtitle: "Shop this collection",
+      enabled: true,
+      sort_order: sortOrder,
+      items_per_page: 8,
+      settings: { category_id: "" },
+    };
+    const { data, error } = await supabase
+      .from("home_sections")
+      .insert(payload)
+      .select()
+      .single();
+    setAdding(false);
+    if (error) {
+      showFlash(`Error: ${error.message}`);
+      return;
+    }
+    setSections([...sections, data]);
+    showFlash("Category products section added.");
+  }
+
+  async function removeSection(section) {
+    if (!isCategoryProductsSection(section)) return;
+    const { error } = await supabase
+      .from("home_sections")
+      .delete()
+      .eq("id", section.id);
+    if (error) {
+      showFlash(`Error: ${error.message}`);
+      return;
+    }
+    setSections(sections.filter((s) => s.id !== section.id));
+    showFlash("Section removed.");
+  }
+
+  async function changeCategory(section, categoryId) {
+    const cat = activeCategories.find((c) => c.id === categoryId);
+    const next = {
+      ...section,
+      title: cat?.name || section.title || "Category Products",
+      settings: { ...(section.settings || {}), category_id: categoryId },
+    };
+    setSections(sections.map((s) => (s.id === section.id ? next : s)));
+    await supabase
+      .from("home_sections")
+      .update({
+        title: next.title,
+        settings: next.settings,
+      })
+      .eq("id", section.id);
+  }
+
   return (
     <Section title="Home Page Sections">
       <p className="text-xs text-muted -mt-2">
-        Toggle, reorder, and edit homepage blocks. The hero slider and side
-        promotional banner live in the Hero Slider section.
+        Toggle, reorder, and edit homepage blocks. Add multiple category
+        product sections to show products from any category.
       </p>
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={addCategorySection}
+          disabled={adding}
+          className="btn btn-primary btn-sm disabled:opacity-60"
+        >
+          {adding ? (
+            <Loader2 size={14} className="animate-spin" />
+          ) : (
+            <Plus size={14} />
+          )}
+          Add category products
+        </button>
+      </div>
       <div className="space-y-3">
         {sections.map((section, index) => (
           <div key={section.id} className="border border-line rounded-xl p-4">
@@ -1007,7 +1143,7 @@ function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
                   checked={section.enabled}
                   onChange={(e) => toggle(section.key, e.target.checked)}
                 />
-                {SECTION_KEYS[section.key] || section.key}
+                {sectionLabel(section)}
               </label>
               <div className="flex items-center gap-1">
                 <button
@@ -1026,6 +1162,16 @@ function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
                 >
                   <ArrowDown size={14} />
                 </button>
+                {isCategoryProductsSection(section) && (
+                  <button
+                    type="button"
+                    onClick={() => removeSection(section)}
+                    className="p-1.5 text-muted hover:text-red-600"
+                    aria-label="Remove section"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1068,6 +1214,31 @@ function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
                     className="input input-sm"
                   />
                 </div>
+                {isCategoryProductsSection(section) && (
+                  <div className="mt-3">
+                    <label className="label">Category</label>
+                    <select
+                      value={section.settings?.category_id || ""}
+                      onChange={(e) => changeCategory(section, e.target.value)}
+                      className="input input-sm"
+                    >
+                      <option value="">Select a category</option>
+                      {activeCategories.map((cat) => {
+                        const parent = activeCategories.find(
+                          (c) => c.id === cat.parent_id,
+                        );
+                        return (
+                          <option key={cat.id} value={cat.id}>
+                            {parent ? `${parent.name} / ${cat.name}` : cat.name}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    <p className="text-[11px] text-muted mt-1">
+                      Products from this category appear on the homepage.
+                    </p>
+                  </div>
+                )}
               </>
             )}
 

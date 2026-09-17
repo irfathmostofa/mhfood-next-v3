@@ -4,6 +4,7 @@ import {
   getCategories,
   getCategoryCounts,
   getTheme,
+  isCategoryProductsSection,
 } from "@/lib/site";
 import { getProductsWithRatings, getBestsellers } from "@/lib/products";
 import { getLiveSessionsWithProducts } from "@/lib/discountSessions";
@@ -34,12 +35,15 @@ export default async function HomePage() {
   const latestSection = enabled.find((s) => s.key === "latest");
   const flashSaleSection = enabled.find((s) => s.key === "flash_sale");
 
+  const categoryProductSections = enabled.filter(isCategoryProductsSection);
+
   const [
     featured,
     latest,
     bestsellers,
     [allCategories, categoryCounts],
     saleSessions,
+    categoryProductsResults,
   ] = await Promise.all([
     featuredSection
       ? getProductsWithRatings({
@@ -55,13 +59,30 @@ export default async function HomePage() {
     bestsellersSection
       ? getBestsellers(bestsellersSection.items_per_page || 12)
       : [],
-    categoriesSection
+    categoriesSection || categoryProductSections.length > 0
       ? Promise.all([getCategories(), getCategoryCounts()])
       : [[], {}],
     flashSaleSection
       ? getLiveSessionsWithProducts(flashSaleSection.items_per_page || 10)
       : [],
+    Promise.all(
+      categoryProductSections.map((section) => {
+        const categoryId = section.settings?.category_id;
+        if (!categoryId) return Promise.resolve({ products: [] });
+        return getProductsWithRatings({
+          categoryId,
+          limit: section.items_per_page || 8,
+        });
+      }),
+    ),
   ]);
+
+  const categoryProductsByKey = Object.fromEntries(
+    categoryProductSections.map((section, index) => [
+      section.key,
+      categoryProductsResults[index]?.products || [],
+    ]),
+  );
 
   const topLevel = allCategories.filter((c) => !c.parent_id);
   const parentCategories = (topLevel.length > 0 ? topLevel : allCategories).slice(
@@ -147,6 +168,22 @@ export default async function HomePage() {
           />
         );
       default:
+        if (isCategoryProductsSection(section)) {
+          const categoryId = section.settings?.category_id;
+          const category = allCategories.find((c) => c.id === categoryId);
+          const href = category?.slug
+            ? `/shop?category=${category.slug}`
+            : "/shop";
+          return (
+            <ProductSection
+              key={section.key}
+              title={section.title || category?.name || "Category Products"}
+              subtitle={section.subtitle}
+              products={categoryProductsByKey[section.key] || []}
+              viewAllHref={href}
+            />
+          );
+        }
         return null;
     }
   };

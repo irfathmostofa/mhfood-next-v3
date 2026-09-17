@@ -27,6 +27,7 @@ import { useToast } from "@/components/Toast";
 import StarRating from "./StarRating";
 import ReviewsList from "./ReviewsList";
 import { toHtml } from "@/lib/richtext";
+import ProductEnquiryModal from "@/components/ProductEnquiryModal";
 
 export default function ProductView({ product, siteSettings = null }) {
   const router = useRouter();
@@ -37,6 +38,7 @@ export default function ProductView({ product, siteSettings = null }) {
   const [addedMsg, setAddedMsg] = useState(false);
   const [selected, setSelected] = useState({});
   const [activeTab, setActiveTab] = useState("description");
+  const [enquiryOpen, setEnquiryOpen] = useState(false);
 
   useEffect(() => {
     trackViewContent({
@@ -118,6 +120,8 @@ export default function ProductView({ product, siteSettings = null }) {
         : Number(product.stock);
 
   const outOfStock = effectiveStock <= 0;
+  const showEnquiry =
+    outOfStock && siteSettings?.enquiry_enabled !== false;
 
   function selectVariant(groupName, optionId) {
     setSelected((prev) => ({ ...prev, [groupName]: optionId }));
@@ -305,9 +309,21 @@ export default function ProductView({ product, siteSettings = null }) {
           )}
 
           {outOfStock ? (
-            <p className="text-sm font-medium text-red-500 mb-4">
-              Out of stock
-            </p>
+            <div className="mb-4">
+              <p className="text-sm font-medium text-red-500 mb-3">
+                Out of stock
+              </p>
+              {showEnquiry && (
+                <button
+                  type="button"
+                  onClick={() => setEnquiryOpen(true)}
+                  className="btn btn-primary"
+                >
+                  <MessageCircle size={16} />
+                  Request enquiry
+                </button>
+              )}
+            </div>
           ) : (
             <div className="flex items-center gap-3 mb-6">
               <div className="flex items-center border border-line rounded-full">
@@ -441,9 +457,22 @@ export default function ProductView({ product, siteSettings = null }) {
       {/* Mobile sticky buy bar */}
       <div className="fixed bottom-0 inset-x-0 z-50 lg:hidden bg-surface/95 backdrop-blur border-t border-line px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
         {outOfStock ? (
-          <p className="text-sm font-medium text-red-500 text-center py-3">
-            Out of stock
-          </p>
+          <div className="max-w-[97%] mx-auto">
+            {showEnquiry ? (
+              <button
+                type="button"
+                onClick={() => setEnquiryOpen(true)}
+                className="w-full btn btn-primary h-11"
+              >
+                <MessageCircle size={16} />
+                Request enquiry
+              </button>
+            ) : (
+              <p className="text-sm font-medium text-red-500 text-center py-3">
+                Out of stock
+              </p>
+            )}
+          </div>
         ) : (
           <div className="flex items-center gap-3 max-w-[97%] mx-auto">
             <div className="shrink-0 leading-tight">
@@ -473,6 +502,11 @@ export default function ProductView({ product, siteSettings = null }) {
           </div>
         )}
       </div>
+      <ProductEnquiryModal
+        open={enquiryOpen}
+        onClose={() => setEnquiryOpen(false)}
+        product={product}
+      />
     </>
   );
 }

@@ -3,18 +3,23 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingBag, Check } from "lucide-react";
+import { ShoppingBag, Check, MessageSquare } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { trackAddToCart } from "@/components/Analytics";
 import { useToast } from "@/components/Toast";
+import { useSiteSettings } from "@/components/SiteSettingsContext";
+import ProductEnquiryModal from "@/components/ProductEnquiryModal";
 
 export default function ProductCard({ product }) {
   const { addItem } = useCart();
   const { success } = useToast();
+  const siteSettings = useSiteSettings();
   const [added, setAdded] = useState(false);
+  const [enquiryOpen, setEnquiryOpen] = useState(false);
 
   const image = product.product_images?.[0]?.image_url;
-  const outOfStock = Number(product.stock) === 0;
+  const outOfStock = Number(product.stock) <= 0;
+  const showEnquiry = outOfStock && siteSettings?.enquiry_enabled !== false;
   const rating = Number(product.avg_rating || 0);
   const reviewCount = Number(product.review_count || 0);
   const price = Number(product.price) || 0;
@@ -46,6 +51,7 @@ export default function ProductCard({ product }) {
   }
 
   return (
+    <div className="relative h-full">
     <Link
       href={`/product/${product.slug}`}
       className="group relative flex h-full flex-col bg-surface border border-line rounded-2xl overflow-hidden hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
@@ -148,7 +154,26 @@ export default function ProductCard({ product }) {
             )}
           </button>
         )}
+        {showEnquiry && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setEnquiryOpen(true);
+            }}
+            className="mt-3 w-full btn bg-primary/5 text-primary text-xs px-3 py-2.5 rounded-xl hover:bg-primary hover:text-white transition-colors"
+          >
+            <MessageSquare size={14} /> Request enquiry
+          </button>
+        )}
       </div>
     </Link>
+    <ProductEnquiryModal
+      open={enquiryOpen}
+      onClose={() => setEnquiryOpen(false)}
+      product={product}
+    />
+    </div>
   );
 }

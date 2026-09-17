@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 const SIZES = {
@@ -34,10 +35,10 @@ export default function Modal({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
-    <div className="fixed inset-0 z-[100] overflow-y-auto">
+  return createPortal(
+    <div className="fixed inset-0 z-[200] overflow-y-auto">
       <div
         className="fixed inset-0 bg-black/40"
         onClick={onClose}
@@ -68,6 +69,7 @@ export default function Modal({
           <div className="px-6 py-5">{children}</div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

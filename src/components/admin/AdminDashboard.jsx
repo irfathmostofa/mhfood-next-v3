@@ -123,7 +123,7 @@ export default function AdminDashboard() {
         .from("orders")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(6);
+        .limit(5);
 
       const { count: orderCount, error } = await supabase
         .from("orders")
@@ -150,7 +150,7 @@ export default function AdminDashboard() {
         .select("id, name, stock, slug")
         .lte("stock", 5)
         .order("stock", { ascending: true })
-        .limit(8);
+        .limit(5);
 
       setStats({
         products: productCount || 0,
@@ -301,47 +301,48 @@ export default function AdminDashboard() {
             </div>
           )}
         </div>
-
-        {/* Active discount sessions */}
-        <div className="card p-6 sm:p-7">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-sm font-semibold text-ink flex items-center gap-1.5">
-              <Zap size={14} className="text-accent" /> Active Discount Sessions
+{/* Low stock */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
+              <AlertTriangle size={15} className="text-amber-600" /> Low Stock
             </h2>
             <Link
-              href="/admin/discounts"
+              href="/admin/products"
               className="flex items-center gap-1 text-xs text-accent hover:underline"
             >
               Manage <ArrowRight size={12} />
             </Link>
           </div>
-
-          {periodsLoading ? (
-            <p className="text-sm text-muted py-8 text-center">Loading...</p>
-          ) : activeSessions.length === 0 ? (
-            <p className="text-sm text-muted py-8 text-center">
-              No sessions running right now.
+          {lowStock.length === 0 ? (
+            <p className="text-sm text-muted py-6 text-center">
+              All products are well stocked.
             </p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {activeSessions.map((session) => (
-                <Link
-                  key={session.id}
-                  href={`/sale/${session.slug}`}
-                  target="_blank"
-                  className="group flex items-center gap-2 px-3.5 py-2 rounded-full border border-line hover:border-accent transition-colors"
+            <ul className="divide-y divide-line">
+              {lowStock.map((product) => (
+                <li
+                  key={product.id}
+                  className="flex items-center justify-between py-3"
                 >
-                  <span className="text-sm text-ink group-hover:text-accent transition-colors">
-                    {session.name}
+                  <p className="text-sm text-ink truncate pr-4">
+                    {product.name}
+                  </p>
+                  <span
+                    className={`shrink-0 text-xs font-medium ${
+                      product.stock <= 0 ? "text-red-600" : "text-amber-600"
+                    }`}
+                  >
+                    {product.stock <= 0
+                      ? "Out of stock"
+                      : `${product.stock} left`}
                   </span>
-                  <span className="text-xs text-muted">
-                    {session.discount_session_products?.length || 0} items
-                  </span>
-                </Link>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </div>
+        
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -384,48 +385,47 @@ export default function AdminDashboard() {
             </ul>
           )}
         </div>
-
-        {/* Low stock */}
-        <div className="card p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-ink flex items-center gap-2">
-              <AlertTriangle size={15} className="text-amber-600" /> Low Stock
+{/* Active discount sessions */}
+        <div className="card p-6 sm:p-7">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-sm font-semibold text-ink flex items-center gap-1.5">
+              <Zap size={14} className="text-accent" /> Active Discount Sessions
             </h2>
             <Link
-              href="/admin/products"
+              href="/admin/discounts"
               className="flex items-center gap-1 text-xs text-accent hover:underline"
             >
               Manage <ArrowRight size={12} />
             </Link>
           </div>
-          {lowStock.length === 0 ? (
-            <p className="text-sm text-muted py-6 text-center">
-              All products are well stocked.
+
+          {periodsLoading ? (
+            <p className="text-sm text-muted py-8 text-center">Loading...</p>
+          ) : activeSessions.length === 0 ? (
+            <p className="text-sm text-muted py-8 text-center">
+              No sessions running right now.
             </p>
           ) : (
-            <ul className="divide-y divide-line">
-              {lowStock.map((product) => (
-                <li
-                  key={product.id}
-                  className="flex items-center justify-between py-3"
+            <div className="flex flex-wrap gap-2">
+              {activeSessions.map((session) => (
+                <Link
+                  key={session.id}
+                  href={`/sale/${session.slug}`}
+                  target="_blank"
+                  className="group flex items-center gap-2 px-3.5 py-2 rounded-full border border-line hover:border-accent transition-colors"
                 >
-                  <p className="text-sm text-ink truncate pr-4">
-                    {product.name}
-                  </p>
-                  <span
-                    className={`shrink-0 text-xs font-medium ${
-                      product.stock <= 0 ? "text-red-600" : "text-amber-600"
-                    }`}
-                  >
-                    {product.stock <= 0
-                      ? "Out of stock"
-                      : `${product.stock} left`}
+                  <span className="text-sm text-ink group-hover:text-accent transition-colors">
+                    {session.name}
                   </span>
-                </li>
+                  <span className="text-xs text-muted">
+                    {session.discount_session_products?.length || 0} items
+                  </span>
+                </Link>
               ))}
-            </ul>
+            </div>
           )}
         </div>
+        
       </div>
     </div>
   );

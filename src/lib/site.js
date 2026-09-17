@@ -199,6 +199,10 @@ export const getHomeSections = unstable_cache(
   },
 );
 
+export function isCategoryProductsSection(section) {
+  return String(section?.key || "").startsWith("category_products");
+}
+
 async function fetchCategories() {
   try {
     const { data } = await supabase
