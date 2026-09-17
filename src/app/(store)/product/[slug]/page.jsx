@@ -97,7 +97,7 @@ export default async function ProductPage({ params }) {
   );
 
   return (
-    <div className="max-w-[94%] mx-auto px-1 sm:px-2 py-4">
+    <div className="max-w-[94%] mx-auto sm:px-2 py-4">
       {structured && (
         <script
           type="application/ld+json"
