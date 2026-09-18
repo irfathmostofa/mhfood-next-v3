@@ -376,7 +376,7 @@ CREATE TABLE IF NOT EXISTS public.seo_settings (
   ga_measurement_id text NOT NULL DEFAULT '',
   facebook_pixel_id text NOT NULL DEFAULT '',
   tiktok_pixel_id   text NOT NULL DEFAULT '',
-  google_site_verification text NOT NULL DEFAULT 'Q3JuNXfnFKgNBH8M8uzf3ctObe58JuXVAC5_U2jMCKE',
+  google_site_verification text NOT NULL DEFAULT '',
   updated_at       timestamptz NOT NULL DEFAULT now()
 );
 
@@ -389,7 +389,7 @@ CREATE TABLE IF NOT EXISTS public.seo_settings (
 ALTER TABLE public.seo_settings    ADD COLUMN IF NOT EXISTS ga_measurement_id text NOT NULL DEFAULT '';
 ALTER TABLE public.seo_settings    ADD COLUMN IF NOT EXISTS facebook_pixel_id text NOT NULL DEFAULT '';
 ALTER TABLE public.seo_settings    ADD COLUMN IF NOT EXISTS tiktok_pixel_id text NOT NULL DEFAULT '';
-ALTER TABLE public.seo_settings    ADD COLUMN IF NOT EXISTS google_site_verification text NOT NULL DEFAULT 'Q3JuNXfnFKgNBH8M8uzf3ctObe58JuXVAC5_U2jMCKE';
+ALTER TABLE public.seo_settings    ADD COLUMN IF NOT EXISTS google_site_verification text NOT NULL DEFAULT '';
 ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS unit text;
 ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS description text;
 ALTER TABLE public.products        ADD COLUMN IF NOT EXISTS is_featured boolean NOT NULL DEFAULT false;
