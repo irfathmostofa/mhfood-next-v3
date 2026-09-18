@@ -3,7 +3,8 @@
 @plugin "@tailwindcss/typography";
 
 @theme inline {
-  --font-display: Georgia, "Times New Roman", serif;
+  --font-display: Georgia, "Times New Roman", "Noto Sans Bengali",
+    "SolaimanLipi", "Kalpurush", "Siyam Rupali", serif;
   --font-body: 
     "Noto Sans Bengali", "SolaimanLipi", "Kalpurush", "Siyam Rupali", 
     ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial,
@@ -48,11 +49,6 @@
 
   h1, h2, h3, .font-display {
     font-family: var(--font-display);
-  }
-
-  /* Auto-detect Bangla characters */
-  *:lang(bn) {
-    font-family: var(--font-body);
   }
 
   ::selection {

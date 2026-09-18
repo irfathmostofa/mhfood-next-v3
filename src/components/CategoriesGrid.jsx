@@ -5,6 +5,7 @@ import Link from "next/link";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { containsBangla, headingFontClass } from "@/lib/slugify";
 
 export default function CategoriesGrid({
   title,
@@ -50,7 +51,10 @@ export default function CategoriesGrid({
     <section className="max-w-[95%] mx-auto px-2 py-6 sm:py-10">
       <div className="flex items-end justify-between mb-4 sm:mb-6">
         <div className="px-1.5">
-          <h2 className="font-display text-xl sm:text-2xl lg:text-3xl text-ink">
+          <h2
+            lang={containsBangla(title) ? "bn" : "en"}
+            className={`${headingFontClass(title)} text-xl sm:text-2xl lg:text-3xl text-ink`}
+          >
             {title || "Shop by Category"}
           </h2>
           {subtitle && (

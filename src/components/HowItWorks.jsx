@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ShoppingBag, Truck, PackageCheck } from "lucide-react";
+import { containsBangla, headingFontClass } from "@/lib/slugify";
 
 const STEPS = [
   {
@@ -26,7 +27,12 @@ export default function HowItWorks({
   return (
     <section className="max-w-7xl mx-auto px-5 py-14 sm:py-20">
       <div className="text-center max-w-2xl mx-auto mb-10 sm:mb-12">
-        <h2 className="font-display text-2xl sm:text-4xl text-ink">{title}</h2>
+        <h2
+          lang={containsBangla(title) ? "bn" : "en"}
+          className={`${headingFontClass(title)} text-2xl sm:text-4xl text-ink`}
+        >
+          {title}
+        </h2>
         {subtitle && (
           <p className="text-sm sm:text-base text-muted mt-2">{subtitle}</p>
         )}

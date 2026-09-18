@@ -3,6 +3,7 @@ import { ArrowRight, Zap } from "lucide-react";
 import ProductCard from "./ProductCard";
 import SaleProductsCarousel from "./SaleProductsCarousel";
 import SaleCountdown from "./SaleCountdown";
+import { containsBangla, headingFontClass } from "@/lib/slugify";
 
 const STYLES = {
   flash: {
@@ -53,7 +54,8 @@ export default function FlashSaleSection({ sessions = [] }) {
                       <Zap size={12} /> Limited time
                     </span>
                     <h2
-                      className={`font-display text-2xl sm:text-4xl mt-2.5 sm:mt-3 ${theme.title}`}
+                      lang={containsBangla(session.name) ? "bn" : "en"}
+                      className={`${headingFontClass(session.name)} text-2xl sm:text-4xl mt-2.5 sm:mt-3 ${theme.title}`}
                     >
                       {session.name}
                     </h2>

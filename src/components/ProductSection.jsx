@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import ProductCard from "./ProductCard";
+import { containsBangla, headingFontClass } from "@/lib/slugify";
 
 export default function ProductSection({
   title,
@@ -10,12 +11,17 @@ export default function ProductSection({
 }) {
   if (!products || products.length === 0) return null;
 
+  const heading = title || "Products";
+
   return (
     <section className="max-w-[95%] mx-auto px-2 py-6 sm:py-10">
       <div className="flex items-end justify-between mb-4 sm:mb-6 px-1.5">
         <div>
-          <h2 className="font-display text-xl sm:text-2xl lg:text-3xl text-ink">
-            {title || "Products"}
+          <h2
+            lang={containsBangla(heading) ? "bn" : "en"}
+            className={`${headingFontClass(heading)} text-xl sm:text-2xl lg:text-3xl text-ink`}
+          >
+            {heading}
           </h2>
           {subtitle && (
             <p className="text-xs sm:text-sm text-muted mt-1">{subtitle}</p>

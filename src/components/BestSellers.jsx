@@ -5,6 +5,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import ProductCard from "./ProductCard";
+import { containsBangla, headingFontClass } from "@/lib/slugify";
 
 export default function BestSellers({ title, subtitle, products = [] }) {
   const [emblaRef, emblaApi] = useEmblaCarousel(
@@ -29,7 +30,10 @@ export default function BestSellers({ title, subtitle, products = [] }) {
     <section className="max-w-[96%] mx-auto px-2 py-6 sm:py-10">
       <div className="flex items-end justify-between mb-4 sm:mb-6">
         <div className="px-1.5">
-          <h2 className="font-display text-xl sm:text-2xl lg:text-3xl text-ink">
+          <h2
+            lang={containsBangla(title) ? "bn" : "en"}
+            className={`${headingFontClass(title)} text-xl sm:text-2xl lg:text-3xl text-ink`}
+          >
             {title || "Best Selling Products"}
           </h2>
           {subtitle && (

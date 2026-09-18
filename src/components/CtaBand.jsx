@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { containsBangla, headingFontClass } from "@/lib/slugify";
 
 export default function CtaBand({
   title = "Hungry? Your order is a click away.",
@@ -11,7 +12,10 @@ export default function CtaBand({
         <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-accent/25 blur-3xl" />
         <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full bg-accent/15 blur-3xl" />
         <div className="relative">
-          <h2 className="font-display text-2xl sm:text-4xl max-w-2xl mx-auto leading-tight">
+          <h2
+            lang={containsBangla(title) ? "bn" : "en"}
+            className={`${headingFontClass(title)} text-2xl sm:text-4xl max-w-2xl mx-auto leading-tight`}
+          >
             {title}
           </h2>
           {subtitle && (

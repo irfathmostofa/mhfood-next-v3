@@ -87,3 +87,11 @@ export function slugFromEnglishName(englishName, fallbackName = "") {
 export function stripSlugSpaces(value) {
   return String(value || "").replace(/\s+/g, "");
 }
+
+export function containsBangla(text) {
+  return /[\u0980-\u09FF]/.test(String(text || ""));
+}
+
+export function headingFontClass(text) {
+  return containsBangla(text) ? "font-body font-semibold" : "font-display";
+}

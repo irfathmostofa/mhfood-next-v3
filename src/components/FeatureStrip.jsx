@@ -1,5 +1,6 @@
 import { Truck, Leaf, PackageCheck, Headset } from "lucide-react";
 import { getSiteSettings } from "@/lib/site";
+import { containsBangla, headingFontClass } from "@/lib/slugify";
 
 export default async function FeatureStrip({
   title = "Why shop with us",
@@ -41,7 +42,10 @@ export default async function FeatureStrip({
         {(title || subtitle) && (
           <div className="mb-6 sm:mb-8">
             {title && (
-              <h2 className="font-display text-xl sm:text-2xl lg:text-3xl text-ink">
+              <h2
+                lang={containsBangla(title) ? "bn" : "en"}
+                className={`${headingFontClass(title)} text-xl sm:text-2xl lg:text-3xl text-ink`}
+              >
                 {title}
               </h2>
             )}
