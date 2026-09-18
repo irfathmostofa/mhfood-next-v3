@@ -214,6 +214,9 @@ export default function AdminSettings() {
         ga_measurement_id: String(seo.ga_measurement_id || "").trim(),
         facebook_pixel_id: String(seo.facebook_pixel_id || "").trim(),
         tiktok_pixel_id: String(seo.tiktok_pixel_id || "").trim(),
+        google_site_verification: String(
+          seo.google_site_verification || "",
+        ).trim(),
       };
       const sitePayload = { ...site, enquiry_enabled: site.enquiry_enabled !== false };
       let siteUpdate = await supabase
@@ -230,9 +233,23 @@ export default function AdminSettings() {
           .update(withoutEnquiry)
           .eq("id", 1);
       }
+      let seoUpdate = await supabase
+        .from("seo_settings")
+        .update(seoPayload)
+        .eq("id", 1);
+      if (
+        seoUpdate.error &&
+        /google_site_verification/i.test(seoUpdate.error.message || "")
+      ) {
+        const { google_site_verification, ...withoutVerification } = seoPayload;
+        seoUpdate = await supabase
+          .from("seo_settings")
+          .update(withoutVerification)
+          .eq("id", 1);
+      }
       const updates = [
         await supabase.from("theme_settings").update(theme).eq("id", 1),
-        await supabase.from("seo_settings").update(seoPayload).eq("id", 1),
+        seoUpdate,
         siteUpdate,
       ];
       const failed = updates.find((res) => res.error);
@@ -729,6 +746,31 @@ function SeoForm({ seo, setSeo }) {
           aspect="wide"
           hint="Shared image for social shares. Recommended 1200x630px."
         />
+      </div>
+
+      <div className="border-t border-line pt-4">
+        <h3 className="text-sm font-semibold text-ink mb-1">
+          Google Search Console
+        </h3>
+        <p className="text-xs text-muted mb-4">
+          Paste the verification content token or the full meta tag. It is
+          added to every storefront page so Google can verify ownership.
+        </p>
+        <div>
+          <label className="label">Google Site Verification</label>
+          <input
+            value={seo.google_site_verification || ""}
+            onChange={(e) => set("google_site_verification", e.target.value)}
+            placeholder="Q3JuNXfnFKgNBH8M8uzf3ctObe58JuXVAC5_U2jMCKE"
+            className="input"
+          />
+          <p className="text-[11px] text-muted mt-1">
+            Outputs{" "}
+            <code className="text-ink">
+              &lt;meta name=&quot;google-site-verification&quot; content=&quot;...&quot; /&gt;
+            </code>
+          </p>
+        </div>
       </div>
 
       <div className="border-t border-line pt-4">

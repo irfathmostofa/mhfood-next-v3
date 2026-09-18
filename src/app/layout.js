@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import "./globals.css";
 import { getTheme, getSeoSettings } from "@/lib/site";
 import { themeVariables } from "@/lib/theme";
-import { buildMetadata } from "@/lib/seo";
+import { buildMetadata, extractGoogleSiteVerification } from "@/lib/seo";
 import { CartProvider } from "@/hooks/useCart";
 import { ToastProvider } from "@/components/Toast";
 import Analytics from "@/components/Analytics";
@@ -15,10 +15,19 @@ export async function generateMetadata() {
 
 export default async function RootLayout({ children }) {
   const [theme, seo] = await Promise.all([getTheme(), getSeoSettings()]);
+  const googleVerification = extractGoogleSiteVerification(
+    seo?.google_site_verification,
+  );
 
   return (
     <html lang="bn" suppressHydrationWarning>
       <head>
+        {googleVerification ? (
+          <meta
+            name="google-site-verification"
+            content={googleVerification}
+          />
+        ) : null}
         <meta
           name="theme-color"
           content={theme?.accent_color || "#C77B4C"}

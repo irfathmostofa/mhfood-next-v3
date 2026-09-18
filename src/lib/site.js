@@ -31,6 +31,7 @@ export const DEFAULT_SEO = {
   ga_measurement_id: "",
   facebook_pixel_id: "",
   tiktok_pixel_id: "",
+  google_site_verification: "Q3JuNXfnFKgNBH8M8uzf3ctObe58JuXVAC5_U2jMCKE",
 };
 
 async function fetchTheme() {

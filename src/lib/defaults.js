@@ -25,4 +25,5 @@ export const DEFAULT_SEO = {
   ga_measurement_id: "",
   facebook_pixel_id: "",
   tiktok_pixel_id: "",
+  google_site_verification: "",
 };

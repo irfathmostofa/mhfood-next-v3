@@ -32,6 +32,9 @@ export function buildMetadata({
   const canonical = `${origin}${normalizedPath}`;
   const ogImage = image || s.og_image || logo;
   const ogImages = ogImage ? [{ url: ogImage, alt: finalTitle }] : undefined;
+  const googleVerification = extractGoogleSiteVerification(
+    s.google_site_verification,
+  );
 
   return {
     metadataBase: new URL(origin),
@@ -39,6 +42,9 @@ export function buildMetadata({
     description: finalDescription,
     keywords: finalKeywords,
     applicationName: siteName,
+    verification: googleVerification
+      ? { google: googleVerification }
+      : undefined,
     robots: noIndex
       ? { index: false, follow: false }
       : { index: true, follow: true },
@@ -102,6 +108,14 @@ export function productJsonLd(product, origin) {
           }
         : undefined,
   };
+}
+
+export function extractGoogleSiteVerification(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const contentMatch = raw.match(/content\s*=\s*["']([^"']+)["']/i);
+  if (contentMatch) return contentMatch[1].trim();
+  return raw.replace(/^google-site-verification:\s*/i, "").trim();
 }
 
 function stripPlain(html) {
