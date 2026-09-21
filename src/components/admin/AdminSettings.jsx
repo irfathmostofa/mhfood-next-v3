@@ -764,12 +764,7 @@ function SeoForm({ seo, setSeo }) {
             placeholder="Q3JuNXfnFKgNBH8M8uzf3ctObe58JuXVAC5_U2jMCKE"
             className="input"
           />
-          <p className="text-[11px] text-muted mt-1">
-            Outputs{" "}
-            <code className="text-ink">
-              &lt;meta name=&quot;google-site-verification&quot; content=&quot;...&quot; /&gt;
-            </code>
-          </p>
+          
         </div>
       </div>
 

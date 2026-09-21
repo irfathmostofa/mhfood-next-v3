@@ -5,6 +5,17 @@ processed image (background removed + logo watermark) plus AI-generated title,
 description, keywords and an SEO score, all reviewed and published from
 `/admin/products/new`.
 
+This is part of the current MHFood store platform (storefront, admin, logistics,
+SMS, promotions, and reporting). Product packages:
+
+| Package | Price | Billing |
+| --- | --- | --- |
+| Monthly | 500 Tk | Per month |
+| Yearly | 5500 Tk | Per year |
+| Customize | By negotiation | Extra modules, design, or unique workflows |
+
+All prices are in Bangladeshi Taka (BDT / Tk). Custom work is available after discussion.
+
 ## Components
 
 | Piece | Location |
