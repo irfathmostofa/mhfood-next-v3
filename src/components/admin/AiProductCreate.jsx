@@ -1166,7 +1166,7 @@ export default function AiProductCreate() {
                 }
               }}
             />
-
+{/* 
             <div className="mt-4">
               <label className="label">English name (for URL slug)</label>
               <input
@@ -1186,7 +1186,7 @@ export default function AiProductCreate() {
                 Used for the SEO URL. Bangla titles stay as the listing name;
                 this English name becomes the slug.
               </p>
-            </div>
+            </div> */}
           </div>
 
           <div className="card p-6">
