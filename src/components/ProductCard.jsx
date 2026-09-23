@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ShoppingBag, Check, MessageSquare } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { trackAddToCart } from "@/components/Analytics";
+import { productPixelPayload } from "@/lib/pixel";
 import { useToast } from "@/components/Toast";
 import { useSiteSettings } from "@/components/SiteSettingsContext";
 import ProductEnquiryModal from "@/components/ProductEnquiryModal";
@@ -38,14 +39,7 @@ export default function ProductCard({ product }) {
     if (outOfStock) return;
     addItem(product, 1);
     success(`${product.name} added to cart`);
-    trackAddToCart({
-      content_type: "product",
-      content_ids: [product.id],
-      content_name: product.name,
-      value: Number(product.price),
-      currency: "BDT",
-      quantity: 1,
-    });
+    trackAddToCart(productPixelPayload(product, { quantity: 1 }));
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
   }

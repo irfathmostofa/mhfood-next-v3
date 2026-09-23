@@ -3,6 +3,12 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import Script from "next/script";
+import {
+  gaEventName,
+  gaEventParams,
+  metaEventParams,
+  tiktokEventParams,
+} from "@/lib/pixel";
 
 function sanitizeGaId(id) {
   const value = String(id || "").trim();
@@ -21,6 +27,7 @@ export default function Analytics({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const firstPageView = useRef(true);
+  const firstMetaPageView = useRef(true);
 
   const GA_ID = sanitizeGaId(
     gaId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "",
@@ -58,7 +65,14 @@ export default function Analytics({
       }
     }
 
-    if (window.fbq) window.fbq("track", "PageView");
+    if (PIXEL_ID) {
+      if (firstMetaPageView.current) {
+        firstMetaPageView.current = false;
+      } else if (window.fbq) {
+        window.fbq("track", "PageView");
+      }
+    }
+
     if (window.ttq) window.ttq.track("Pageview");
   }, [pathname, searchParams, GA_ID, PIXEL_ID, TTQ_ID, isAdmin]);
 
@@ -95,12 +109,15 @@ function loadAdPixels(PIXEL_ID, TTQ_ID) {
     window.fbq.loaded = true;
     window.fbq.version = "2.0";
     window.fbq.queue = [];
+    window.__metaPixelId = PIXEL_ID;
     window.fbq("init", PIXEL_ID);
     window.fbq("track", "PageView");
     const s = document.createElement("script");
     s.async = true;
     s.src = "https://connect.facebook.net/en_US/fbevents.js";
     document.head.appendChild(s);
+  } else if (PIXEL_ID) {
+    window.__metaPixelId = PIXEL_ID;
   }
 
   if (TTQ_ID && !window.ttq) {
@@ -148,9 +165,11 @@ function loadAdPixels(PIXEL_ID, TTQ_ID) {
 
 export function trackEvent(eventName, params) {
   if (typeof window === "undefined") return;
-  if (window.gtag) window.gtag("event", eventName, params || {});
-  if (window.fbq) window.fbq("track", eventName, params || {});
-  if (window.ttq) window.ttq.track(eventName, params || {});
+  if (window.gtag) {
+    window.gtag("event", gaEventName(eventName), gaEventParams(eventName, params));
+  }
+  if (window.fbq) window.fbq("track", eventName, metaEventParams(params));
+  if (window.ttq) window.ttq.track(eventName, tiktokEventParams(params));
 }
 
 export function trackViewContent(params) {

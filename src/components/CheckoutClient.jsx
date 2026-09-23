@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useCart } from "@/hooks/useCart";
 import { pickBestDiscount } from "@/lib/pricing";
 import { trackInitiateCheckout, trackPurchase } from "@/components/Analytics";
+import { cartPixelPayload, setMetaAdvancedMatching } from "@/lib/pixel";
 import { useToast } from "@/components/Toast";
 
 export default function CheckoutClient() {
@@ -45,13 +46,10 @@ export default function CheckoutClient() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    trackInitiateCheckout({
-      value: totalAmount,
-      currency: "BDT",
-      num_items: items.reduce((s, i) => s + Number(i.quantity || 1), 0),
-    });
+    if (!hydrated || items.length === 0) return;
+    trackInitiateCheckout(cartPixelPayload(items, totalAmount));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hydrated]);
 
   useEffect(() => {
     async function loadPricing() {
@@ -193,17 +191,17 @@ export default function CheckoutClient() {
         return;
       }
 
-      trackPurchase({
-        transaction_id: data.trackingCode,
-        value: grandTotal,
-        currency: "BDT",
-        items: items.map((i) => ({
-          id: i.product_id,
-          name: i.product_name,
-          quantity: i.quantity,
-          price: i.price,
-        })),
+      setMetaAdvancedMatching({
+        email: form.email,
+        phone: form.phone,
+        name: form.name,
       });
+      trackPurchase(
+        cartPixelPayload(items, grandTotal, {
+          order_id: data.trackingCode,
+          transaction_id: data.trackingCode,
+        }),
+      );
 
       clearCart();
       success("Order placed successfully.");

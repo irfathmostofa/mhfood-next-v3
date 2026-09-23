@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { trackViewContent, trackAddToCart } from "@/components/Analytics";
+import { productPixelPayload } from "@/lib/pixel";
 import { useToast } from "@/components/Toast";
 import StarRating from "./StarRating";
 import ReviewsList from "./ReviewsList";
@@ -42,13 +43,7 @@ export default function ProductView({ product, siteSettings = null }) {
   const [enquiryOpen, setEnquiryOpen] = useState(false);
 
   useEffect(() => {
-    trackViewContent({
-      content_type: "product",
-      content_ids: [product.id],
-      content_name: product.name,
-      value: Number(product.price),
-      currency: "BDT",
-    });
+    trackViewContent(productPixelPayload(product));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id]);
 
@@ -141,16 +136,12 @@ export default function ProductView({ product, siteSettings = null }) {
     });
     addItem(product, quantity, selection);
     success(`${product.name} added to cart`);
-    trackAddToCart({
-      content_type: "product",
-      content_ids: [product.id],
-      content_name: product.name,
-      value:
-        Number(product.price) +
-        selection.reduce((s, o) => s + Number(o.price_adjustment || 0), 0),
-      currency: "BDT",
-      quantity,
-    });
+    const unitPrice =
+      Number(product.price) +
+      selection.reduce((s, o) => s + Number(o.price_adjustment || 0), 0);
+    trackAddToCart(
+      productPixelPayload(product, { quantity, value: unitPrice }),
+    );
     setAddedMsg(true);
     setTimeout(() => setAddedMsg(false), 2000);
   }
@@ -167,6 +158,12 @@ export default function ProductView({ product, siteSettings = null }) {
       };
     });
     addItem(product, quantity, selection);
+    const unitPrice =
+      Number(product.price) +
+      selection.reduce((s, o) => s + Number(o.price_adjustment || 0), 0);
+    trackAddToCart(
+      productPixelPayload(product, { quantity, value: unitPrice }),
+    );
     router.push("/checkout");
   }
 
