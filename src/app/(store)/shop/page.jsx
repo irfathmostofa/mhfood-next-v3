@@ -1,30 +1,39 @@
 import { Suspense } from "react";
-import { getSeoSettings, getCategories, getTheme } from "@/lib/site";
+import { getSeoSettings, getCategories, getBrands, getTheme } from "@/lib/site";
 import { buildMetadata } from "@/lib/seo";
 import { getProductsWithRatings } from "@/lib/products";
 import ShopClient from "@/components/ShopClient";
 
 export async function generateMetadata({ searchParams }) {
   const params = await searchParams;
-  const [seo, theme, categories] = await Promise.all([
+  const [seo, theme, categories, brands] = await Promise.all([
     getSeoSettings(),
     getTheme(),
     getCategories(),
+    getBrands(),
   ]);
   const categorySlug = params?.category || "";
+  const brandSlug = params?.brand || "";
   const activeCategory = categorySlug
     ? categories.find((c) => c.slug === categorySlug)
+    : null;
+  const activeBrand = brandSlug
+    ? brands.find((b) => b.slug === brandSlug)
     : null;
   const query = (params?.q || "").trim();
   const title = query
     ? `Search “${query}”`
+    : activeBrand
+      ? activeBrand.name
+      : activeCategory
+        ? activeCategory.name
+        : "Shop";
+  const description = activeBrand
+    ? `Shop ${activeBrand.name} at ${seo?.site_name || "our store"}.`
     : activeCategory
-      ? activeCategory.name
-      : "Shop";
-  const description = activeCategory
-    ? `Shop ${activeCategory.name} at ${seo?.site_name || "our store"}.`
-    : seo?.home_description ||
-      "Browse our full collection of fresh food and groceries.";
+      ? `Shop ${activeCategory.name} at ${seo?.site_name || "our store"}.`
+      : seo?.home_description ||
+        "Browse our full collection of fresh food and groceries.";
 
   return buildMetadata({
     seo,
@@ -39,21 +48,30 @@ export default async function ShopPage({ searchParams }) {
   const params = await searchParams;
   const query = (params?.q || "").trim();
   const category = params?.category || "all";
+  const brand = params?.brand || "all";
   const sort = params?.sort || "newest";
   const min = params?.min || "";
   const max = params?.max || "";
   const inStockOnly = params?.instock === "1";
 
-  const categories = await getCategories();
+  const [categories, brands] = await Promise.all([
+    getCategories(),
+    getBrands(),
+  ]);
 
   // The category query param is now a slug. Resolve it to an id server-side.
   const activeCategory =
     category !== "all" ? categories.find((c) => c.slug === category) : null;
+  const activeBrand =
+    brand !== "all" ? brands.find((b) => b.slug === brand) : null;
 
   const { products } = await getProductsWithRatings({
     categoryId:
       activeCategory?.id ||
       (category !== "all" ? "00000000-0000-0000-0000-000000000000" : undefined),
+    brandId:
+      activeBrand?.id ||
+      (brand !== "all" ? "00000000-0000-0000-0000-000000000000" : undefined),
     query,
     minPrice: min,
     maxPrice: max,
@@ -78,6 +96,7 @@ export default async function ShopPage({ searchParams }) {
     >
       <ShopClient
         categories={categories}
+        brands={brands}
         products={sortedProducts}
       />
     </Suspense>

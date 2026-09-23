@@ -25,6 +25,7 @@ export default function ProductFormFields({
   product,
   onChange,
   categories = [],
+  brands = [],
   variants = [],
   onVariantsChange,
   images,
@@ -92,8 +93,8 @@ export default function ProductFormFields({
         />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="sm:col-span-1">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div>
           <label className="label">Category</label>
           <select
             value={product.category_id || ""}
@@ -107,6 +108,22 @@ export default function ProductFormFields({
               </option>
             ))}
           </select>
+        </div>
+        <div>
+          <label className="label">Brand</label>
+          <select
+            value={product.brand_id || ""}
+            onChange={(e) => patch({ brand_id: e.target.value })}
+            className="input"
+          >
+            <option value="">— No brand —</option>
+            {brands.map((brand) => (
+              <option key={brand.id} value={brand.id}>
+                {brand.name}
+              </option>
+            ))}
+          </select>
+          <p className="text-[11px] text-muted mt-1">Optional</p>
         </div>
         <div>
           <label className="label">Stock</label>

@@ -13,7 +13,7 @@ export default async function sitemap() {
     .select("slug, updated_at")
     .eq("is_active", true);
 
-  const staticRoutes = ["", "/shop"].map((path) => ({
+  const staticRoutes = ["", "/shop", "/faq"].map((path) => ({
     url: `${baseUrl}${path}`,
     lastModified: new Date(),
     changeFrequency: "weekly",

@@ -4,6 +4,7 @@ import {
   getCategories,
   getCategoryCounts,
   getTheme,
+  getFaqs,
   isCategoryProductsSection,
 } from "@/lib/site";
 import { getProductsWithRatings, getBestsellers } from "@/lib/products";
@@ -18,6 +19,7 @@ import HowItWorks from "@/components/HowItWorks";
 import CtaBand from "@/components/CtaBand";
 import PromoBannerSection from "@/components/PromoBannerSection";
 import FlashSaleSection from "@/components/FlashSaleSection";
+import FaqSection from "@/components/FaqSection";
 
 export async function generateMetadata() {
   const [seo, theme] = await Promise.all([getSeoSettings(), getTheme()]);
@@ -34,6 +36,7 @@ export default async function HomePage() {
   const featuredSection = enabled.find((s) => s.key === "featured");
   const latestSection = enabled.find((s) => s.key === "latest");
   const flashSaleSection = enabled.find((s) => s.key === "flash_sale");
+  const faqSection = enabled.find((s) => s.key === "faq");
 
   const categoryProductSections = enabled.filter(isCategoryProductsSection);
 
@@ -44,6 +47,7 @@ export default async function HomePage() {
     [allCategories, categoryCounts],
     saleSessions,
     categoryProductsResults,
+    faqs,
   ] = await Promise.all([
     featuredSection
       ? getProductsWithRatings({
@@ -75,6 +79,7 @@ export default async function HomePage() {
         });
       }),
     ),
+    faqSection ? getFaqs() : [],
   ]);
 
   const categoryProductsByKey = Object.fromEntries(
@@ -165,6 +170,16 @@ export default async function HomePage() {
             key={section.key}
             title={section.title}
             subtitle={section.subtitle}
+          />
+        );
+      case "faq":
+        return (
+          <FaqSection
+            key={section.key}
+            title={section.title}
+            subtitle={section.subtitle}
+            faqs={faqs}
+            limit={section.items_per_page || 6}
           />
         );
       default:

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Check,
@@ -221,9 +222,29 @@ export default function ProductView({ product, siteSettings = null }) {
 
         {/* Details */}
         <div>
-          {product.categories?.name && (
+          {(product.brands?.name || product.categories?.name) && (
             <p className="text-xs uppercase tracking-wide text-muted mb-2">
-              {product.categories.name}
+              {product.brands?.name ? (
+                <Link
+                  href={`/shop?brand=${encodeURIComponent(product.brands.slug || "")}`}
+                  className="hover:text-accent transition-colors"
+                >
+                  {product.brands.name}
+                </Link>
+              ) : (
+                product.categories.name
+              )}
+              {product.brands?.name && product.categories?.name ? (
+                <>
+                  {" · "}
+                  <Link
+                    href={`/shop?category=${encodeURIComponent(product.categories.slug || "")}`}
+                    className="hover:text-accent transition-colors"
+                  >
+                    {product.categories.name}
+                  </Link>
+                </>
+              ) : null}
             </p>
           )}
           <h1 className="font-display text-2xl sm:text-3xl text-ink mb-3">

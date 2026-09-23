@@ -976,6 +976,7 @@ const SECTION_KEYS = {
   feature_strip: "Trust Features",
   how_it_works: "How It Works",
   cta: "Call to Action",
+  faq: "FAQ",
 };
 
 function isCategoryProductsSection(section) {
@@ -997,6 +998,7 @@ const STATIC_SECTION_KEYS = [
   "feature_strip",
   "how_it_works",
   "cta",
+  "faq",
 ];
 
 const MISSING_HOME_SECTIONS = [
@@ -1024,6 +1026,14 @@ const MISSING_HOME_SECTIONS = [
     enabled: true,
     sort_order: 9,
     items_per_page: 1,
+  },
+  {
+    key: "faq",
+    title: "Frequently asked questions",
+    subtitle: "Quick answers about ordering, delivery and tracking.",
+    enabled: false,
+    sort_order: 10,
+    items_per_page: 6,
   },
 ];
 
@@ -1292,7 +1302,8 @@ function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
 
             {(section.key === "feature_strip" ||
               section.key === "how_it_works" ||
-              section.key === "cta") && (
+              section.key === "cta" ||
+              section.key === "faq") && (
               <div className="grid grid-cols-1 gap-3">
                 <div>
                   <label className="label">Title</label>
@@ -1314,6 +1325,28 @@ function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
                     className="input input-sm"
                   />
                 </div>
+                {section.key === "faq" && (
+                  <div>
+                    <label className="label">Questions to show</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={section.items_per_page || 6}
+                      onChange={(e) =>
+                        saveSection({
+                          ...section,
+                          items_per_page: Number(e.target.value) || 6,
+                        })
+                      }
+                      className="input input-sm"
+                    />
+                    <p className="text-[11px] text-muted mt-1">
+                      Enable this section to show FAQs on the homepage. A link
+                      to the full FAQ page is included.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 

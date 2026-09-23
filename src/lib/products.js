@@ -9,6 +9,7 @@ const PRODUCTS_TTL = 30;
 
 async function fetchProductsWithRatings({
   categoryId,
+  brandId,
   ids,
   query,
   minPrice,
@@ -22,11 +23,12 @@ async function fetchProductsWithRatings({
   let q = supabase
     .from("products")
     .select(
-      "*, product_images(id, image_url, sort_order), categories(name, slug)",
+      "*, product_images(id, image_url, sort_order), categories(name, slug), brands(name, slug)",
     )
     .eq("is_active", true);
 
   if (categoryId && categoryId !== "all") q = q.eq("category_id", categoryId);
+  if (brandId && brandId !== "all") q = q.eq("brand_id", brandId);
   if (featuredOnly) q = q.eq("is_featured", true);
   if (ids && ids.length > 0) q = q.in("id", ids);
   if (excludeId) q = q.neq("id", excludeId);
@@ -103,7 +105,7 @@ async function fetchProductBySlug(slug) {
   const { data: product, error } = await supabase
     .from("products")
     .select(
-      "*, categories(name, slug), product_images(id, image_url, sort_order)",
+      "*, categories(name, slug), brands(name, slug), product_images(id, image_url, sort_order)",
     )
     .eq("slug", slug)
     .eq("is_active", true)
@@ -167,7 +169,7 @@ async function fetchProductMeta(slug) {
   const { data: product, error } = await supabase
     .from("products")
     .select(
-      "id, name, slug, description, category_id, categories(name, slug), product_images(id, image_url, sort_order)",
+      "id, name, slug, description, category_id, brand_id, categories(name, slug), brands(name, slug), product_images(id, image_url, sort_order)",
     )
     .eq("slug", slug)
     .eq("is_active", true)

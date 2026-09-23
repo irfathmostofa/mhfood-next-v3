@@ -18,6 +18,7 @@ import { useCart } from "@/hooks/useCart";
 const NAV_LINKS = [
   { to: "/", label: "Home" },
   { to: "/shop", label: "Shop" },
+  { to: "/faq", label: "FAQ" },
   { to: "/track", label: "Track Order" },
 ];
 
@@ -334,6 +335,12 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
                 className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
               >
                 Shop
+              </Link>
+              <Link
+                href="/faq"
+                className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
+              >
+                FAQ
               </Link>
               <Link
                 href="/track"

@@ -187,6 +187,7 @@ const EMPTY_FORM = {
   unit: "",
   weight: "",
   category_id: "",
+  brand_id: "",
   is_featured: false,
   is_active: true,
 };
@@ -234,6 +235,7 @@ export default function AiProductCreate() {
   const languageRef = useRef(language);
 
   const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
   const [form, setForm] = useState(EMPTY_FORM);
   const [variants, setVariants] = useState([]);
   const [keywords, setKeywords] = useState([]);
@@ -297,6 +299,12 @@ export default function AiProductCreate() {
       .select("id, name")
       .order("name")
       .then(({ data }) => setCategories(data || []));
+    supabase
+      .from("brands")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("name")
+      .then(({ data }) => setBrands(data || []));
   }, []);
 
   // Clear any pending reset timer on unmount.
@@ -516,6 +524,7 @@ export default function AiProductCreate() {
           ? String(data.weight)
           : "",
       category_id: data.category_id || "",
+      brand_id: data.brand_id || "",
       is_featured: !!data.is_featured,
       is_active: data.is_active !== false,
     });
@@ -735,6 +744,7 @@ export default function AiProductCreate() {
       unit: (form.unit || "").trim(),
       weight: Number(form.weight) || 0,
       category_id: form.category_id || null,
+      brand_id: form.brand_id || null,
       is_featured: !!form.is_featured,
       seo_keywords: keywords.filter(Boolean),
       seo_data: {
@@ -1155,6 +1165,7 @@ export default function AiProductCreate() {
               product={form}
               onChange={setForm}
               categories={categories}
+              brands={brands}
               variants={variants}
               onVariantsChange={(next) => {
                 setVariants(next);
@@ -1166,7 +1177,7 @@ export default function AiProductCreate() {
                 }
               }}
             />
-{/* 
+
             <div className="mt-4">
               <label className="label">English name (for URL slug)</label>
               <input
@@ -1186,7 +1197,7 @@ export default function AiProductCreate() {
                 Used for the SEO URL. Bangla titles stay as the listing name;
                 this English name becomes the slug.
               </p>
-            </div> */}
+            </div>
           </div>
 
           <div className="card p-6">

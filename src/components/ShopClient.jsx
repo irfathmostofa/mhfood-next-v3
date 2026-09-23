@@ -12,7 +12,11 @@ const SORT_OPTIONS = [
   { value: "rating", label: "Top Rated" },
 ];
 
-export default function ShopClient({ categories = [], products = [] }) {
+export default function ShopClient({
+  categories = [],
+  brands = [],
+  products = [],
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
@@ -26,6 +30,7 @@ export default function ShopClient({ categories = [], products = [] }) {
 
   // Instant filters are derived directly from the URL.
   const category = searchParams.get("category") || "all";
+  const brand = searchParams.get("brand") || "all";
   const sort = searchParams.get("sort") || "newest";
   const inStockOnly = searchParams.get("instock") === "1";
 
@@ -76,6 +81,7 @@ export default function ShopClient({ categories = [], products = [] }) {
     updateParams({
       q: "",
       category: "",
+      brand: "",
       sort: "",
       min: "",
       max: "",
@@ -85,6 +91,7 @@ export default function ShopClient({ categories = [], products = [] }) {
 
   const activeFilterCount = [
     category !== "all",
+    brand !== "all",
     !!minPrice,
     !!maxPrice,
     inStockOnly,
@@ -145,6 +152,36 @@ export default function ShopClient({ categories = [], products = [] }) {
             ))}
           </div>
         </div>
+        {brands.length > 0 && (
+          <div>
+            <h3 className="text-sm font-semibold text-ink mb-3">Brand</h3>
+            <div className="flex flex-col gap-1">
+              <button
+                onClick={() => updateParams({ brand: "" })}
+                className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                  brand === "all"
+                    ? "bg-primary text-white"
+                    : "text-ink hover:bg-primary/5"
+                }`}
+              >
+                All Brands
+              </button>
+              {brands.map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => updateParams({ brand: item.slug || item.id })}
+                  className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                    brand === (item.slug || item.id)
+                      ? "bg-primary text-white"
+                      : "text-ink hover:bg-primary/5"
+                  }`}
+                >
+                  {item.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <label className="flex items-center gap-2 text-sm text-ink cursor-pointer select-none">
           <input
             type="checkbox"
@@ -168,7 +205,16 @@ export default function ShopClient({ categories = [], products = [] }) {
       </div>
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [minPrice, maxPrice, inStockOnly, category, activeFilterCount, categories],
+    [
+      minPrice,
+      maxPrice,
+      inStockOnly,
+      category,
+      brand,
+      activeFilterCount,
+      categories,
+      brands,
+    ],
   );
 
   return (
@@ -177,9 +223,11 @@ export default function ShopClient({ categories = [], products = [] }) {
         <h1 className="font-display text-2xl sm:text-3xl text-ink">
           {query
             ? `Search “${query}”`
-            : category !== "all"
-              ? categories.find((c) => c.slug === category)?.name || "Shop"
-              : "Shop"}
+            : brand !== "all"
+              ? brands.find((b) => b.slug === brand)?.name || "Shop"
+              : category !== "all"
+                ? categories.find((c) => c.slug === category)?.name || "Shop"
+                : "Shop"}
         </h1>
 
         <div className="flex items-center gap-2">
@@ -234,7 +282,7 @@ export default function ShopClient({ categories = [], products = [] }) {
 
         <div className="flex-1 min-w-0">
           {isPending ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-4 gap-2 sm:gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-3 gap-4 sm:gap-6">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}

@@ -171,6 +171,14 @@ export const DEFAULT_SECTIONS = [
     sort_order: 9,
     items_per_page: 1,
   },
+  {
+    key: "faq",
+    title: "Frequently asked questions",
+    subtitle: "Quick answers about ordering, delivery and tracking.",
+    enabled: false,
+    sort_order: 10,
+    items_per_page: 6,
+  },
 ];
 
 async function fetchHomeSections() {
@@ -332,3 +340,38 @@ export const getCategoryCounts = unstable_cache(
     revalidate: CONFIG_TTL,
   },
 );
+
+async function fetchFaqs() {
+  try {
+    const { data } = await supabase
+      .from("faqs")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    return data || [];
+  } catch {
+    return [];
+  }
+}
+
+export const getFaqs = unstable_cache(fetchFaqs, ["site-faqs"], {
+  revalidate: CONFIG_TTL,
+});
+
+async function fetchBrands() {
+  try {
+    const { data } = await supabase
+      .from("brands")
+      .select("*")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
+    return (data || []).filter((b) => b.is_active !== false);
+  } catch {
+    return [];
+  }
+}
+
+export const getBrands = unstable_cache(fetchBrands, ["site-brands"], {
+  revalidate: CONFIG_TTL,
+});

@@ -104,9 +104,9 @@ export default function ProductCard({ product }) {
 
       {/* Body */}
       <div className="p-3.5 sm:p-4 flex-1 flex flex-col">
-        {product.categories?.name && (
-          <p className="text-[10px] uppercase tracking-[0.12em] text-muted mb-1">
-            {product.categories.name}
+        {(product.brands?.name || product.categories?.name) && (
+          <p className="text-[10px] uppercase tracking-[0.12em] text-muted mb-1 truncate">
+            {product.brands?.name || product.categories.name}
           </p>
         )}
         <h3 className="text-sm font-medium text-ink truncate">

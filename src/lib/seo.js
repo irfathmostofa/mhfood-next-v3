@@ -87,7 +87,7 @@ export function productJsonLd(product, origin) {
     url: `${siteOrigin}/product/${product.slug}`,
     brand: {
       "@type": "Brand",
-      name: product.store_name || "Store",
+      name: product.brands?.name || product.store_name || "Store",
     },
     offers: {
       "@type": "Offer",

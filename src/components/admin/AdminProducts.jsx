@@ -31,6 +31,7 @@ const EMPTY_PRODUCT = {
   name: "",
   slug: "",
   category_id: "",
+  brand_id: "",
   cost: "",
   regular_price: "",
   price: "",
@@ -46,6 +47,7 @@ const EMPTY_PRODUCT = {
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -66,15 +68,20 @@ export default function AdminProducts() {
 
   async function loadAll() {
     setLoading(true);
-    const [{ data: productsData }, { data: categoryData }] = await Promise.all([
-      supabase
-        .from("products")
-        .select("*, product_images(image_url, sort_order), categories(name)")
-        .order("created_at", { ascending: false }),
-      supabase.from("categories").select("*").order("name"),
-    ]);
+    const [{ data: productsData }, { data: categoryData }, { data: brandData }] =
+      await Promise.all([
+        supabase
+          .from("products")
+          .select(
+            "*, product_images(image_url, sort_order), categories(name), brands(name)",
+          )
+          .order("created_at", { ascending: false }),
+        supabase.from("categories").select("*").order("name"),
+        supabase.from("brands").select("*").order("name"),
+      ]);
     setProducts(productsData || []);
     setCategories(categoryData || []);
+    setBrands(brandData || []);
     setLoading(false);
   }
 
@@ -110,6 +117,7 @@ export default function AdminProducts() {
         slugify(editing.name) +
           (editing.id ? "" : `-${Date.now().toString(36).slice(-4)}`),
       category_id: editing.category_id || null,
+      brand_id: editing.brand_id || null,
       cost: Number(editing.cost) || 0,
       regular_price: Number(editing.regular_price) || 0,
       price: Number(editing.price) || 0,
@@ -308,7 +316,8 @@ export default function AdminProducts() {
     return products.filter(
       (p) =>
         (p.name.toLowerCase().includes(search.toLowerCase()) ||
-          p.slug.toLowerCase().includes(search.toLowerCase())) &&
+          p.slug.toLowerCase().includes(search.toLowerCase()) ||
+          (p.brands?.name || "").toLowerCase().includes(search.toLowerCase())) &&
         matchesStatus(p) &&
         matchesFeatured(p) &&
         matchesStock(p),
@@ -487,7 +496,8 @@ export default function AdminProducts() {
                       {product.name}
                     </p>
                     <p className="text-xs text-muted truncate">
-                      {product.categories?.name || "Uncategorized"} · ৳
+                      {product.categories?.name || "Uncategorized"}
+                      {product.brands?.name ? ` · ${product.brands.name}` : ""} · ৳
                       {Number(product.price).toFixed(2)} · {product.stock} in
                       stock
                       {Number(product.cost) > 0 && (
@@ -571,10 +581,11 @@ export default function AdminProducts() {
       >
         {editing && (
           <form onSubmit={saveProduct} className="space-y-4">
-            <ProductFormFields
+              <ProductFormFields
               product={editing}
               onChange={setEditing}
               categories={categories}
+              brands={brands}
               variants={editing.variants || []}
               onVariantsChange={(variants) =>
                 setEditing({

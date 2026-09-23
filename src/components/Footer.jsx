@@ -26,6 +26,7 @@ export default async function Footer({ theme }) {
 
   const shopLinks = [
     { to: "/shop", label: "Shop" },
+    { to: "/faq", label: "FAQ" },
     { to: "/track", label: "Track Order" },
     { to: "/checkout", label: "Checkout" },
   ];
