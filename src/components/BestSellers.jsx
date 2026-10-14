@@ -27,7 +27,7 @@ export default function BestSellers({ title, subtitle, products = [] }) {
   if (products.length === 0) return null;
 
   return (
-    <section className="max-w-[96%] mx-auto px-2 py-6 sm:py-10">
+    <section className="max-w-[95%] mx-auto px-2 py-6 sm:py-10">
       <div className="flex items-end justify-between mb-4 sm:mb-6">
         <div className="px-1.5">
           <h2
@@ -54,7 +54,7 @@ export default function BestSellers({ title, subtitle, products = [] }) {
         )}
       </div>
 
-      <div className="overflow-hidden" ref={emblaRef}>
+      <div className="overflow-hidden -mx-1.5 sm:-mx-2.5" ref={emblaRef}>
         <div className="flex items-stretch">
           {products.map((product, rank) => (
             <div

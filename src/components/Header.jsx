@@ -285,7 +285,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
           MAIN HEADER
       ========================================================= */}
 
-        <div className="max-w-[97%] mx-auto px-4 sm:px-6 lg:px-8 h-16 lg:h-20 grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-6">
+        <div className="max-w-[97%] mx-auto px-3 sm:px-5 lg:px-8 h-16 lg:h-20 grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-6">
           {/* Logo */}
           {logo}
 
@@ -319,7 +319,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
             RIGHT SIDE BUTTONS
         ======================================================= */}
 
-          <div className="flex items-center gap-1 justify-end shrink-0">
+          <div className="col-start-3 flex items-center gap-1 justify-end shrink-0">
             <div className="hidden lg:flex items-center">
               {liveSessions.map((session) => (
                 <Link
@@ -370,7 +370,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
 
       {theme?.show_header_categories !== false && parentCategories.length > 0 && (
         <div className="hidden lg:block sticky top-0 z-40 border-b border-line bg-primary shadow-sm">
-          <div className="max-w-[96%] mx-auto px-4 sm:px-6 lg:px-6 relative">
+          <div className="max-w-[97%] mx-auto px-3 sm:px-5 lg:px-8 relative">
             {/* Left scroll button */}
             {canScrollLeft && (
               <button
@@ -482,7 +482,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
       ========================================================= */}
 
       {searchOpen && (
-        <div className="md:hidden px-4 pb-4">
+        <div className="md:hidden max-w-[97%] mx-auto px-3 pb-4">
           <form onSubmit={submitSearch} className="relative">
             <Search
               size={18}
