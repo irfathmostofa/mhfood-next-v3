@@ -120,7 +120,7 @@ export default async function ProductPage({ params }) {
   const { description, ...viewProduct } = product;
 
   return (
-    <div className="max-w-[1280px] mx-auto px-3 sm:px-4 py-3 sm:py-4">
+    <div className="max-w-[97%] mx-auto px-3 sm:px-5 lg:px-8 py-3 sm:py-4">
       {structured && (
         <script
           type="application/ld+json"
@@ -130,26 +130,16 @@ export default async function ProductPage({ params }) {
       <ProductView
         product={viewProduct}
         categories={categories}
-        descriptionSlot={
-          description ? (
-            <div
-              className="prose prose-sm max-w-none text-muted leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: toHtml(description) }}
-            />
-          ) : (
-            <p className="text-sm text-muted py-6">No description available.</p>
-          )
-        }
-        reviewsSlot={
-          <Suspense fallback={<ReviewsFallback />}>
-            <ProductReviewsSection
-              productId={product.id}
-              avgRating={product.avg_rating}
-              reviewCount={product.review_count}
-            />
-          </Suspense>
-        }
-      />
+        descriptionHtml={description ? toHtml(description) : ""}
+      >
+        <Suspense fallback={<ReviewsFallback />}>
+          <ProductReviewsSection
+            productId={product.id}
+            avgRating={product.avg_rating}
+            reviewCount={product.review_count}
+          />
+        </Suspense>
+      </ProductView>
       <Suspense fallback={<RelatedFallback />}>
         <ProductRelatedSection product={product} />
       </Suspense>

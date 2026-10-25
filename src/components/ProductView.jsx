@@ -49,8 +49,8 @@ const ProductEnquiryModal = dynamic(
 export default function ProductView({
   product,
   categories = [],
-  descriptionSlot = null,
-  reviewsSlot = null,
+  descriptionHtml = "",
+  children = null,
 }) {
   const router = useRouter();
   const { addItem } = useCart();
@@ -212,8 +212,8 @@ export default function ProductView({
         <Link href="/" className="hover:text-accent shrink-0">
           Home
         </Link>
-        {crumbs.map((c) => (
-          <span key={c.href} className="flex items-center gap-1 min-w-0">
+        {crumbs.map((c, i) => (
+          <span key={`${c.href}-${c.label}-${i}`} className="flex items-center gap-1 min-w-0">
             <span className="text-line">/</span>
             <Link href={c.href} className="hover:text-accent truncate">
               {c.label}
@@ -255,7 +255,7 @@ export default function ProductView({
               <div className="flex-1 flex gap-2 overflow-x-auto no-scrollbar">
                 {images.map((img, i) => (
                   <button
-                    key={img.id}
+                    key={img.id || img.image_url || i}
                     type="button"
                     onClick={() => setActiveImage(i)}
                     className={`relative w-14 h-14 shrink-0 overflow-hidden border ${
@@ -379,7 +379,7 @@ export default function ProductView({
                             const swatch = images[idx]?.image_url;
                             return (
                               <button
-                                key={opt.id}
+                                key={opt.id ?? `${g.name}-${opt.value}-${idx}`}
                                 type="button"
                                 onClick={() => selectVariant(g.name, opt.id)}
                                 disabled={disabled}
@@ -410,10 +410,10 @@ export default function ProductView({
                           }
                           return (
                             <button
-                              key={opt.id}
                               type="button"
                               onClick={() => selectVariant(g.name, opt.id)}
                               disabled={disabled}
+                              key={opt.id ?? `${g.name}-${opt.value}-${idx}`}
                               className={`min-w-11 h-9 px-3 rounded-lg border text-sm ${
                                 active
                                   ? "border-accent text-ink bg-accent/10"
@@ -592,9 +592,17 @@ export default function ProductView({
           </button>
         </div>
 
-        {activeTab === "description" && descriptionSlot}
+        {activeTab === "description" &&
+          (descriptionHtml ? (
+            <div
+              className="prose prose-sm max-w-none text-muted leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+            />
+          ) : (
+            <p className="text-sm text-muted py-6">No description available.</p>
+          ))}
 
-        {activeTab === "reviews" && reviewsSlot}
+        {activeTab === "reviews" && children}
       </section>
 
       {/* Spacer so the mobile sticky bar never covers page content */}
