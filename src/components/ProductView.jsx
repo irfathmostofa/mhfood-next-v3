@@ -981,7 +981,7 @@ function DeliverySidebar({ siteSettings, extras, delivery }) {
         <div className="flex items-start gap-2 mt-4">
           <Truck size={16} className="text-muted mt-0.5 shrink-0" />
           <div className="flex-1">
-            <p className="text-sm text-ink">Standard Delivery</p>
+            <p className="text-sm text-ink">Estimate Delivery Cost</p>
             <p className="text-xs text-muted">
               Guaranteed by {deliveryWindow()}
             </p>
