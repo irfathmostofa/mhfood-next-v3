@@ -11,7 +11,6 @@ import { buildMetadata, productJsonLd, getSiteOrigin } from "@/lib/seo";
 import { stripHtml, toHtml } from "@/lib/richtext";
 import ProductView from "@/components/ProductView";
 import ProductCard from "@/components/ProductCard";
-import ReviewsList from "@/components/ReviewsList";
 
 export const revalidate = 30;
 
@@ -82,26 +81,6 @@ function RelatedFallback() {
   );
 }
 
-async function ProductReviewsSection({ productId, avgRating, reviewCount }) {
-  const reviews = await getProductReviews(productId);
-  return (
-    <ReviewsList
-      reviews={reviews}
-      avgRating={avgRating}
-      reviewCount={reviewCount}
-    />
-  );
-}
-
-function ReviewsFallback() {
-  return (
-    <div className="space-y-4">
-      <div className="h-16 bg-primary/5 rounded-xl animate-pulse" />
-      <div className="h-24 bg-primary/5 rounded-xl animate-pulse" />
-    </div>
-  );
-}
-
 export default async function ProductPage({ params }) {
   const { slug } = await params;
   const [product, seo, categories] = await Promise.all([
@@ -118,6 +97,7 @@ export default async function ProductPage({ params }) {
   );
 
   const { description, ...viewProduct } = product;
+  const reviews = await getProductReviews(product.id);
 
   return (
     <div className="max-w-[97%] mx-auto px-3 sm:px-5 lg:px-8 py-3 sm:py-4">
@@ -131,15 +111,8 @@ export default async function ProductPage({ params }) {
         product={viewProduct}
         categories={categories}
         descriptionHtml={description ? toHtml(description) : ""}
-      >
-        <Suspense fallback={<ReviewsFallback />}>
-          <ProductReviewsSection
-            productId={product.id}
-            avgRating={product.avg_rating}
-            reviewCount={product.review_count}
-          />
-        </Suspense>
-      </ProductView>
+        reviews={reviews}
+      />
       <Suspense fallback={<RelatedFallback />}>
         <ProductRelatedSection product={product} />
       </Suspense>

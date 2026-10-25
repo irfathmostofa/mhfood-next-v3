@@ -40,6 +40,7 @@ import { formatLocation } from "@/lib/bangladeshLocations";
 import { chargeForLocation } from "@/lib/deliveryCharge";
 import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import StarRating from "./StarRating";
+import ReviewsList from "./ReviewsList";
 
 const ProductEnquiryModal = dynamic(
   () => import("@/components/ProductEnquiryModal"),
@@ -50,7 +51,7 @@ export default function ProductView({
   product,
   categories = [],
   descriptionHtml = "",
-  children = null,
+  reviews = [],
 }) {
   const router = useRouter();
   const { addItem } = useCart();
@@ -592,17 +593,22 @@ export default function ProductView({
           </button>
         </div>
 
-        {activeTab === "description" &&
-          (descriptionHtml ? (
+        {activeTab === "description" ? (
+          descriptionHtml ? (
             <div
               className="prose prose-sm max-w-none text-muted leading-relaxed"
               dangerouslySetInnerHTML={{ __html: descriptionHtml }}
             />
           ) : (
             <p className="text-sm text-muted py-6">No description available.</p>
-          ))}
-
-        {activeTab === "reviews" && children}
+          )
+        ) : (
+          <ReviewsList
+            reviews={reviews}
+            avgRating={product.avg_rating}
+            reviewCount={product.review_count}
+          />
+        )}
       </section>
 
       {/* Spacer so the mobile sticky bar never covers page content */}
