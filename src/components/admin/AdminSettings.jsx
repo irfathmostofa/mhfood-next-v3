@@ -25,6 +25,12 @@ import ImageUploader from "./ImageUploader";
 import Pagination from "./Pagination";
 import AdminHero from "./AdminHero";
 import { useToast } from "@/components/Toast";
+import LocationSelect from "@/components/LocationSelect";
+import { formatLocation, locationKey } from "@/lib/bangladeshLocations";
+import {
+  DEFAULT_DELIVERY_CHARGES,
+  getChargeTiers,
+} from "@/lib/deliveryCharge";
 
 const TABS = [
   {
@@ -67,7 +73,7 @@ const TABS = [
     label: "Delivery Zones",
     short: "Zones",
     icon: Truck,
-    hint: "Areas and delivery fees",
+    hint: "Shop origin, fees, extra areas",
   },
   {
     id: "pickup",
@@ -105,6 +111,7 @@ export default function AdminSettings() {
   const [sections, setSections] = useState([]);
   const [coupons, setCoupons] = useState([]);
   const [zones, setZones] = useState([]);
+  const [deliveryLocations, setDeliveryLocations] = useState([]);
   const [pickupPoints, setPickupPoints] = useState([]);
   const [rules, setRules] = useState([]);
 
@@ -139,6 +146,7 @@ export default function AdminSettings() {
       { data: sectionsData },
       { data: couponsData },
       { data: zonesData },
+      extrasRes,
       { data: pickupData },
       { data: rulesData },
     ] = await Promise.all([
@@ -158,6 +166,11 @@ export default function AdminSettings() {
         .select("*")
         .order("sort_order", { ascending: true }),
       supabase
+        .from("delivery_locations")
+        .select("*")
+        .order("sort_order", { ascending: true })
+        .then((res) => (res.error ? { data: [] } : res)),
+      supabase
         .from("pickup_points")
         .select("*")
         .order("sort_order", { ascending: true })
@@ -170,7 +183,14 @@ export default function AdminSettings() {
 
     setTheme({ ...DEFAULT_THEME, ...(themeData || {}) });
     setSeo({ ...DEFAULT_SEO, ...(seoData || {}) });
-    setSite(siteData || {});
+    setSite({
+      delivery_same_area_charge: DEFAULT_DELIVERY_CHARGES.same_area,
+      delivery_same_district_charge: DEFAULT_DELIVERY_CHARGES.same_district,
+      delivery_same_division_charge: DEFAULT_DELIVERY_CHARGES.same_division,
+      delivery_outside_charge: DEFAULT_DELIVERY_CHARGES.outside,
+      delivery_remote_charge: DEFAULT_DELIVERY_CHARGES.remote,
+      ...(siteData || {}),
+    });
     let nextSections = sectionsData || [];
     const existingKeys = new Set(nextSections.map((s) => s.key));
     const toInsert = MISSING_HOME_SECTIONS.filter(
@@ -190,6 +210,7 @@ export default function AdminSettings() {
     setSections(nextSections);
     setCoupons(couponsData || []);
     setZones(zonesData || []);
+    setDeliveryLocations(extrasRes?.data || []);
     setPickupPoints(pickupData || []);
     setRules(rulesData || []);
     setLoading(false);
@@ -218,20 +239,56 @@ export default function AdminSettings() {
           seo.google_site_verification || "",
         ).trim(),
       };
-      const sitePayload = { ...site, enquiry_enabled: site.enquiry_enabled !== false };
+      const sitePayload = {
+        ...site,
+        enquiry_enabled: site.enquiry_enabled !== false,
+        delivery_same_area_charge: Number(
+          site.delivery_same_area_charge ?? DEFAULT_DELIVERY_CHARGES.same_area,
+        ),
+        delivery_same_district_charge: Number(
+          site.delivery_same_district_charge ??
+            DEFAULT_DELIVERY_CHARGES.same_district,
+        ),
+        delivery_same_division_charge: Number(
+          site.delivery_same_division_charge ??
+            DEFAULT_DELIVERY_CHARGES.same_division,
+        ),
+        delivery_outside_charge: Number(
+          site.delivery_outside_charge ?? DEFAULT_DELIVERY_CHARGES.outside,
+        ),
+        delivery_remote_charge: Number(
+          site.delivery_remote_charge ?? DEFAULT_DELIVERY_CHARGES.remote,
+        ),
+      };
       let siteUpdate = await supabase
         .from("site_settings")
         .update(sitePayload)
         .eq("id", 1);
-      if (
-        siteUpdate.error &&
-        /enquiry_enabled/i.test(siteUpdate.error.message || "")
-      ) {
-        const { enquiry_enabled, ...withoutEnquiry } = sitePayload;
-        siteUpdate = await supabase
-          .from("site_settings")
-          .update(withoutEnquiry)
-          .eq("id", 1);
+      if (siteUpdate.error) {
+        const unknown = [
+          "enquiry_enabled",
+          "shop_location_key",
+          "shop_division",
+          "shop_district",
+          "shop_area",
+          "delivery_same_area_charge",
+          "delivery_same_district_charge",
+          "delivery_same_division_charge",
+          "delivery_outside_charge",
+          "delivery_remote_charge",
+        ].filter((col) =>
+          new RegExp(col, "i").test(siteUpdate.error.message || ""),
+        );
+        if (unknown.length) {
+          const fallback = { ...sitePayload };
+          unknown.forEach((col) => {
+            delete fallback[col];
+          });
+          siteUpdate = await supabase
+            .from("site_settings")
+            .update(fallback)
+            .eq("id", 1);
+        }
       }
       let seoUpdate = await supabase
         .from("seo_settings")
@@ -426,6 +483,10 @@ export default function AdminSettings() {
             <ZonesManager
               zones={zones}
               setZones={setZones}
+              site={site}
+              setSite={setSite}
+              deliveryLocations={deliveryLocations}
+              setDeliveryLocations={setDeliveryLocations}
               showFlash={showFlash}
             />
           )}
@@ -1720,9 +1781,147 @@ const EMPTY_ZONE = {
   is_active: true,
 };
 
-function ZonesManager({ zones, setZones, showFlash }) {
+const EMPTY_LOCATION = {
+  id: null,
+  location_key: "",
+  division: "",
+  district: "",
+  area: "",
+  charge: "",
+  is_remote: false,
+  is_custom: true,
+  is_active: true,
+};
+
+const CHARGE_FIELDS = [
+  ["delivery_same_area_charge", "Same area", "Customer in the shop area"],
+  ["delivery_same_district_charge", "Same district", "Same district, different area"],
+  ["delivery_same_division_charge", "Same division", "Same division, different district"],
+  ["delivery_outside_charge", "Outside division", "Other divisions"],
+  ["delivery_remote_charge", "Remote / island", "Hill tracts, islands, remote"],
+];
+
+function ZonesManager({
+  zones,
+  setZones,
+  site,
+  setSite,
+  deliveryLocations,
+  setDeliveryLocations,
+  showFlash,
+}) {
+  const [savingShop, setSavingShop] = useState(false);
   const [form, setForm] = useState(EMPTY_ZONE);
+  const [locationForm, setLocationForm] = useState(EMPTY_LOCATION);
   const { paged, pagination } = usePagedList(zones);
+  const { paged: pagedLocations, pagination: locationPagination } =
+    usePagedList(deliveryLocations);
+  const tiers = getChargeTiers(site);
+
+  function setCharge(key, value) {
+    setSite((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function pickShop(loc) {
+    setSite((prev) => ({
+      ...prev,
+      shop_location_key: loc?.key || "",
+      shop_division: loc?.division || "",
+      shop_district: loc?.district || "",
+      shop_area: loc?.area || "",
+    }));
+  }
+
+  async function saveShopCharges(e) {
+    e.preventDefault();
+    setSavingShop(true);
+    const payload = {
+      shop_location_key: site.shop_location_key || null,
+      shop_division: site.shop_division || null,
+      shop_district: site.shop_district || null,
+      shop_area: site.shop_area || null,
+      delivery_same_area_charge: Number(tiers.same_area) || 0,
+      delivery_same_district_charge: Number(tiers.same_district) || 0,
+      delivery_same_division_charge: Number(tiers.same_division) || 0,
+      delivery_outside_charge: Number(tiers.outside) || 0,
+      delivery_remote_charge: Number(tiers.remote) || 0,
+    };
+    let { error } = await supabase
+      .from("site_settings")
+      .update(payload)
+      .eq("id", 1);
+    if (error) {
+      const unknown = Object.keys(payload).filter((col) =>
+        new RegExp(col, "i").test(error.message || ""),
+      );
+      if (unknown.length) {
+        const fallback = { ...payload };
+        unknown.forEach((col) => {
+          delete fallback[col];
+        });
+        ({ error } = await supabase
+          .from("site_settings")
+          .update(fallback)
+          .eq("id", 1));
+      }
+    }
+    setSavingShop(false);
+    if (error) {
+      showFlash(`Error: ${error.message}`);
+    } else {
+      showFlash("Shop location and charges saved.");
+    }
+  }
+
+  async function saveLocation(e) {
+    e.preventDefault();
+    const division = locationForm.division.trim();
+    const district = locationForm.district.trim();
+    const area = locationForm.area.trim();
+    if (!division || !district || !area) {
+      showFlash("Error: Division, district and area are required.");
+      return;
+    }
+    const key =
+      locationForm.location_key || locationKey(division, district, area);
+    const payload = {
+      location_key: key,
+      division,
+      district,
+      area,
+      charge:
+        locationForm.charge === "" || locationForm.charge == null
+          ? null
+          : Number(locationForm.charge),
+      is_remote: !!locationForm.is_remote,
+      is_custom: locationForm.is_custom !== false,
+      is_active: locationForm.is_active !== false,
+    };
+    const { error } = locationForm.id
+      ? await supabase
+          .from("delivery_locations")
+          .update(payload)
+          .eq("id", locationForm.id)
+      : await supabase.from("delivery_locations").insert(payload);
+    if (error) {
+      showFlash(`Error: ${error.message}`);
+      return;
+    }
+    showFlash(locationForm.id ? "Location updated." : "Location added.");
+    setLocationForm(EMPTY_LOCATION);
+    const { data } = await supabase
+      .from("delivery_locations")
+      .select("*")
+      .order("sort_order", { ascending: true });
+    setDeliveryLocations(data || []);
+  }
+
+  async function deleteLocation(row) {
+    if (!confirm(`Remove "${formatLocation(row)}"?`)) return;
+    await supabase.from("delivery_locations").delete().eq("id", row.id);
+    setDeliveryLocations((prev) => prev.filter((item) => item.id !== row.id));
+    showFlash("Location removed.");
+  }
 
   async function save(e) {
     e.preventDefault();
@@ -1757,111 +1956,356 @@ function ZonesManager({ zones, setZones, showFlash }) {
   }
 
   return (
-    <Section title="Delivery Zones">
-      <p className="text-xs text-muted -mt-2">
-        Charge covers the first weight, and the add-on applies to every extra
-        (started) kg. Eg. 1kg = ৳60, add-on ৳20: 3kg = ৳60 + (2 × ৳20) = ৳100.
-      </p>
-      <form
-        onSubmit={save}
-        className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end mb-4"
-      >
-        <div className="col-span-2">
-          <label className="label">Zone name</label>
-          <input
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Dhaka City"
-            className="input"
-            required
-          />
-        </div>
-        <div>
-          <label className="label">Base charge (৳)</label>
-          <input
-            type="number"
-            value={form.charge}
-            onChange={(e) => setForm({ ...form, charge: e.target.value })}
-            placeholder="60"
-            className="input"
-            required
-          />
-        </div>
-        <div>
-          <label className="label">Base weight (kg)</label>
-          <input
-            type="number"
-            step="0.001"
-            value={form.base_weight_kg}
-            onChange={(e) => setForm({ ...form, base_weight_kg: e.target.value })}
-            placeholder="1"
-            className="input"
-          />
-        </div>
-        <div>
-          <label className="label">Add-on / extra kg (৳)</label>
-          <input
-            type="number"
-            value={form.extra_kg_charge}
-            onChange={(e) => setForm({ ...form, extra_kg_charge: e.target.value })}
-            placeholder="20"
-            className="input"
-          />
-        </div>
-        <div className="col-span-2 sm:col-span-5 flex gap-2">
+    <div className="space-y-6">
+      <form onSubmit={saveShopCharges} className="space-y-6">
+        <Section title="Shop Location">
+          <p className="text-xs text-muted -mt-2">
+            Choose the shop origin first. Checkout delivery charges are
+            calculated from this location.
+          </p>
+          <div>
+            <label className="label">Shop area</label>
+            <LocationSelect
+              value={site?.shop_location_key || ""}
+              onChange={pickShop}
+              extras={deliveryLocations}
+              hideCharge
+            />
+            {site?.shop_division && (
+              <p className="text-xs text-muted mt-1.5">
+                {formatLocation({
+                  division: site.shop_division,
+                  district: site.shop_district,
+                  area: site.shop_area,
+                })}
+              </p>
+            )}
+          </div>
+        </Section>
+
+        <Section title="Delivery Charges">
+          <p className="text-xs text-muted -mt-2">
+            Amounts are relative to the shop location. Change any amount and
+            save. Remote / island areas always use the remote rate unless a
+            custom location override is set.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {CHARGE_FIELDS.map(([key, label, hint]) => (
+              <div key={key}>
+                <label className="label">{label} (৳)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={site?.[key] ?? ""}
+                  onChange={(e) => setCharge(key, e.target.value)}
+                  className="input"
+                />
+                <p className="text-[11px] text-muted mt-1">{hint}</p>
+              </div>
+            ))}
+          </div>
+        </Section>
+
+        <div className="flex justify-stretch sm:justify-end">
           <button
             type="submit"
-            className="btn btn-primary shrink-0 flex-1 sm:flex-none"
+            disabled={savingShop}
+            className="btn btn-primary disabled:opacity-60 w-full sm:w-auto"
           >
-            {form.id ? "Update" : "Add"}
+            {savingShop ? (
+              <>
+                <Loader2 size={16} className="animate-spin" /> Saving...
+              </>
+            ) : (
+              <>
+                <Save size={16} /> Save Location & Charges
+              </>
+            )}
           </button>
-          {form.id && (
-            <button
-              type="button"
-              onClick={() => setForm(EMPTY_ZONE)}
-              className="btn btn-ghost shrink-0"
-            >
-              Cancel
-            </button>
-          )}
         </div>
       </form>
 
-      <ul className="divide-y divide-line">
-        {paged.map((zone) => (
-          <li
-            key={zone.id}
-            className="flex flex-wrap items-center justify-between gap-2 py-2.5"
-          >
+      <Section title="Extra Locations">
+        <p className="text-xs text-muted -mt-2">
+          Add an area missing from the list, or set a custom charge for a
+          specific area. Leave charge blank to keep the calculated shop-based
+          rate.
+        </p>
+        <form onSubmit={saveLocation} className="space-y-3 mb-4">
+          <div>
+            <label className="label">Pick an existing area (optional)</label>
+            <LocationSelect
+              value={locationForm.location_key}
+              extras={deliveryLocations}
+              hideCharge
+              onChange={(loc) =>
+                setLocationForm((prev) => ({
+                  ...prev,
+                  location_key: loc?.key || "",
+                  division: loc?.division || "",
+                  district: loc?.district || "",
+                  area: loc?.area || "",
+                  is_custom: false,
+                }))
+              }
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
-              <p className="text-sm text-ink">{zone.name}</p>
-              <p className="text-xs text-muted">
-                ৳{zone.charge} / first {Number(zone.base_weight_kg ?? 1)}kg
-                {Number(zone.extra_kg_charge || 0) > 0
-                  ? ` · +৳${zone.extra_kg_charge} per extra kg`
-                  : ""}
-              </p>
+              <label className="label">Division</label>
+              <input
+                value={locationForm.division}
+                onChange={(e) =>
+                  setLocationForm({
+                    ...locationForm,
+                    division: e.target.value,
+                    location_key: "",
+                    is_custom: true,
+                  })
+                }
+                placeholder="Dhaka"
+                className="input"
+                required
+              />
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setForm({ ...zone })}
-                className="text-xs text-muted hover:text-ink"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => deleteZone(zone)}
-                aria-label="Delete zone"
-                className="text-muted hover:text-red-600"
-              >
-                <Trash2 size={14} />
-              </button>
+            <div>
+              <label className="label">District</label>
+              <input
+                value={locationForm.district}
+                onChange={(e) =>
+                  setLocationForm({
+                    ...locationForm,
+                    district: e.target.value,
+                    location_key: "",
+                    is_custom: true,
+                  })
+                }
+                placeholder="Dhaka - Gulshan"
+                className="input"
+                required
+              />
             </div>
-          </li>
-        ))}
-      </ul>
-      {pagination}
-    </Section>
+            <div>
+              <label className="label">Area</label>
+              <input
+                value={locationForm.area}
+                onChange={(e) =>
+                  setLocationForm({
+                    ...locationForm,
+                    area: e.target.value,
+                    location_key: "",
+                    is_custom: true,
+                  })
+                }
+                placeholder="Gulshan 1"
+                className="input"
+                required
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
+            <div>
+              <label className="label">Custom charge (৳)</label>
+              <input
+                type="number"
+                min="0"
+                value={locationForm.charge}
+                onChange={(e) =>
+                  setLocationForm({ ...locationForm, charge: e.target.value })
+                }
+                placeholder="Auto"
+                className="input"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-ink h-10">
+              <input
+                type="checkbox"
+                checked={!!locationForm.is_remote}
+                onChange={(e) =>
+                  setLocationForm({
+                    ...locationForm,
+                    is_remote: e.target.checked,
+                  })
+                }
+              />
+              Remote
+            </label>
+            <div className="col-span-2 flex gap-2">
+              <button type="submit" className="btn btn-primary flex-1">
+                {locationForm.id ? "Update" : "Add location"}
+              </button>
+              {locationForm.id && (
+                <button
+                  type="button"
+                  onClick={() => setLocationForm(EMPTY_LOCATION)}
+                  className="btn btn-ghost"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </div>
+        </form>
+
+        <ul className="divide-y divide-line">
+          {pagedLocations.map((row) => (
+            <li
+              key={row.id}
+              className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+            >
+              <div>
+                <p className="text-sm text-ink">{formatLocation(row)}</p>
+                <p className="text-xs text-muted">
+                  {row.charge == null
+                    ? "Uses calculated charge"
+                    : `৳${Number(row.charge).toFixed(0)} override`}
+                  {row.is_remote ? " · remote" : ""}
+                  {row.is_custom ? " · custom area" : ""}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() =>
+                    setLocationForm({
+                      ...EMPTY_LOCATION,
+                      ...row,
+                      charge: row.charge ?? "",
+                    })
+                  }
+                  className="text-xs text-muted hover:text-ink"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => deleteLocation(row)}
+                  aria-label="Delete location"
+                  className="text-muted hover:text-red-600"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </li>
+          ))}
+          {deliveryLocations.length === 0 && (
+            <li className="py-3 text-xs text-muted">
+              No extra locations yet.
+            </li>
+          )}
+        </ul>
+        {locationPagination}
+      </Section>
+
+      <Section title="Courier Weight Zones">
+        <p className="text-xs text-muted -mt-2">
+          Used for manual courier parcels. Charge covers the first weight, and
+          the add-on applies to every extra (started) kg. Eg. 1kg = ৳60, add-on
+          ৳20: 3kg = ৳60 + (2 × ৳20) = ৳100.
+        </p>
+        <form
+          onSubmit={save}
+          className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end mb-4"
+        >
+          <div className="col-span-2">
+            <label className="label">Zone name</label>
+            <input
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Dhaka City"
+              className="input"
+              required
+            />
+          </div>
+          <div>
+            <label className="label">Base charge (৳)</label>
+            <input
+              type="number"
+              value={form.charge}
+              onChange={(e) => setForm({ ...form, charge: e.target.value })}
+              placeholder="60"
+              className="input"
+              required
+            />
+          </div>
+          <div>
+            <label className="label">Base weight (kg)</label>
+            <input
+              type="number"
+              step="0.001"
+              value={form.base_weight_kg}
+              onChange={(e) =>
+                setForm({ ...form, base_weight_kg: e.target.value })
+              }
+              placeholder="1"
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label">Add-on / extra kg (৳)</label>
+            <input
+              type="number"
+              value={form.extra_kg_charge}
+              onChange={(e) =>
+                setForm({ ...form, extra_kg_charge: e.target.value })
+              }
+              placeholder="20"
+              className="input"
+            />
+          </div>
+          <div className="col-span-2 sm:col-span-5 flex gap-2">
+            <button
+              type="submit"
+              className="btn btn-primary shrink-0 flex-1 sm:flex-none"
+            >
+              {form.id ? "Update" : "Add"}
+            </button>
+            {form.id && (
+              <button
+                type="button"
+                onClick={() => setForm(EMPTY_ZONE)}
+                className="btn btn-ghost shrink-0"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </form>
+
+        <ul className="divide-y divide-line">
+          {paged.map((zone) => (
+            <li
+              key={zone.id}
+              className="flex flex-wrap items-center justify-between gap-2 py-2.5"
+            >
+              <div>
+                <p className="text-sm text-ink">{zone.name}</p>
+                <p className="text-xs text-muted">
+                  ৳{zone.charge} / first {Number(zone.base_weight_kg ?? 1)}kg
+                  {Number(zone.extra_kg_charge || 0) > 0
+                    ? ` · +৳${zone.extra_kg_charge} per extra kg`
+                    : ""}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setForm({ ...zone })}
+                  className="text-xs text-muted hover:text-ink"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => deleteZone(zone)}
+                  aria-label="Delete zone"
+                  className="text-muted hover:text-red-600"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+        {pagination}
+      </Section>
+    </div>
   );
 }
 

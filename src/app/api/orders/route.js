@@ -14,6 +14,7 @@ import {
   formatLocation,
   getLocationByKey,
 } from "@/lib/bangladeshLocations";
+import { chargeForLocation } from "@/lib/deliveryCharge";
 
 class StockError extends Error {
   constructor() {
@@ -82,6 +83,7 @@ export async function POST(req) {
       { data: settings },
       { data: rules },
       { data: coupon },
+      extrasRes,
     ] = await Promise.all([
       supabase
         .from("pickup_points")
@@ -97,14 +99,20 @@ export async function POST(req) {
             .eq("code", String(couponCode).trim().toUpperCase())
             .maybeSingle()
         : Promise.resolve({ data: null }),
+      supabase
+        .from("delivery_locations")
+        .select("*")
+        .eq("is_active", true)
+        .then((res) => (res.error ? { data: [] } : res)),
     ]);
+    const deliveryLocations = extrasRes?.data || [];
 
     const selectedPickup = isPickup
       ? pickupPoints?.find((p) => p.id === pickupPointId) || null
       : null;
     const selectedLocation = isPickup
       ? null
-      : getLocationByKey(locationKey) || null;
+      : getLocationByKey(locationKey, deliveryLocations) || null;
 
     if (isPickup) {
       if (!selectedPickup) {
@@ -242,7 +250,7 @@ export async function POST(req) {
       ? 0
       : freeDeliveryApplies
         ? 0
-        : Number(selectedLocation?.charge || 0);
+        : chargeForLocation(selectedLocation, settings, deliveryLocations);
 
     const grandTotal = subtotal - totalDiscount + deliveryCharge;
 

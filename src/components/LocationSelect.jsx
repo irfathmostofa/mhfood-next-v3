@@ -18,6 +18,9 @@ export default function LocationSelect({
   value = "",
   onChange,
   freeDelivery = false,
+  extras = [],
+  chargeFor,
+  hideCharge = false,
 }) {
   const rootRef = useRef(null);
   const inputRef = useRef(null);
@@ -26,7 +29,17 @@ export default function LocationSelect({
   const [step, setStep] = useState("division");
   const [draft, setDraft] = useState({ division: "", district: "", area: "" });
 
-  const selected = getLocationByKey(value);
+  const selected = getLocationByKey(value, extras);
+
+  function displayCharge(loc) {
+    if (hideCharge || !loc) return null;
+    if (freeDelivery) return "FREE";
+    const amount =
+      typeof chargeFor === "function"
+        ? chargeFor(loc)
+        : Number(loc.charge || 0);
+    return `৳${Number(amount || 0).toFixed(0)}`;
+  }
 
   useEffect(() => {
     if (!open) return;
@@ -54,29 +67,34 @@ export default function LocationSelect({
       return searchLocations(q, {
         division: step === "district" || step === "area" ? draft.division : "",
         district: step === "area" ? draft.district : "",
+        extras,
       }).slice(0, 80);
     }
     if (step === "division") {
-      return getDivisions().map((name) => ({
+      return getDivisions(extras).map((name) => ({
         key: name,
         label: name,
         type: "division",
       }));
     }
     if (step === "district") {
-      return getDistricts(draft.division).map((name) => ({
+      return getDistricts(draft.division, extras).map((name) => ({
         key: name,
         label: name,
         type: "district",
       }));
     }
-    return getAreas(draft.division, draft.district).map((area) => ({
+    return getAreas(draft.division, draft.district, extras).map((area) => ({
       key: locationKey(draft.division, draft.district, area.name),
       label: area.name,
+      division: draft.division,
+      district: draft.district,
+      area: area.name,
       charge: area.charge,
+      is_remote: area.is_remote,
       type: "area",
     }));
-  }, [query, step, draft.division, draft.district]);
+  }, [query, step, draft.division, draft.district, extras]);
 
   function openPicker() {
     setOpen(true);
@@ -110,9 +128,10 @@ export default function LocationSelect({
     const next =
       loc?.division && loc?.area
         ? loc
-        : getLocationByKey(loc?.key) ||
+        : getLocationByKey(loc?.key, extras) ||
           getLocationByKey(
             locationKey(draft.division, draft.district, loc.label || loc.area),
+            extras,
           );
     if (!next) return;
     onChange?.(next);
@@ -255,9 +274,11 @@ export default function LocationSelect({
                       <span className="block text-ink">
                         {formatLocation(opt)}
                       </span>
-                      <span className="block text-xs text-muted mt-0.5">
-                        {freeDelivery ? "FREE" : `৳${Number(opt.charge).toFixed(0)}`}
-                      </span>
+                      {displayCharge(opt) && (
+                        <span className="block text-xs text-muted mt-0.5">
+                          {displayCharge(opt)}
+                        </span>
+                      )}
                     </button>
                   </li>
                 );
@@ -296,9 +317,11 @@ export default function LocationSelect({
                     className="w-full text-left px-4 py-2.5 text-sm hover:bg-primary/5 flex items-center justify-between gap-3"
                   >
                     <span className="text-ink">{opt.label}</span>
-                    <span className="text-xs text-muted shrink-0">
-                      {freeDelivery ? "FREE" : `৳${Number(opt.charge).toFixed(0)}`}
-                    </span>
+                    {displayCharge(opt) && (
+                      <span className="text-xs text-muted shrink-0">
+                        {displayCharge(opt)}
+                      </span>
+                    )}
                   </button>
                 </li>
               );

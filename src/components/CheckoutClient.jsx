@@ -11,6 +11,8 @@ import { cartPixelPayload, setMetaAdvancedMatching } from "@/lib/pixel";
 import { useToast } from "@/components/Toast";
 import LocationSelect from "@/components/LocationSelect";
 import { formatLocation, getLocationByKey } from "@/lib/bangladeshLocations";
+import { chargeForLocation } from "@/lib/deliveryCharge";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 
 export default function CheckoutClient() {
   const {
@@ -30,12 +32,14 @@ export default function CheckoutClient() {
     email: "",
     address: "",
   });
-  const [areaKey, setAreaKey] = useState("");
   const [pickupPoints, setPickupPoints] = useState([]);
   const [pickupPointId, setPickupPointId] = useState("");
   const [fulfillment, setFulfillment] = useState("delivery");
   const [siteSettings, setSiteSettings] = useState(null);
+  const [deliveryLocations, setDeliveryLocations] = useState([]);
   const [discountRules, setDiscountRules] = useState([]);
+  const delivery = useDeliveryLocation(deliveryLocations);
+  const areaKey = delivery.areaKey;
 
   const [couponCode, setCouponCode] = useState("");
   const [couponApplied, setCouponApplied] = useState(null);
@@ -54,7 +58,7 @@ export default function CheckoutClient() {
 
   useEffect(() => {
     async function loadPricing() {
-      const [pickupRes, { data: settingsData }, { data: ruleData }] =
+      const [pickupRes, { data: settingsData }, { data: ruleData }, extrasRes] =
         await Promise.all([
           supabase
             .from("pickup_points")
@@ -63,6 +67,12 @@ export default function CheckoutClient() {
             .order("sort_order", { ascending: true }),
           supabase.from("site_settings").select("*").eq("id", 1).maybeSingle(),
           supabase.from("discount_rules").select("*").eq("is_active", true),
+          supabase
+            .from("delivery_locations")
+            .select("*")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true })
+            .then((res) => (res.error ? { data: [] } : res)),
         ]);
       const pickupData = pickupRes?.error ? [] : pickupRes?.data;
 
@@ -70,16 +80,17 @@ export default function CheckoutClient() {
       if (pickupData && pickupData.length > 0)
         setPickupPointId(pickupData[0].id);
       setSiteSettings(settingsData || null);
+      setDeliveryLocations(extrasRes?.data || []);
       setDiscountRules(ruleData || []);
     }
     loadPricing();
   }, []);
 
   const isPickup = fulfillment === "pickup";
-  const selectedLocation = getLocationByKey(areaKey);
+  const selectedLocation = getLocationByKey(areaKey, deliveryLocations);
   const selectedPickup = pickupPoints.find((p) => p.id === pickupPointId);
   const baseDeliveryCharge = selectedLocation
-    ? Number(selectedLocation.charge)
+    ? chargeForLocation(selectedLocation, siteSettings, deliveryLocations)
     : 0;
 
   const freeDeliveryApplies =
@@ -497,13 +508,17 @@ export default function CheckoutClient() {
                   <label className="label">Delivery Area</label>
                   <LocationSelect
                     value={areaKey}
-                    onChange={(loc) => setAreaKey(loc?.key || "")}
+                    onChange={(loc) => delivery.select(loc)}
+                    extras={deliveryLocations}
+                    chargeFor={(loc) =>
+                      chargeForLocation(loc, siteSettings, deliveryLocations)
+                    }
                     freeDelivery={freeDeliveryApplies}
                   />
                   {selectedLocation && !freeDeliveryApplies && (
                     <p className="text-xs text-muted mt-1.5">
                       Delivery charge for this area: ৳
-                      {Number(selectedLocation.charge).toFixed(2)}
+                      {Number(baseDeliveryCharge).toFixed(2)}
                     </p>
                   )}
                 </div>

@@ -11,7 +11,7 @@ const PRODUCT_CARD_SELECT =
   "id, name, slug, price, regular_price, stock, unit, category_id, brand_id, is_featured, created_at, product_images(id, image_url, sort_order), categories(name, slug), brands(name, slug)";
 
 const PRODUCT_DETAIL_SELECT =
-  "id, name, slug, description, short_description, price, regular_price, stock, unit, category_id, brand_id, categories(name, slug), brands(name, slug), product_images(id, image_url, sort_order)";
+  "id, name, slug, description, short_description, price, regular_price, stock, unit, category_id, brand_id, categories(name, slug, parent_id), brands(name, slug), product_images(id, image_url, sort_order)";
 
 function sortImages(images) {
   return [...(images || [])].sort(

@@ -366,18 +366,42 @@ export function formatLocation(location) {
   return `${location.division}, ${location.district}, ${location.area}`;
 }
 
+function zoneTypeFromCharge(charge) {
+  const value = Number(charge);
+  if (value === CHARGE.remote) return "remote";
+  if (value === CHARGE.dhakaCity) return "dhakaCity";
+  if (value === CHARGE.chattogramCity) return "chattogramCity";
+  if (value === CHARGE.greaterDhaka) return "greaterDhaka";
+  return "district";
+}
+
+function extraList(extras) {
+  return (Array.isArray(extras) ? extras : []).filter(
+    (row) =>
+      row &&
+      row.is_active !== false &&
+      row.division &&
+      row.district &&
+      row.area,
+  );
+}
+
 function indexLocations() {
   const byKey = new Map();
   const flat = [];
   for (const division of BANGLADESH_LOCATIONS) {
     for (const district of division.districts) {
       for (const area of district.areas) {
+        const charge = Number(area.charge) || 0;
+        const zoneType = zoneTypeFromCharge(charge);
         const item = {
           key: locationKey(division.name, district.name, area.name),
           division: division.name,
           district: district.name,
           area: area.name,
-          charge: Number(area.charge) || 0,
+          charge,
+          zoneType,
+          is_remote: zoneType === "remote",
         };
         byKey.set(item.key, item);
         flat.push(item);
@@ -389,16 +413,49 @@ function indexLocations() {
 
 const INDEX = indexLocations();
 
-export function getLocationByKey(key) {
-  if (!key) return null;
-  return INDEX.byKey.get(String(key)) || null;
+export function mergeLocations(extras = []) {
+  const byKey = new Map();
+  for (const item of INDEX.flat) {
+    byKey.set(item.key, { ...item });
+  }
+  for (const row of extraList(extras)) {
+    const key =
+      row.location_key ||
+      row.key ||
+      locationKey(row.division, row.district, row.area);
+    const existing = byKey.get(key);
+    const isRemote = !!(row.is_remote || existing?.is_remote);
+    byKey.set(key, {
+      key,
+      division: row.division,
+      district: row.district,
+      area: row.area,
+      charge:
+        row.charge != null && row.charge !== ""
+          ? Number(row.charge)
+          : existing?.charge ?? 0,
+      is_remote: isRemote,
+      is_custom: !existing,
+      zoneType: isRemote ? "remote" : existing?.zoneType || "district",
+    });
+  }
+  return { byKey, flat: [...byKey.values()] };
 }
 
-export function searchLocations(query, { division, district } = {}) {
+function locationSource(extras) {
+  return extras?.length ? mergeLocations(extras) : INDEX;
+}
+
+export function getLocationByKey(key, extras) {
+  if (!key) return null;
+  return locationSource(extras).byKey.get(String(key)) || null;
+}
+
+export function searchLocations(query, { division, district, extras } = {}) {
   const q = String(query || "")
     .trim()
     .toLowerCase();
-  let list = INDEX.flat;
+  let list = locationSource(extras).flat;
   if (district) {
     list = list.filter(
       (item) => item.division === division && item.district === district,
@@ -413,17 +470,45 @@ export function searchLocations(query, { division, district } = {}) {
   });
 }
 
-export function getDivisions() {
-  return BANGLADESH_LOCATIONS.map((d) => d.name);
+export function getDivisions(extras) {
+  const names = BANGLADESH_LOCATIONS.map((d) => d.name);
+  for (const row of extraList(extras)) {
+    if (!names.includes(row.division)) names.push(row.division);
+  }
+  return names;
 }
 
-export function getDistricts(divisionName) {
+export function getDistricts(divisionName, extras) {
   const division = BANGLADESH_LOCATIONS.find((d) => d.name === divisionName);
-  return division ? division.districts.map((z) => z.name) : [];
+  const names = division ? division.districts.map((z) => z.name) : [];
+  for (const row of extraList(extras)) {
+    if (row.division === divisionName && !names.includes(row.district)) {
+      names.push(row.district);
+    }
+  }
+  return names;
 }
 
-export function getAreas(divisionName, districtName) {
+export function getAreas(divisionName, districtName, extras) {
   const division = BANGLADESH_LOCATIONS.find((d) => d.name === divisionName);
   const district = division?.districts.find((z) => z.name === districtName);
-  return district ? district.areas : [];
+  const areas = district ? district.areas.map((a) => ({ ...a })) : [];
+  for (const row of extraList(extras)) {
+    if (row.division !== divisionName || row.district !== districtName) continue;
+    const existing = areas.find((a) => a.name === row.area);
+    if (existing) {
+      if (row.charge != null && row.charge !== "") {
+        existing.charge = Number(row.charge);
+      }
+      existing.is_remote = !!row.is_remote;
+    } else {
+      areas.push({
+        name: row.area,
+        charge:
+          row.charge != null && row.charge !== "" ? Number(row.charge) : 0,
+        is_remote: !!row.is_remote,
+      });
+    }
+  }
+  return areas;
 }

@@ -13,21 +13,30 @@ import {
   Phone,
   MessageCircle,
   Plus,
-  ShoppingBag,
   X,
-  Zap,
   Facebook,
   Twitter,
   Send,
   Link2,
   Share2,
   ZoomIn,
+  MapPin,
+  Truck,
+  Banknote,
+  RotateCcw,
+  Shield,
+  Info,
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { trackViewContent, trackAddToCart } from "@/components/Analytics";
 import { productPixelPayload } from "@/lib/pixel";
 import { useToast } from "@/components/Toast";
 import { useSiteSettings } from "@/components/SiteSettingsContext";
+import { supabase } from "@/lib/supabase";
+import LocationSelect from "@/components/LocationSelect";
+import { formatLocation } from "@/lib/bangladeshLocations";
+import { chargeForLocation } from "@/lib/deliveryCharge";
+import { useDeliveryLocation } from "@/hooks/useDeliveryLocation";
 import StarRating from "./StarRating";
 
 const ProductEnquiryModal = dynamic(
@@ -37,6 +46,7 @@ const ProductEnquiryModal = dynamic(
 
 export default function ProductView({
   product,
+  categories = [],
   descriptionSlot = null,
   reviewsSlot = null,
 }) {
@@ -50,11 +60,23 @@ export default function ProductView({
   const [selected, setSelected] = useState({});
   const [activeTab, setActiveTab] = useState("description");
   const [enquiryOpen, setEnquiryOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [deliveryLocations, setDeliveryLocations] = useState([]);
+  const delivery = useDeliveryLocation(deliveryLocations);
 
   useEffect(() => {
     trackViewContent(productPixelPayload(product));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product.id]);
+
+  useEffect(() => {
+    supabase
+      .from("delivery_locations")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .then((res) => setDeliveryLocations(res.error ? [] : res.data || []));
+  }, []);
 
   const images = product.product_images || [];
 
@@ -176,35 +198,76 @@ export default function ProductView({
     router.push("/checkout");
   }
 
-  // Check if WhatsApp and Phone are enabled using existing schema fields
   const showWhatsApp =
     siteSettings?.whatsapp_enabled && siteSettings?.whatsapp_number;
-  const showPhone = siteSettings?.store_phone; // Using store_phone from your schema
+  const showPhone = siteSettings?.store_phone;
   const whatsappNumber = siteSettings?.whatsapp_number || "";
   const phoneNumber = siteSettings?.store_phone || "";
+  const crumbs = buildBreadcrumbs(product, categories);
 
   return (
     <>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-        {/* Gallery - Thumbnails on left for desktop */}
-        <div>
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* Thumbnails - Left side on desktop, 5-6 per row on mobile */}
-            {images.length > 1 && (
-              <div className="grid grid-cols-5 min-[420px]:grid-cols-6 gap-2 order-2 lg:order-1 lg:flex lg:flex-col lg:w-20 lg:grid-cols-none">
+      <nav className="flex flex-wrap items-center gap-1 text-xs text-muted mb-3 overflow-hidden">
+        <Link href="/" className="hover:text-accent shrink-0">
+          Home
+        </Link>
+        {crumbs.map((c) => (
+          <span key={c.href} className="flex items-center gap-1 min-w-0">
+            <span className="text-line">/</span>
+            <Link href={c.href} className="hover:text-accent truncate">
+              {c.label}
+            </Link>
+          </span>
+        ))}
+        <span className="flex items-center gap-1 min-w-0">
+          <span className="text-line">/</span>
+          <span className="text-ink truncate">{product.name}</span>
+        </span>
+      </nav>
+
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)_280px] xl:grid-cols-[minmax(0,400px)_minmax(0,1fr)_300px] gap-5 lg:gap-6 items-start">
+        <div className="bg-surface">
+          <ProductImageMagnifier
+            src={
+              images[activeImage]?.image_url ||
+              "https://placehold.co/600x600?text=No+Image"
+            }
+            alt={product.name}
+            images={images}
+            activeImage={activeImage}
+            setActiveImage={setActiveImage}
+          />
+          {images.length > 1 && (
+            <div className="flex items-center gap-1 mt-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveImage(
+                    (i) => (i - 1 + images.length) % images.length,
+                  )
+                }
+                aria-label="Previous image"
+                className="w-7 h-16 shrink-0 flex items-center justify-center text-muted hover:text-ink"
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <div className="flex-1 flex gap-2 overflow-x-auto no-scrollbar">
                 {images.map((img, i) => (
                   <button
                     key={img.id}
+                    type="button"
                     onClick={() => setActiveImage(i)}
-                    className={`relative w-full aspect-square rounded-lg overflow-hidden border-2 transition-colors ${
-                      i === activeImage ? "border-accent" : "border-transparent"
+                    className={`relative w-14 h-14 shrink-0 overflow-hidden border ${
+                      i === activeImage
+                        ? "border-accent"
+                        : "border-line hover:border-primary/40"
                     }`}
                   >
                     <Image
                       src={img.image_url}
                       alt=""
                       fill
-                      sizes="96px"
+                      sizes="56px"
                       loading="lazy"
                       quality={60}
                       className="object-cover"
@@ -212,59 +275,48 @@ export default function ProductView({
                   </button>
                 ))}
               </div>
-            )}
-
-            {/* Main Image with magnify */}
-            <ProductImageMagnifier
-              src={
-                images[activeImage]?.image_url ||
-                "https://placehold.co/600x600?text=No+Image"
-              }
-              alt={product.name}
-              images={images}
-              activeImage={activeImage}
-              setActiveImage={setActiveImage}
-            />
-          </div>
+              <button
+                type="button"
+                onClick={() => setActiveImage((i) => (i + 1) % images.length)}
+                aria-label="Next image"
+                className="w-7 h-16 shrink-0 flex items-center justify-center text-muted hover:text-ink"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Details */}
-        <div>
-          {(product.brands?.name || product.categories?.name) && (
-            <p className="text-xs uppercase tracking-wide text-muted mb-2">
-              {product.brands?.name ? (
-                <Link
-                  href={`/shop?brand=${encodeURIComponent(product.brands.slug || "")}`}
-                  className="hover:text-accent transition-colors"
-                >
-                  {product.brands.name}
-                </Link>
-              ) : (
-                product.categories.name
-              )}
-              {product.brands?.name && product.categories?.name ? (
-                <>
-                  {" · "}
-                  <Link
-                    href={`/shop?category=${encodeURIComponent(product.categories.slug || "")}`}
-                    className="hover:text-accent transition-colors"
-                  >
-                    {product.categories.name}
-                  </Link>
-                </>
-              ) : null}
-            </p>
-          )}
-          <h1 className="font-display text-2xl sm:text-3xl text-ink mb-3">
-            {product.name}
-          </h1>
+        <div className="min-w-0">
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="text-[20px] sm:text-[22px] leading-snug font-medium text-ink">
+              {product.name}
+            </h1>
+            <button
+              type="button"
+              onClick={() => setShareOpen((v) => !v)}
+              aria-label="Share"
+              className="shrink-0 w-9 h-9 rounded-full border border-line text-muted hover:text-ink hover:border-primary/40 flex items-center justify-center"
+            >
+              <Share2 size={16} />
+            </button>
+          </div>
 
-          <div className="flex items-center gap-3 mb-4">
+          {shareOpen && (
+            <div className="mt-3">
+              <ShareBar product={product} compact />
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2 mt-2 mb-3">
             <StarRating rating={product.avg_rating} />
-            <span className="text-sm text-muted">
-              {product.review_count} review
-              {product.review_count === 1 ? "" : "s"}
-            </span>
+            <button
+              type="button"
+              onClick={() => setActiveTab("reviews")}
+              className="text-sm text-accent hover:underline"
+            >
+              Ratings {product.review_count || 0}
+            </button>
             {product.total_sold > 0 && (
               <span className="text-sm text-muted">
                 · {product.total_sold} sold
@@ -272,62 +324,128 @@ export default function ProductView({
             )}
           </div>
 
-          {regularPrice > price && (
-            <p className="text-base text-muted line-through mb-1">
-              ৳{regularPrice.toFixed(2)}
-            </p>
-          )}
-          <div className="flex items-center gap-3 mb-4">
-            <p className="text-2xl font-semibold text-accent">
-              ৳{price.toFixed(2)}
-            </p>
-            {discount > 0 && (
-              <span className="text-xs font-semibold bg-accent/10 text-accent px-2 py-1 rounded-full">
-                -{discount}%
-              </span>
+          <p className="text-sm text-muted mb-4">
+            Brand:{" "}
+            {product.brands?.name ? (
+              <Link
+                href={`/shop?brand=${encodeURIComponent(product.brands.slug || "")}`}
+                className="text-accent hover:underline"
+              >
+                {product.brands.name}
+              </Link>
+            ) : (
+              <span className="text-ink">No Brand</span>
             )}
+            {product.categories?.name ? (
+              <>
+                {" | "}
+                <Link
+                  href={`/shop?category=${encodeURIComponent(product.categories.slug || "")}`}
+                  className="text-accent hover:underline"
+                >
+                  More from {product.categories.name}
+                </Link>
+              </>
+            ) : null}
+          </p>
+
+          <div className="py-3 border-y border-line mb-4">
+            <div className="flex items-end gap-3">
+              <p className="text-[28px] sm:text-[32px] leading-none font-semibold text-accent">
+                ৳{Math.round(price)}
+              </p>
+              {regularPrice > price && (
+                <>
+                  <p className="text-sm text-muted line-through pb-0.5">
+                    ৳{Math.round(regularPrice)}
+                  </p>
+                  <p className="text-sm text-ink pb-0.5">-{discount}%</p>
+                </>
+              )}
+            </div>
           </div>
 
           {product.short_description && (
-            <p className="text-sm text-muted leading-relaxed mb-6">
+            <p className="text-sm text-muted leading-relaxed mb-4">
               {product.short_description}
             </p>
           )}
 
-          {/* Variant groups */}
           {groups.length > 0 && (
-            <div className="space-y-4 mb-6">
-              {groups.map((g) => (
-                <div key={g.name}>
-                  <p className="text-sm font-medium text-ink mb-2">{g.name}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {g.options.map((opt) => {
-                      const active = selected[g.name] === opt.id;
-                      const disabled = Number(opt.stock) <= 0;
-                      return (
-                        <button
-                          key={opt.id}
-                          onClick={() => selectVariant(g.name, opt.id)}
-                          disabled={disabled}
-                          className={`px-4 py-2 rounded-full border text-sm transition-colors ${
-                            active
-                              ? "bg-primary text-white border-primary"
-                              : disabled
-                                ? "border-line text-muted line-through opacity-60 cursor-not-allowed"
-                                : "border-line text-ink hover:border-primary"
-                          }`}
-                        >
-                          {opt.value}
-                          {Number(opt.price_adjustment) > 0 &&
-                            ` (+৳${Number(opt.price_adjustment)})`}
-                          {Number(opt.price_adjustment) < 0 &&
-                            ` (−৳${Math.abs(Number(opt.price_adjustment))})`}
-                        </button>
-                      );
-                    })}
+            <div className="space-y-4 mb-5">
+              {groups.map((g) => {
+                const colorLike = isColorGroup(g.name);
+                const current = g.options.find((o) => o.id === selected[g.name]);
+                return (
+                  <div
+                    key={g.name}
+                    className="grid grid-cols-[88px_1fr] gap-3 items-start"
+                  >
+                    <p className="text-sm text-muted pt-1.5">{g.name}</p>
+                    <div>
+                      {colorLike && current && (
+                        <p className="text-sm text-ink mb-2">{current.value}</p>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {g.options.map((opt, idx) => {
+                          const active = selected[g.name] === opt.id;
+                          const disabled = Number(opt.stock) <= 0;
+                          if (colorLike) {
+                            const swatch = images[idx]?.image_url;
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => selectVariant(g.name, opt.id)}
+                                disabled={disabled}
+                                title={opt.value}
+                                className={`relative w-12 h-12 overflow-hidden border ${
+                                  active
+                                    ? "border-accent"
+                                    : disabled
+                                      ? "border-line opacity-50"
+                                      : "border-line hover:border-primary/40"
+                                }`}
+                              >
+                                {swatch ? (
+                                  <Image
+                                    src={swatch}
+                                    alt={opt.value}
+                                    fill
+                                    sizes="48px"
+                                    className="object-cover"
+                                  />
+                                ) : (
+                                  <span className="text-[10px] text-ink px-1">
+                                    {opt.value}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          }
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => selectVariant(g.name, opt.id)}
+                              disabled={disabled}
+                              className={`min-w-11 h-9 px-3 border text-sm ${
+                                active
+                                  ? "border-accent text-ink"
+                                  : disabled
+                                    ? "border-line text-muted line-through opacity-60 cursor-not-allowed"
+                                    : "border-line text-ink hover:border-primary/40"
+                              }`}
+                            >
+                              {opt.value}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -346,7 +464,7 @@ export default function ProductView({
                 <button
                   type="button"
                   onClick={() => setEnquiryOpen(true)}
-                  className="btn btn-primary"
+                  className="btn btn-primary rounded-none"
                 >
                   <MessageCircle size={16} />
                   Request enquiry
@@ -354,90 +472,93 @@ export default function ProductView({
               )}
             </div>
           ) : (
-            <div className="flex items-center gap-3 mb-6">
-              <div className="flex items-center border border-line rounded-full">
-                <button
-                  onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                  aria-label="Decrease quantity"
-                  className="w-9 h-9 flex items-center justify-center text-ink hover:bg-primary/5 rounded-full transition-colors"
-                >
-                  <Minus size={16} />
-                </button>
-                <span className="w-8 text-center text-sm text-ink">
-                  {quantity}
-                </span>
-                <button
-                  onClick={() =>
-                    setQuantity((q) => Math.min(effectiveStock, q + 1))
-                  }
-                  aria-label="Increase quantity"
-                  className="w-9 h-9 flex items-center justify-center text-ink hover:bg-primary/5 rounded-full transition-colors"
-                >
-                  <Plus size={16} />
-                </button>
+            <div className="grid grid-cols-[88px_1fr] gap-3 items-center mb-5">
+              <p className="text-sm text-muted">Quantity</p>
+              <div className="flex items-center gap-3">
+                <div className="inline-flex items-center border border-line">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                    aria-label="Decrease quantity"
+                    disabled={quantity <= 1}
+                    className="w-8 h-8 flex items-center justify-center text-ink disabled:text-line"
+                  >
+                    <Minus size={14} />
+                  </button>
+                  <span className="w-10 text-center text-sm text-ink border-x border-line h-8 flex items-center justify-center">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuantity((q) => Math.min(effectiveStock, q + 1))
+                    }
+                    aria-label="Increase quantity"
+                    disabled={quantity >= effectiveStock}
+                    className="w-8 h-8 flex items-center justify-center text-ink disabled:text-line"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
               </div>
-              <span className="text-xs text-muted">
-                {effectiveStock} in stock
-              </span>
             </div>
           )}
 
-          <div className="hidden lg:flex gap-3">
-            <button
-              onClick={handleAddToCart}
-              disabled={outOfStock || !allSelected}
-              className="flex-1 btn btn-outline"
-            >
-              {addedMsg ? <Check size={16} /> : <ShoppingBag size={16} />}
-              {addedMsg ? "Added" : "Add to Cart"}
-            </button>
-            <button
-              onClick={handleBuyNow}
-              disabled={outOfStock || !allSelected}
-              className="flex-1 btn btn-accent"
-            >
-              <Zap size={16} />
-              Buy Now
-            </button>
-          </div>
+          {!outOfStock && (
+            <div className="hidden lg:flex gap-3">
+              <button
+                onClick={handleBuyNow}
+                disabled={!allSelected}
+                className="flex-1 h-11 rounded-none bg-[#1BA8C4] hover:opacity-90 text-white text-sm font-semibold"
+              >
+                Buy Now
+              </button>
+              <button
+                onClick={handleAddToCart}
+                disabled={!allSelected}
+                className="flex-1 h-11 rounded-none bg-[#F57224] hover:opacity-90 text-white text-sm font-semibold"
+              >
+                {addedMsg ? "Added" : "Add to Cart"}
+              </button>
+            </div>
+          )}
 
-          {/* WhatsApp & Call Order Buttons */}
           {(showWhatsApp || showPhone) && (
-            <div className="mt-6 pt-6 border-t border-line">
-              <p className="text-sm font-medium text-ink mb-3">Quick Order</p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                {showWhatsApp && (
-                  <a
-                    href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
-                      `Hi, I'm interested in "${product.name}". Could you please provide more information?`,
-                    )}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-[#25D366] text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
-                  >
-                    <MessageCircle size={20} />
-                    Order via WhatsApp
-                  </a>
-                )}
-
-                {showPhone && (
-                  <a
-                    href={`tel:${phoneNumber}`}
-                    className="flex items-center justify-center gap-2 px-6 py-3 bg-[#0088CC] text-white rounded-xl font-medium hover:opacity-90 transition-opacity"
-                  >
-                    <Phone size={20} />
-                    Call to Order
-                  </a>
-                )}
-              </div>
+            <div className="mt-5 flex flex-col sm:flex-row gap-2">
+              {showWhatsApp && (
+                <a
+                  href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(
+                    `Hi, I'm interested in "${product.name}". Could you please provide more information?`,
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 h-10 bg-[#25D366] text-white text-sm font-medium hover:opacity-90"
+                >
+                  <MessageCircle size={16} />
+                  WhatsApp
+                </a>
+              )}
+              {showPhone && (
+                <a
+                  href={`tel:${phoneNumber}`}
+                  className="flex-1 flex items-center justify-center gap-2 h-10 bg-[#0088CC] text-white text-sm font-medium hover:opacity-90"
+                >
+                  <Phone size={16} />
+                  Call
+                </a>
+              )}
             </div>
           )}
-
-          <ShareBar product={product} />
         </div>
+
+        <DeliverySidebar
+          siteSettings={siteSettings}
+          extras={deliveryLocations}
+          delivery={delivery}
+        />
       </div>
       {/* Description & Reviews tabs */}
-      <section className="mt-16 pt-8 border-t border-line">
+      <section className="mt-8 pt-6 border-t border-line">
         <div className="flex items-center gap-6 border-b border-line mb-6">
           <button
             onClick={() => setActiveTab("description")}
@@ -499,20 +620,18 @@ export default function ProductView({
               </p>
             </div>
             <button
-              onClick={handleAddToCart}
-              disabled={!allSelected}
-              className="flex-1 btn btn-outline btn-sm h-11"
-            >
-              {addedMsg ? <Check size={16} /> : <ShoppingBag size={16} />}
-              {addedMsg ? "Added" : "Add to Cart"}
-            </button>
-            <button
               onClick={handleBuyNow}
               disabled={!allSelected}
-              className="flex-1 btn btn-accent btn-sm h-11"
+              className="flex-1 h-11 rounded-none bg-[#1BA8C4] text-white text-sm font-semibold"
             >
-              <Zap size={16} />
               Buy Now
+            </button>
+            <button
+              onClick={handleAddToCart}
+              disabled={!allSelected}
+              className="flex-1 h-11 rounded-none bg-[#F57224] text-white text-sm font-semibold"
+            >
+              {addedMsg ? "Added" : "Add to Cart"}
             </button>
           </div>
         )}
@@ -600,7 +719,7 @@ function ProductImageMagnifier({
     <>
       <div
         ref={containerRef}
-        className="relative aspect-square rounded-2xl overflow-hidden bg-primary/5 flex-1 order-1 lg:order-2 cursor-zoom-in group"
+        className="relative aspect-square overflow-hidden bg-primary/5 w-full cursor-zoom-in group"
         onMouseEnter={() => {
           if (canHoverZoom.current) setHovering(true);
         }}
@@ -749,6 +868,137 @@ function ProductImageMagnifier({
   );
 }
 
+function isColorGroup(name) {
+  return /color|colour|shade/i.test(String(name || ""));
+}
+
+function buildBreadcrumbs(product, categories = []) {
+  const crumbs = [{ href: "/shop", label: "Shop" }];
+  const cat = product?.categories;
+  if (!cat?.name) return crumbs;
+  const byId = Object.fromEntries((categories || []).map((c) => [c.id, c]));
+  const chain = [];
+  let current = categories.find((c) => c.slug === cat.slug) || null;
+  const seen = new Set();
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    chain.unshift(current);
+    current = current.parent_id ? byId[current.parent_id] : null;
+  }
+  chain.forEach((c) => {
+    crumbs.push({
+      href: `/shop?category=${encodeURIComponent(c.slug || "")}`,
+      label: c.name,
+    });
+  });
+  if (!chain.length) {
+    crumbs.push({
+      href: `/shop?category=${encodeURIComponent(cat.slug || "")}`,
+      label: cat.name,
+    });
+  }
+  return crumbs;
+}
+
+function deliveryWindow() {
+  const start = new Date();
+  start.setDate(start.getDate() + 3);
+  const end = new Date();
+  end.setDate(end.getDate() + 5);
+  const fmt = (d) =>
+    d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+  return `${fmt(start)}-${fmt(end).replace(/^\d+\s/, "")}`;
+}
+
+function DeliverySidebar({ siteSettings, extras, delivery }) {
+  const [changing, setChanging] = useState(false);
+  const loc = delivery.location;
+  const charge = loc
+    ? chargeForLocation(loc, siteSettings, extras)
+    : null;
+
+  return (
+    <aside className="bg-surface border border-line lg:sticky lg:top-24">
+      <div className="px-4 py-3 border-b border-line">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-medium text-ink">Delivery Options</p>
+          <span className="text-muted" title="Delivery depends on your area">
+            <Info size={14} />
+          </span>
+        </div>
+        <div className="flex items-start gap-2">
+          <MapPin size={16} className="text-muted mt-0.5 shrink-0" />
+          <p className="text-sm text-ink flex-1 leading-snug">
+            {loc ? formatLocation(loc) : "Select your delivery area"}
+          </p>
+          <button
+            type="button"
+            onClick={() => setChanging((v) => !v)}
+            className="text-xs font-semibold text-accent hover:underline shrink-0"
+          >
+            {changing ? "CLOSE" : "CHANGE"}
+          </button>
+        </div>
+        {changing && (
+          <div className="mt-3">
+            <LocationSelect
+              value={delivery.areaKey}
+              extras={extras}
+              chargeFor={(item) =>
+                chargeForLocation(item, siteSettings, extras)
+              }
+              onChange={(next) => {
+                delivery.select(next);
+                setChanging(false);
+              }}
+            />
+          </div>
+        )}
+        <div className="flex items-start gap-2 mt-4">
+          <Truck size={16} className="text-muted mt-0.5 shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm text-ink">Standard Delivery</p>
+            <p className="text-xs text-muted">
+              Guaranteed by {deliveryWindow()}
+            </p>
+          </div>
+          <p className="text-sm font-medium text-ink shrink-0">
+            {loc ? `৳${Math.round(charge || 0)}` : "—"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 mt-4">
+          <Banknote size={16} className="text-muted shrink-0" />
+          <p className="text-sm text-ink">Cash on Delivery Available</p>
+        </div>
+      </div>
+      <div className="px-4 py-3">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-medium text-ink">Return & Warranty</p>
+          <span className="text-muted">
+            <Info size={14} />
+          </span>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <RotateCcw size={16} className="text-muted shrink-0" />
+            <p className="text-sm text-ink">Change of Mind</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-4 h-4 rounded-full border border-muted text-[10px] text-muted flex items-center justify-center shrink-0">
+              14
+            </span>
+            <p className="text-sm text-ink">14 days easy return</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Shield size={16} className="text-muted shrink-0" />
+            <p className="text-sm text-ink">Warranty not available</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 function WhatsAppIcon() {
   return (
     <svg
@@ -763,7 +1013,7 @@ function WhatsAppIcon() {
   );
 }
 
-function ShareBar({ product }) {
+function ShareBar({ product, compact = false }) {
   const { success } = useToast();
   const [copied, setCopied] = useState(false);
 
@@ -838,10 +1088,12 @@ function ShareBar({ product }) {
   ];
 
   return (
-    <div className="mt-6 pt-6 border-t border-line">
-      <p className="flex items-center gap-2 text-sm font-medium text-ink mb-3">
-        <Share2 size={15} /> Share this product
-      </p>
+    <div className={compact ? "" : "mt-6 pt-6 border-t border-line"}>
+      {!compact && (
+        <p className="flex items-center gap-2 text-sm font-medium text-ink mb-3">
+          <Share2 size={15} /> Share this product
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {buttons.map((b) => (
           <button

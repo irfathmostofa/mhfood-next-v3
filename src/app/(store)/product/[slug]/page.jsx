@@ -6,7 +6,7 @@ import {
   getProductReviews,
   getProductsWithRatings,
 } from "@/lib/products";
-import { getSeoSettings, getTheme } from "@/lib/site";
+import { getSeoSettings, getTheme, getCategories } from "@/lib/site";
 import { buildMetadata, productJsonLd, getSiteOrigin } from "@/lib/seo";
 import { stripHtml, toHtml } from "@/lib/richtext";
 import ProductView from "@/components/ProductView";
@@ -104,9 +104,10 @@ function ReviewsFallback() {
 
 export default async function ProductPage({ params }) {
   const { slug } = await params;
-  const [product, seo] = await Promise.all([
+  const [product, seo, categories] = await Promise.all([
     getProductBySlug(slug),
     getSeoSettings(),
+    getCategories(),
   ]);
 
   if (!product) notFound();
@@ -119,7 +120,7 @@ export default async function ProductPage({ params }) {
   const { description, ...viewProduct } = product;
 
   return (
-    <div className="max-w-[94%] mx-auto sm:px-2 py-4">
+    <div className="max-w-[1280px] mx-auto px-3 sm:px-4 py-3 sm:py-4">
       {structured && (
         <script
           type="application/ld+json"
@@ -128,6 +129,7 @@ export default async function ProductPage({ params }) {
       )}
       <ProductView
         product={viewProduct}
+        categories={categories}
         descriptionSlot={
           description ? (
             <div
