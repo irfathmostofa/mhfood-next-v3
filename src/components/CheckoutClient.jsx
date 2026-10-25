@@ -9,6 +9,8 @@ import { pickBestDiscount } from "@/lib/pricing";
 import { trackInitiateCheckout, trackPurchase } from "@/components/Analytics";
 import { cartPixelPayload, setMetaAdvancedMatching } from "@/lib/pixel";
 import { useToast } from "@/components/Toast";
+import LocationSelect from "@/components/LocationSelect";
+import { formatLocation, getLocationByKey } from "@/lib/bangladeshLocations";
 
 export default function CheckoutClient() {
   const {
@@ -28,8 +30,7 @@ export default function CheckoutClient() {
     email: "",
     address: "",
   });
-  const [zones, setZones] = useState([]);
-  const [zoneId, setZoneId] = useState("");
+  const [areaKey, setAreaKey] = useState("");
   const [pickupPoints, setPickupPoints] = useState([]);
   const [pickupPointId, setPickupPointId] = useState("");
   const [fulfillment, setFulfillment] = useState("delivery");
@@ -53,29 +54,18 @@ export default function CheckoutClient() {
 
   useEffect(() => {
     async function loadPricing() {
-      const [
-        { data: zoneData },
-        pickupRes,
-        { data: settingsData },
-        { data: ruleData },
-      ] = await Promise.all([
-        supabase
-          .from("delivery_zones")
-          .select("*")
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true }),
-        supabase
-          .from("pickup_points")
-          .select("*")
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true }),
-        supabase.from("site_settings").select("*").eq("id", 1).maybeSingle(),
-        supabase.from("discount_rules").select("*").eq("is_active", true),
-      ]);
+      const [pickupRes, { data: settingsData }, { data: ruleData }] =
+        await Promise.all([
+          supabase
+            .from("pickup_points")
+            .select("*")
+            .eq("is_active", true)
+            .order("sort_order", { ascending: true }),
+          supabase.from("site_settings").select("*").eq("id", 1).maybeSingle(),
+          supabase.from("discount_rules").select("*").eq("is_active", true),
+        ]);
       const pickupData = pickupRes?.error ? [] : pickupRes?.data;
 
-      setZones(zoneData || []);
-      if (zoneData && zoneData.length > 0) setZoneId(zoneData[0].id);
       setPickupPoints(pickupData || []);
       if (pickupData && pickupData.length > 0)
         setPickupPointId(pickupData[0].id);
@@ -86,9 +76,11 @@ export default function CheckoutClient() {
   }, []);
 
   const isPickup = fulfillment === "pickup";
-  const selectedZone = zones.find((z) => z.id === zoneId);
+  const selectedLocation = getLocationByKey(areaKey);
   const selectedPickup = pickupPoints.find((p) => p.id === pickupPointId);
-  const baseDeliveryCharge = selectedZone ? Number(selectedZone.charge) : 0;
+  const baseDeliveryCharge = selectedLocation
+    ? Number(selectedLocation.charge)
+    : 0;
 
   const freeDeliveryApplies =
     !isPickup &&
@@ -160,7 +152,7 @@ export default function CheckoutClient() {
         toastError("Please select a pickup point.");
         return;
       }
-    } else if (zones.length > 0 && !zoneId) {
+    } else if (!selectedLocation) {
       setError("Please select your delivery area.");
       toastError("Please select your delivery area.");
       return;
@@ -177,7 +169,7 @@ export default function CheckoutClient() {
           items,
           customer: form,
           fulfillment,
-          zoneId: isPickup ? null : zoneId || null,
+          locationKey: isPickup ? null : areaKey || null,
           pickupPointId: isPickup ? pickupPointId || null : null,
           couponCode: couponApplied?.code || null,
         }),
@@ -370,7 +362,7 @@ export default function CheckoutClient() {
               <span>
                 {isPickup
                   ? `Pickup${selectedPickup ? ` (${selectedPickup.name})` : ""}`
-                  : `Delivery${selectedZone ? ` (${selectedZone.name})` : ""}`}
+                  : `Delivery${selectedLocation ? ` (${formatLocation(selectedLocation)})` : ""}`}
               </span>
               {isPickup || freeDeliveryApplies ? (
                 <span className="text-emerald-600 font-medium">FREE</span>
@@ -501,25 +493,20 @@ export default function CheckoutClient() {
               </div>
             ) : (
               <>
-                {zones.length > 0 && (
-                  <div>
-                    <label className="label">Delivery Area</label>
-                    <select
-                      value={zoneId}
-                      onChange={(e) => setZoneId(e.target.value)}
-                      className="input appearance-none bg-surface"
-                    >
-                      {zones.map((zone) => (
-                        <option key={zone.id} value={zone.id}>
-                          {zone.name} —{" "}
-                          {freeDeliveryApplies
-                            ? "FREE"
-                            : `৳${Number(zone.charge).toFixed(2)}`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                <div>
+                  <label className="label">Delivery Area</label>
+                  <LocationSelect
+                    value={areaKey}
+                    onChange={(loc) => setAreaKey(loc?.key || "")}
+                    freeDelivery={freeDeliveryApplies}
+                  />
+                  {selectedLocation && !freeDeliveryApplies && (
+                    <p className="text-xs text-muted mt-1.5">
+                      Delivery charge for this area: ৳
+                      {Number(selectedLocation.charge).toFixed(2)}
+                    </p>
+                  )}
+                </div>
 
                 <div>
                   <label className="label">Delivery Address</label>
@@ -528,7 +515,7 @@ export default function CheckoutClient() {
                     rows={3}
                     value={form.address}
                     onChange={(e) => updateField("address", e.target.value)}
-                    placeholder="House, road, area — full address within your selected delivery zone"
+                      placeholder="House, road, landmark — rest of your address"
                     className="input"
                   />
                 </div>

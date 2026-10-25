@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -26,15 +27,23 @@ import { useCart } from "@/hooks/useCart";
 import { trackViewContent, trackAddToCart } from "@/components/Analytics";
 import { productPixelPayload } from "@/lib/pixel";
 import { useToast } from "@/components/Toast";
+import { useSiteSettings } from "@/components/SiteSettingsContext";
 import StarRating from "./StarRating";
-import ReviewsList from "./ReviewsList";
-import { toHtml } from "@/lib/richtext";
-import ProductEnquiryModal from "@/components/ProductEnquiryModal";
 
-export default function ProductView({ product, siteSettings = null }) {
+const ProductEnquiryModal = dynamic(
+  () => import("@/components/ProductEnquiryModal"),
+  { ssr: false },
+);
+
+export default function ProductView({
+  product,
+  descriptionSlot = null,
+  reviewsSlot = null,
+}) {
   const router = useRouter();
   const { addItem } = useCart();
   const { success } = useToast();
+  const siteSettings = useSiteSettings();
   const [activeImage, setActiveImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [addedMsg, setAddedMsg] = useState(false);
@@ -196,6 +205,8 @@ export default function ProductView({ product, siteSettings = null }) {
                       alt=""
                       fill
                       sizes="96px"
+                      loading="lazy"
+                      quality={60}
                       className="object-cover"
                     />
                   </button>
@@ -450,23 +461,9 @@ export default function ProductView({ product, siteSettings = null }) {
           </button>
         </div>
 
-        {activeTab === "description" &&
-          (product.description ? (
-            <div
-              className="prose prose-sm max-w-none text-muted leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: toHtml(product.description) }}
-            />
-          ) : (
-            <p className="text-sm text-muted py-6">No description available.</p>
-          ))}
+        {activeTab === "description" && descriptionSlot}
 
-        {activeTab === "reviews" && (
-          <ReviewsList
-            reviews={product.reviews || []}
-            avgRating={product.avg_rating}
-            reviewCount={product.review_count}
-          />
-        )}
+        {activeTab === "reviews" && reviewsSlot}
       </section>
 
       {/* Spacer so the mobile sticky bar never covers page content */}
@@ -520,11 +517,13 @@ export default function ProductView({ product, siteSettings = null }) {
           </div>
         )}
       </div>
-      <ProductEnquiryModal
-        open={enquiryOpen}
-        onClose={() => setEnquiryOpen(false)}
-        product={product}
-      />
+      {enquiryOpen && (
+        <ProductEnquiryModal
+          open={enquiryOpen}
+          onClose={() => setEnquiryOpen(false)}
+          product={product}
+        />
+      )}
     </>
   );
 }
@@ -546,11 +545,13 @@ function ProductImageMagnifier({
 
   const ZOOM = 2.4;
   const gallery = images && images.length > 0 ? images : [{ image_url: src }];
+  const canHoverZoom = useRef(false);
 
-  function canHoverZoom() {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
-  }
+  useEffect(() => {
+    canHoverZoom.current = window.matchMedia(
+      "(hover: hover) and (pointer: fine)",
+    ).matches;
+  }, []);
 
   function updateOrigin(clientX, clientY) {
     const el = containerRef.current;
@@ -601,11 +602,11 @@ function ProductImageMagnifier({
         ref={containerRef}
         className="relative aspect-square rounded-2xl overflow-hidden bg-primary/5 flex-1 order-1 lg:order-2 cursor-zoom-in group"
         onMouseEnter={() => {
-          if (canHoverZoom()) setHovering(true);
+          if (canHoverZoom.current) setHovering(true);
         }}
         onMouseLeave={() => setHovering(false)}
         onMouseMove={(e) => {
-          if (!canHoverZoom()) return;
+          if (!canHoverZoom.current) return;
           updateOrigin(e.clientX, e.clientY);
         }}
         onClick={openLightbox}
@@ -624,6 +625,7 @@ function ProductImageMagnifier({
           alt={alt}
           fill
           priority
+          quality={80}
           sizes="(min-width: 1024px) 45vw, 95vw"
           className="object-cover transition-transform duration-150 ease-out will-change-transform"
           style={{

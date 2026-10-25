@@ -10,6 +10,10 @@ import { sendOrderPlacedEmails } from "@/lib/email";
 import { sendOrderPlacedSMS } from "@/lib/sms";
 import { computeSalePrice } from "@/lib/salePricing";
 import { getLiveSaleUnitPrices } from "@/lib/discountSessions";
+import {
+  formatLocation,
+  getLocationByKey,
+} from "@/lib/bangladeshLocations";
 
 class StockError extends Error {
   constructor() {
@@ -40,7 +44,7 @@ export async function POST(req) {
     const {
       items: cartItems,
       customer,
-      zoneId,
+      locationKey,
       couponCode,
       fulfillment,
       pickupPointId,
@@ -74,13 +78,11 @@ export async function POST(req) {
 
     // ---- Pricing data ----
     const [
-      { data: zones },
       { data: pickupPoints },
       { data: settings },
       { data: rules },
       { data: coupon },
     ] = await Promise.all([
-      supabase.from("delivery_zones").select("*").eq("is_active", true),
       supabase
         .from("pickup_points")
         .select("*")
@@ -100,9 +102,9 @@ export async function POST(req) {
     const selectedPickup = isPickup
       ? pickupPoints?.find((p) => p.id === pickupPointId) || null
       : null;
-    const selectedZone = isPickup
+    const selectedLocation = isPickup
       ? null
-      : zones?.find((z) => z.id === zoneId) || null;
+      : getLocationByKey(locationKey) || null;
 
     if (isPickup) {
       if (!selectedPickup) {
@@ -111,7 +113,7 @@ export async function POST(req) {
           { status: 400 },
         );
       }
-    } else if (zones && zones.length > 0 && !selectedZone) {
+    } else if (!selectedLocation) {
       return NextResponse.json(
         { error: "Please select your delivery area." },
         { status: 400 },
@@ -238,11 +240,9 @@ export async function POST(req) {
       subtotal >= Number(settings.free_delivery_threshold || 0);
     const deliveryCharge = isPickup
       ? 0
-      : zones && zones.length > 0
-        ? freeDeliveryApplies
-          ? 0
-          : Number(selectedZone.charge || 0)
-        : 0;
+      : freeDeliveryApplies
+        ? 0
+        : Number(selectedLocation?.charge || 0);
 
     const grandTotal = subtotal - totalDiscount + deliveryCharge;
 
@@ -256,11 +256,15 @@ export async function POST(req) {
       email: customer.email?.trim() || null,
       address: isPickup
         ? selectedPickup.address || ""
-        : customer.address?.trim() || "",
+        : [formatLocation(selectedLocation), customer.address?.trim()]
+            .filter(Boolean)
+            .join(" — "),
       total_amount: grandTotal,
-      delivery_zone_id: selectedZone?.id || null,
+      delivery_zone_id: null,
       delivery_charge: deliveryCharge,
-      delivery_zone_name: selectedZone?.name || null,
+      delivery_zone_name: selectedLocation
+        ? formatLocation(selectedLocation)
+        : null,
       discount_amount: totalDiscount,
       discount_label:
         couponApplied?.code || (autoBest ? autoBest.rule.label : null),
@@ -395,10 +399,13 @@ export async function POST(req) {
     }
 
     // ---- Notifications (non-blocking) ----
+    const locationLabel = selectedLocation
+      ? formatLocation(selectedLocation)
+      : "";
     const deliveryLabel = isPickup
       ? `Pickup — ${selectedPickup.name} (FREE)`
-      : selectedZone
-        ? `${selectedZone.name} (${freeDeliveryApplies ? "FREE" : `৳${deliveryCharge}`})`
+      : locationLabel
+        ? `${locationLabel} (${freeDeliveryApplies ? "FREE" : `৳${deliveryCharge}`})`
         : "N/A";
 
     const origin = process.env.NEXT_PUBLIC_SITE_URL || new URL(req.url).origin;
@@ -409,7 +416,7 @@ export async function POST(req) {
       phone: customer.phone,
       address: isPickup
         ? `Pickup: ${selectedPickup.name}${selectedPickup.address ? ` — ${selectedPickup.address}` : ""}`
-        : customer.address,
+        : [locationLabel, customer.address?.trim()].filter(Boolean).join(" — "),
       trackingCode,
       items: itemRows,
       delivery: deliveryLabel,

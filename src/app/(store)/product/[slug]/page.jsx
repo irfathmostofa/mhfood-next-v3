@@ -3,21 +3,22 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   getProductBySlug,
-  getProductMeta,
+  getProductReviews,
   getProductsWithRatings,
 } from "@/lib/products";
-import { getSeoSettings, getSiteSettings, getTheme } from "@/lib/site";
+import { getSeoSettings, getTheme } from "@/lib/site";
 import { buildMetadata, productJsonLd, getSiteOrigin } from "@/lib/seo";
-import { stripHtml } from "@/lib/richtext";
+import { stripHtml, toHtml } from "@/lib/richtext";
 import ProductView from "@/components/ProductView";
 import ProductCard from "@/components/ProductCard";
+import ReviewsList from "@/components/ReviewsList";
 
 export const revalidate = 30;
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
   const [product, seo, theme] = await Promise.all([
-    getProductMeta(slug),
+    getProductBySlug(slug),
     getSeoSettings(),
     getTheme(),
   ]);
@@ -81,20 +82,41 @@ function RelatedFallback() {
   );
 }
 
+async function ProductReviewsSection({ productId, avgRating, reviewCount }) {
+  const reviews = await getProductReviews(productId);
+  return (
+    <ReviewsList
+      reviews={reviews}
+      avgRating={avgRating}
+      reviewCount={reviewCount}
+    />
+  );
+}
+
+function ReviewsFallback() {
+  return (
+    <div className="space-y-4">
+      <div className="h-16 bg-primary/5 rounded-xl animate-pulse" />
+      <div className="h-24 bg-primary/5 rounded-xl animate-pulse" />
+    </div>
+  );
+}
+
 export default async function ProductPage({ params }) {
   const { slug } = await params;
-  const product = await getProductBySlug(slug);
+  const [product, seo] = await Promise.all([
+    getProductBySlug(slug),
+    getSeoSettings(),
+  ]);
 
   if (!product) notFound();
 
-  const [siteSettings, seo] = await Promise.all([
-    getSiteSettings(),
-    getSeoSettings(),
-  ]);
   const structured = productJsonLd(
     { ...product, store_name: seo?.site_name },
     getSiteOrigin(),
   );
+
+  const { description, ...viewProduct } = product;
 
   return (
     <div className="max-w-[94%] mx-auto sm:px-2 py-4">
@@ -104,7 +126,28 @@ export default async function ProductPage({ params }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structured) }}
         />
       )}
-      <ProductView product={product} siteSettings={siteSettings} />
+      <ProductView
+        product={viewProduct}
+        descriptionSlot={
+          description ? (
+            <div
+              className="prose prose-sm max-w-none text-muted leading-relaxed"
+              dangerouslySetInnerHTML={{ __html: toHtml(description) }}
+            />
+          ) : (
+            <p className="text-sm text-muted py-6">No description available.</p>
+          )
+        }
+        reviewsSlot={
+          <Suspense fallback={<ReviewsFallback />}>
+            <ProductReviewsSection
+              productId={product.id}
+              avgRating={product.avg_rating}
+              reviewCount={product.review_count}
+            />
+          </Suspense>
+        }
+      />
       <Suspense fallback={<RelatedFallback />}>
         <ProductRelatedSection product={product} />
       </Suspense>
