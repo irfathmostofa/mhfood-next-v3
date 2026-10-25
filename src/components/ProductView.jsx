@@ -26,6 +26,8 @@ import {
   RotateCcw,
   Shield,
   Info,
+  ShoppingCart,
+  Zap,
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { trackViewContent, trackAddToCart } from "@/components/Analytics";
@@ -60,7 +62,6 @@ export default function ProductView({
   const [selected, setSelected] = useState({});
   const [activeTab, setActiveTab] = useState("description");
   const [enquiryOpen, setEnquiryOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   const [deliveryLocations, setDeliveryLocations] = useState([]);
   const delivery = useDeliveryLocation(deliveryLocations);
 
@@ -288,25 +289,9 @@ export default function ProductView({
         </div>
 
         <div className="min-w-0">
-          <div className="flex items-start justify-between gap-3">
-            <h1 className="text-[20px] sm:text-[22px] leading-snug font-medium text-ink">
-              {product.name}
-            </h1>
-            <button
-              type="button"
-              onClick={() => setShareOpen((v) => !v)}
-              aria-label="Share"
-              className="shrink-0 w-9 h-9 rounded-full border border-line text-muted hover:text-ink hover:border-primary/40 flex items-center justify-center"
-            >
-              <Share2 size={16} />
-            </button>
-          </div>
-
-          {shareOpen && (
-            <div className="mt-3">
-              <ShareBar product={product} compact />
-            </div>
-          )}
+          <h1 className="text-[20px] sm:text-[22px] leading-snug font-medium text-ink">
+            {product.name}
+          </h1>
 
           <div className="flex flex-wrap items-center gap-2 mt-2 mb-3">
             <StarRating rating={product.avg_rating} />
@@ -399,9 +384,9 @@ export default function ProductView({
                                 onClick={() => selectVariant(g.name, opt.id)}
                                 disabled={disabled}
                                 title={opt.value}
-                                className={`relative w-12 h-12 overflow-hidden border ${
+                                className={`relative w-12 h-12 overflow-hidden rounded-lg border ${
                                   active
-                                    ? "border-accent"
+                                    ? "border-accent ring-1 ring-accent"
                                     : disabled
                                       ? "border-line opacity-50"
                                       : "border-line hover:border-primary/40"
@@ -429,9 +414,9 @@ export default function ProductView({
                               type="button"
                               onClick={() => selectVariant(g.name, opt.id)}
                               disabled={disabled}
-                              className={`min-w-11 h-9 px-3 border text-sm ${
+                              className={`min-w-11 h-9 px-3 rounded-lg border text-sm ${
                                 active
-                                  ? "border-accent text-ink"
+                                  ? "border-accent text-ink bg-accent/10"
                                   : disabled
                                     ? "border-line text-muted line-through opacity-60 cursor-not-allowed"
                                     : "border-line text-ink hover:border-primary/40"
@@ -464,7 +449,7 @@ export default function ProductView({
                 <button
                   type="button"
                   onClick={() => setEnquiryOpen(true)}
-                  className="btn btn-primary rounded-none"
+                  className="btn btn-primary w-full sm:w-auto"
                 >
                   <MessageCircle size={16} />
                   Request enquiry
@@ -475,17 +460,17 @@ export default function ProductView({
             <div className="grid grid-cols-[88px_1fr] gap-3 items-center mb-5">
               <p className="text-sm text-muted">Quantity</p>
               <div className="flex items-center gap-3">
-                <div className="inline-flex items-center border border-line">
+                <div className="inline-flex items-center border border-line rounded-xl overflow-hidden">
                   <button
                     type="button"
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                     aria-label="Decrease quantity"
                     disabled={quantity <= 1}
-                    className="w-8 h-8 flex items-center justify-center text-ink disabled:text-line"
+                    className="w-9 h-9 flex items-center justify-center text-ink hover:bg-background disabled:text-line"
                   >
                     <Minus size={14} />
                   </button>
-                  <span className="w-10 text-center text-sm text-ink border-x border-line h-8 flex items-center justify-center">
+                  <span className="w-11 text-center text-sm font-medium text-ink border-x border-line h-9 flex items-center justify-center">
                     {quantity}
                   </span>
                   <button
@@ -495,31 +480,56 @@ export default function ProductView({
                     }
                     aria-label="Increase quantity"
                     disabled={quantity >= effectiveStock}
-                    className="w-8 h-8 flex items-center justify-center text-ink disabled:text-line"
+                    className="w-9 h-9 flex items-center justify-center text-ink hover:bg-background disabled:text-line"
                   >
                     <Plus size={14} />
                   </button>
                 </div>
+                {effectiveStock > 0 && effectiveStock <= 10 && (
+                  <span className="text-xs text-accent">
+                    Only {effectiveStock} left
+                  </span>
+                )}
               </div>
             </div>
           )}
 
           {!outOfStock && (
-            <div className="hidden lg:flex gap-3">
-              <button
-                onClick={handleBuyNow}
-                disabled={!allSelected}
-                className="flex-1 h-11 rounded-none bg-[#1BA8C4] hover:opacity-90 text-white text-sm font-semibold"
-              >
-                Buy Now
-              </button>
-              <button
-                onClick={handleAddToCart}
-                disabled={!allSelected}
-                className="flex-1 h-11 rounded-none bg-[#F57224] hover:opacity-90 text-white text-sm font-semibold"
-              >
-                {addedMsg ? "Added" : "Add to Cart"}
-              </button>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <button
+                  onClick={handleAddToCart}
+                  disabled={!allSelected}
+                  className="flex-1 btn btn-primary h-12 rounded-xl disabled:opacity-50"
+                >
+                  {addedMsg ? (
+                    <>
+                      <Check size={16} />
+                      Added
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart size={16} />
+                      Add to Cart
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleBuyNow}
+                  disabled={!allSelected}
+                  className="flex-1 btn btn-accent h-12 rounded-xl disabled:opacity-50"
+                >
+                  <Zap size={16} />
+                  Buy Now
+                </button>
+              </div>
+              <ShareBar product={product} compact />
+            </div>
+          )}
+
+          {outOfStock && (
+            <div className="mt-4">
+              <ShareBar product={product} compact />
             </div>
           )}
 
@@ -532,7 +542,7 @@ export default function ProductView({
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 flex items-center justify-center gap-2 h-10 bg-[#25D366] text-white text-sm font-medium hover:opacity-90"
+                  className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-[#25D366] text-white text-sm font-medium hover:opacity-90 transition-opacity"
                 >
                   <MessageCircle size={16} />
                   WhatsApp
@@ -541,7 +551,7 @@ export default function ProductView({
               {showPhone && (
                 <a
                   href={`tel:${phoneNumber}`}
-                  className="flex-1 flex items-center justify-center gap-2 h-10 bg-[#0088CC] text-white text-sm font-medium hover:opacity-90"
+                  className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl border border-primary text-primary text-sm font-medium hover:bg-primary hover:text-white transition-colors"
                 >
                   <Phone size={16} />
                   Call
@@ -588,17 +598,17 @@ export default function ProductView({
       </section>
 
       {/* Spacer so the mobile sticky bar never covers page content */}
-      <div className="lg:hidden h-24" aria-hidden="true" />
+      <div className="lg:hidden h-20" aria-hidden="true" />
 
       {/* Mobile sticky buy bar */}
-      <div className="fixed bottom-0 inset-x-0 z-50 lg:hidden bg-surface/95 backdrop-blur border-t border-line px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+      <div className="fixed bottom-0 inset-x-0 z-50 lg:hidden bg-surface/95 backdrop-blur border-t border-line px-3 pt-2.5 pb-[calc(env(safe-area-inset-bottom)+0.6rem)] shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
         {outOfStock ? (
           <div className="max-w-[97%] mx-auto">
             {showEnquiry ? (
               <button
                 type="button"
                 onClick={() => setEnquiryOpen(true)}
-                className="w-full btn btn-primary h-11"
+                className="w-full btn btn-primary h-11 rounded-xl"
               >
                 <MessageCircle size={16} />
                 Request enquiry
@@ -610,28 +620,28 @@ export default function ProductView({
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-3 max-w-[97%] mx-auto">
-            <div className="shrink-0 leading-tight">
+          <div className="flex items-center gap-2 max-w-[97%] mx-auto">
+            <div className="shrink-0 leading-tight min-w-[4.5rem]">
               <p className="text-[10px] text-muted uppercase tracking-wide">
                 Price
               </p>
               <p className="text-base font-semibold text-accent">
-                ৳{price.toFixed(2)}
+                ৳{Math.round(price)}
               </p>
             </div>
             <button
-              onClick={handleBuyNow}
-              disabled={!allSelected}
-              className="flex-1 h-11 rounded-none bg-[#1BA8C4] text-white text-sm font-semibold"
-            >
-              Buy Now
-            </button>
-            <button
               onClick={handleAddToCart}
               disabled={!allSelected}
-              className="flex-1 h-11 rounded-none bg-[#F57224] text-white text-sm font-semibold"
+              className="flex-1 btn btn-primary h-11 rounded-xl text-sm px-3 disabled:opacity-50"
             >
               {addedMsg ? "Added" : "Add to Cart"}
+            </button>
+            <button
+              onClick={handleBuyNow}
+              disabled={!allSelected}
+              className="flex-1 btn btn-accent h-11 rounded-xl text-sm px-3 disabled:opacity-50"
+            >
+              Buy Now
             </button>
           </div>
         )}
@@ -1049,8 +1059,7 @@ function ShareBar({ product, compact = false }) {
             shareUrl(),
           )}`,
         ),
-      className: "bg-[#1877F2] hover:bg-[#166FE5]",
-      icon: <Facebook size={16} />,
+      icon: <Facebook size={15} />,
     },
     {
       label: "Share on WhatsApp",
@@ -1060,7 +1069,6 @@ function ShareBar({ product, compact = false }) {
             `${shareText()} ${shareUrl()}`,
           )}`,
         ),
-      className: "bg-[#25D366] hover:bg-[#1FB857]",
       icon: <WhatsAppIcon />,
     },
     {
@@ -1071,8 +1079,7 @@ function ShareBar({ product, compact = false }) {
             shareText(),
           )}&url=${encodeURIComponent(shareUrl())}`,
         ),
-      className: "bg-[#14171A] hover:bg-black",
-      icon: <Twitter size={16} />,
+      icon: <Twitter size={15} />,
     },
     {
       label: "Share on Telegram",
@@ -1082,18 +1089,21 @@ function ShareBar({ product, compact = false }) {
             shareUrl(),
           )}&text=${encodeURIComponent(shareText())}`,
         ),
-      className: "bg-[#229ED9] hover:bg-[#1e8fc4]",
-      icon: <Send size={16} />,
+      icon: <Send size={15} />,
     },
   ];
 
   return (
-    <div className={compact ? "" : "mt-6 pt-6 border-t border-line"}>
-      {!compact && (
-        <p className="flex items-center gap-2 text-sm font-medium text-ink mb-3">
-          <Share2 size={15} /> Share this product
-        </p>
-      )}
+    <div
+      className={
+        compact
+          ? "pt-1"
+          : "mt-6 pt-6 border-t border-line"
+      }
+    >
+      <p className="flex items-center gap-2 text-xs font-medium text-muted mb-2">
+        <Share2 size={14} /> Share this product
+      </p>
       <div className="flex flex-wrap items-center gap-2">
         {buttons.map((b) => (
           <button
@@ -1101,7 +1111,7 @@ function ShareBar({ product, compact = false }) {
             type="button"
             onClick={b.onClick}
             aria-label={b.label}
-            className={`flex items-center justify-center w-10 h-10 rounded-full text-white transition-colors ${b.className}`}
+            className="flex items-center justify-center w-9 h-9 rounded-full border border-line text-ink bg-surface hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors"
           >
             {b.icon}
           </button>
@@ -1110,9 +1120,9 @@ function ShareBar({ product, compact = false }) {
           type="button"
           onClick={copyLink}
           aria-label="Copy link"
-          className="flex items-center justify-center gap-2 h-10 px-4 rounded-full border border-line text-ink hover:border-primary transition-colors"
+          className="flex items-center justify-center gap-1.5 h-9 px-3 rounded-full border border-line text-ink bg-surface hover:border-primary hover:text-primary transition-colors"
         >
-          {copied ? <Check size={15} /> : <Link2 size={15} />}
+          {copied ? <Check size={14} /> : <Link2 size={14} />}
           <span className="text-xs font-medium">
             {copied ? "Copied!" : "Copy link"}
           </span>
