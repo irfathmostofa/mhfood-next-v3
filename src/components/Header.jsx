@@ -356,7 +356,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
               type="button"
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
-              className="lg:hidden p-2.5 rounded-full text-muted hover:text-ink hover:bg-primary/5 transition-colors"
+              className="lg:hidden pl-2.5 pt-2.5 pb-2.5 pr-0 rounded-full text-muted hover:text-ink transition-colors"
             >
               <Menu size={20} />
             </button>
