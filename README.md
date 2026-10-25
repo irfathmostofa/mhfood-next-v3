@@ -1,7 +1,6 @@
 # MHFood Store
 
 A Next.js ecommerce platform for Bangladesh retailers: storefront, admin, courier logistics, SMS, and AI-assisted product creation.
-
 ## Current stage
 
 The product is a working store platform suitable for live shops. Store owners can run catalog, checkout, orders, courier parcels, promotions, and reporting from one admin.
