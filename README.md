@@ -6,7 +6,6 @@ A Next.js ecommerce platform for Bangladesh retailers: storefront, admin, courie
 The product is a working store platform suitable for live shops. Store owners can run catalog, checkout, orders, courier parcels, promotions, and reporting from one admin.
 
 ### Storefront
-
 - Home with configurable sections (hero, bestsellers, categories, featured, latest, flash sale, promo banner)
 - Shop, product pages, variants, and weight-based pricing
 - Cart, coupons, automatic discount rules, delivery zones, and pickup points
