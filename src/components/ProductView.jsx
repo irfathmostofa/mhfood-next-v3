@@ -497,7 +497,7 @@ export default function ProductView({
 
           {!outOfStock && (
             <div className="flex flex-col gap-3">
-              <div className="flex flex-col sm:flex-row gap-2.5">
+              <div className="hidden lg:flex flex-col sm:flex-row gap-2.5">
                 <button
                   onClick={handleAddToCart}
                   disabled={!allSelected}
