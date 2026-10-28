@@ -295,7 +295,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
 
           <form
             onSubmit={submitSearch}
-            className="hidden md:flex items-center max-w-lg w-full mx-auto overflow-hidden rounded-full border border-line bg-surface focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25 transition-shadow"
+            className="hidden lg:flex items-center w-full overflow-hidden rounded-full border border-line bg-surface focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25 transition-shadow"
           >
             <Search size={16} className="ml-4 text-muted shrink-0" />
             <input
@@ -362,6 +362,35 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
             </button>
           </div>
         </div>
+
+        {searchOpen && (
+          <div className="lg:hidden w-full px-3 sm:px-5 pb-3">
+            <form onSubmit={submitSearch} className="relative w-full">
+              <Search
+                size={18}
+                className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
+              />
+
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search for food..."
+                className="w-full pl-10 pr-10 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/30 border border-line bg-background"
+              />
+
+              <button
+                type="button"
+                onClick={() => setSearchOpen(false)}
+                aria-label="Close search"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
+              >
+                <X size={18} />
+              </button>
+            </form>
+          </div>
+        )}
       </header>
 
       {/* ========================================================
@@ -476,39 +505,6 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
             </div>
           );
         })()}
-
-      {/* ========================================================
-          MOBILE / TABLET SEARCH
-      ========================================================= */}
-
-      {searchOpen && (
-        <div className="md:hidden max-w-[97%] mx-auto px-3 pb-4">
-          <form onSubmit={submitSearch} className="relative">
-            <Search
-              size={18}
-              className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
-            />
-
-            <input
-              autoFocus
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search for food..."
-              className="w-full pl-10 pr-10 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/30 border border-line bg-background"
-            />
-
-            <button
-              type="button"
-              onClick={() => setSearchOpen(false)}
-              aria-label="Close search"
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink"
-            >
-              <X size={18} />
-            </button>
-          </form>
-        </div>
-      )}
 
       {/* ========================================================
           MOBILE / TABLET OVERLAY
