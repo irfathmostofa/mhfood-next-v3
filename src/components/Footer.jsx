@@ -26,6 +26,7 @@ export default async function Footer({ theme }) {
 
   const shopLinks = [
     { to: "/shop", label: "Shop" },
+    { to: "/custom-order", label: "Custom Order" },
     { to: "/faq", label: "FAQ" },
     { to: "/track", label: "Track Order" },
     { to: "/checkout", label: "Checkout" },
@@ -204,7 +205,7 @@ export default async function Footer({ theme }) {
               rel="noopener noreferrer"
               className="text-accent hover:underline"
             >
-             Md. Irfath Chowdhury
+              Md. Irfath Chowdhury
             </a>
           </span>
         </div>

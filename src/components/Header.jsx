@@ -18,6 +18,7 @@ import { useCart } from "@/hooks/useCart";
 const NAV_LINKS = [
   { to: "/", label: "Home" },
   { to: "/shop", label: "Shop" },
+  { to: "/custom-order", label: "Custom Order" },
   { to: "/faq", label: "FAQ" },
   { to: "/track", label: "Track Order" },
 ];
@@ -337,6 +338,12 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
                 Shop
               </Link>
               <Link
+                href="/custom-order"
+                className="px-3.5 py-1.5 mx-1 rounded-full text-[13px] font-semibold border border-accent text-accent hover:bg-accent hover:text-white transition-colors"
+              >
+                Custom Order
+              </Link>
+              <Link
                 href="/faq"
                 className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
               >
@@ -397,86 +404,90 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
           BOTTOM NAV - CATEGORY MENU (Desktop only, sticky)
       ========================================================= */}
 
-      {theme?.show_header_categories !== false && parentCategories.length > 0 && (
-        <div className="hidden lg:block sticky top-0 z-40 border-b border-line bg-primary shadow-sm">
-          <div className="max-w-[97%] mx-auto px-3 sm:px-5 lg:px-8 relative">
-            {/* Left scroll button */}
-            {canScrollLeft && (
-              <button
-                type="button"
-                onClick={() => scrollNav("left")}
-                aria-label="Scroll categories left"
-                className="absolute left-0 top-0 h-12 w-10 z-10 flex items-center justify-center bg-gradient-to-r from-primary via-primary/95 to-transparent text-white"
+      {theme?.show_header_categories !== false &&
+        parentCategories.length > 0 && (
+          <div className="hidden lg:block sticky top-0 z-40 border-b border-line bg-primary shadow-sm">
+            <div className="max-w-[97%] mx-auto px-3 sm:px-5 lg:px-8 relative">
+              {/* Left scroll button */}
+              {canScrollLeft && (
+                <button
+                  type="button"
+                  onClick={() => scrollNav("left")}
+                  aria-label="Scroll categories left"
+                  className="absolute left-0 top-0 h-12 w-10 z-10 flex items-center justify-center bg-gradient-to-r from-primary via-primary/95 to-transparent text-white"
+                >
+                  <span className="flex items-center justify-center h-7 w-7 rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+                    <ChevronLeft size={16} />
+                  </span>
+                </button>
+              )}
+
+              <nav
+                ref={navScrollRef}
+                className="flex items-center gap-0 h-12 overflow-x-auto scroll-smooth"
+                style={{
+                  scrollbarWidth: "none",
+                  msOverflowStyle: "none",
+                }}
               >
-                <span className="flex items-center justify-center h-7 w-7 rounded-full bg-white/15 hover:bg-white/25 transition-colors">
-                  <ChevronLeft size={16} />
-                </span>
-              </button>
-            )}
+                <style jsx>{`
+                  nav::-webkit-scrollbar {
+                    display: none;
+                  }
+                `}</style>
 
-            <nav
-              ref={navScrollRef}
-              className="flex items-center gap-0 h-12 overflow-x-auto scroll-smooth"
-              style={{
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-              }}
-            >
-              <style jsx>{`
-                nav::-webkit-scrollbar {
-                  display: none;
-                }
-              `}</style>
+                {parentCategories.map((cat) => {
+                  const childCategories = getChildCategories(cat.id);
+                  const hasChildren = childCategories.length > 0;
+                  const isOpen = hoverMenu?.id === cat.id;
 
-              {parentCategories.map((cat) => {
-                const childCategories = getChildCategories(cat.id);
-                const hasChildren = childCategories.length > 0;
-                const isOpen = hoverMenu?.id === cat.id;
-
-                return (
-                  <div
-                    key={cat.id}
-                    className="relative h-full flex items-center gap-2 shrink-0"
-                    onMouseEnter={(e) =>
-                      hasChildren && openCategoryHover(cat.id, e.currentTarget)
-                    }
-                    onMouseLeave={() => hasChildren && closeCategoryHover()}
-                  >
-                    <Link
-                      href={`/shop?category=${cat.slug || cat.id}`}
-                      className={`flex items-center gap-1 pr-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
-                        isOpen ? "text-accent" : "text-white hover:text-accent"
-                      }`}
+                  return (
+                    <div
+                      key={cat.id}
+                      className="relative h-full flex items-center gap-2 shrink-0"
+                      onMouseEnter={(e) =>
+                        hasChildren &&
+                        openCategoryHover(cat.id, e.currentTarget)
+                      }
+                      onMouseLeave={() => hasChildren && closeCategoryHover()}
                     >
-                      {cat.name}
-                      {hasChildren && (
-                        <ChevronDown
-                          size={14}
-                          className={`transition-transform ${isOpen ? "rotate-180 text-accent" : "text-white/70"}`}
-                        />
-                      )}
-                    </Link>
-                  </div>
-                );
-              })}
-            </nav>
+                      <Link
+                        href={`/shop?category=${cat.slug || cat.id}`}
+                        className={`flex items-center gap-1 pr-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
+                          isOpen
+                            ? "text-accent"
+                            : "text-white hover:text-accent"
+                        }`}
+                      >
+                        {cat.name}
+                        {hasChildren && (
+                          <ChevronDown
+                            size={14}
+                            className={`transition-transform ${isOpen ? "rotate-180 text-accent" : "text-white/70"}`}
+                          />
+                        )}
+                      </Link>
+                    </div>
+                  );
+                })}
+              </nav>
 
-            {/* Right scroll button */}
-            {canScrollRight && (
-              <button
-                type="button"
-                onClick={() => scrollNav("right")}
-                aria-label="Scroll categories right"
-                className="absolute right-0 top-0 h-12 w-10 z-10 flex items-center justify-center bg-gradient-to-l from-primary via-primary/95 to-transparent text-white"
-              >
-                <span className="flex items-center justify-center h-7 w-7 rounded-full bg-white/15 hover:bg-white/25 transition-colors">
-                  <ChevronRight size={16} />
-                </span>
-              </button>
-            )}
+              {/* Right scroll button */}
+              {canScrollRight && (
+                <button
+                  type="button"
+                  onClick={() => scrollNav("right")}
+                  aria-label="Scroll categories right"
+                  className="absolute right-0 top-0 h-12 w-10 z-10 flex items-center justify-center bg-gradient-to-l from-primary via-primary/95 to-transparent text-white"
+                >
+                  <span className="flex items-center justify-center h-7 w-7 rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+                    <ChevronRight size={16} />
+                  </span>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {hoverMenu &&
         (() => {

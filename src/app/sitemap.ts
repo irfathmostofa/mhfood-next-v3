@@ -13,12 +13,14 @@ export default async function sitemap() {
     .select("slug, updated_at")
     .eq("is_active", true);
 
-  const staticRoutes = ["", "/shop", "/faq"].map((path) => ({
-    url: `${baseUrl}${path}`,
-    lastModified: new Date(),
-    changeFrequency: "weekly",
-    priority: path === "" ? 1 : 0.8,
-  }));
+  const staticRoutes = ["", "/shop", "/faq", "/track", "/custom-order"].map(
+    (path) => ({
+      url: `${baseUrl}${path}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: path === "" ? 1 : 0.8,
+    }),
+  );
 
   const categoryRoutes = (categories || []).map((c) => ({
     url: `${baseUrl}/shop?category=${encodeURIComponent(c.slug)}`,

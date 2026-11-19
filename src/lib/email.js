@@ -6,8 +6,11 @@ const PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY;
 const PRIVATE_KEY = process.env.EMAILJS_PRIVATE_KEY; // server-only, never NEXT_PUBLIC_
 const TEMPLATE_CONFIRM = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_CONFIRM;
 const TEMPLATE_DELIVERED = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_DELIVERED;
+// Optional dedicated template; falls back to the order-confirm template.
+const TEMPLATE_CUSTOM =
+  process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_CUSTOM || TEMPLATE_CONFIRM;
 const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
-const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME||"Admin";
+const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME || "Admin";
 
 function formatItems(items) {
   return (items || [])
@@ -19,7 +22,6 @@ function formatItems(items) {
     )
     .join("\n");
 }
-
 
 function stringifyParams(params) {
   const out = {};
@@ -165,6 +167,57 @@ export async function sendOrderDeliveredEmail({
       delivery,
       review_link: reviewLink,
       order_items: formatItems(items),
+    },
+  });
+}
+
+export async function sendCustomOrderAdminEmail({
+  code,
+  customerName,
+  phone,
+  email,
+  message,
+  fileName,
+  fileSize,
+  driveUrl,
+  origin,
+}) {
+  const baseOrigin =
+    origin || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const adminLink = `${baseOrigin}/admin/custom-orders`;
+
+  const attachmentLines = [
+    fileName
+      ? `File: ${fileName}${fileSize ? ` (${Math.round(fileSize / 1024)} KB)` : ""} — open it in the admin panel`
+      : "",
+    driveUrl ? `Google Drive: ${driveUrl}` : "",
+  ].filter(Boolean);
+  const attachments = attachmentLines.length
+    ? attachmentLines.join("\n")
+    : "No attachment";
+
+  return sendEmail({
+    templateId: TEMPLATE_CUSTOM,
+    toEmail: ADMIN_EMAIL,
+    params: {
+      // Fields the existing confirm template already understands
+      heading: "New Custom Order Request",
+      intro_text: `${customerName} sent a custom order request (${code}).`,
+      customer_name: customerName,
+      phone,
+      address: email || "No email provided",
+      tracking_code: code,
+      tracking_link: adminLink,
+      order_items: `${message}\n\n${attachments}`,
+      delivery: attachments,
+      total_amount: "Quote pending",
+      button_text: "Open in Admin",
+      footer_text: "Open Admin > Custom Orders to review and reply.",
+      // Extra fields for a dedicated template (optional)
+      customer_email: email || "",
+      message,
+      file_name: fileName || "",
+      drive_url: driveUrl || "",
     },
   });
 }
