@@ -7,7 +7,7 @@ import FloatingCart from "@/components/FloatingCart";
 import { SiteSettingsProvider } from "@/components/SiteSettingsContext";
 import { getTheme, getSiteSettings, getCategories } from "@/lib/site";
 import { getLiveDiscountSessions } from "@/lib/discountSessions";
-
+import ChatAssistant from "@/components/ChatAssistant";
 export default async function StoreLayout({ children }) {
   const [theme, siteSettings, categories, liveSessions] = await Promise.all([
     getTheme(),
@@ -30,6 +30,9 @@ export default async function StoreLayout({ children }) {
         <BackToTop settings={siteSettings} />
         <CartDrawer />
         <FloatingCart />
+        {siteSettings?.ai_assistant_enabled !== false && (
+          <ChatAssistant mode="customer" />
+        )}
       </div>
     </SiteSettingsProvider>
   );

@@ -25,6 +25,7 @@ import {
   HelpCircle,
   Award,
   PackagePlus,
+  Bot,
 } from "lucide-react";
 
 const NAV = [
@@ -38,6 +39,8 @@ const NAV = [
   { href: "/admin/hero", label: "Hero Slides", icon: Sparkles },
   { href: "/admin/orders", label: "Orders", icon: ShoppingCart },
   { href: "/admin/custom-orders", label: "Custom Orders", icon: PackagePlus },
+
+  { href: "/admin/assistant", label: "AI Assistant", icon: Bot },
   { href: "/admin/enquiries", label: "Enquiries", icon: Inbox },
   { href: "/admin/logistics", label: "Logistics", icon: Truck },
   { href: "/admin/customers", label: "Customers", icon: Users },

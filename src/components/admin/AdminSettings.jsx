@@ -27,10 +27,7 @@ import AdminHero from "./AdminHero";
 import { useToast } from "@/components/Toast";
 import LocationSelect from "@/components/LocationSelect";
 import { formatLocation, locationKey } from "@/lib/bangladeshLocations";
-import {
-  DEFAULT_DELIVERY_CHARGES,
-  getChargeTiers,
-} from "@/lib/deliveryCharge";
+import { DEFAULT_DELIVERY_CHARGES, getChargeTiers } from "@/lib/deliveryCharge";
 
 const TABS = [
   {
@@ -457,6 +454,16 @@ export default function AdminSettings() {
                     </>
                   )}
                 </button>
+                <label className="flex items-center gap-2 text-sm text-ink">
+                  <input
+                    type="checkbox"
+                    checked={site.ai_assistant_enabled !== false}
+                    onChange={(e) =>
+                      set("ai_assistant_enabled", e.target.checked)
+                    }
+                  />
+                  Show AI shopping assistant
+                </label>
               </div>
             </form>
           )}
@@ -606,7 +613,8 @@ function ThemeForm({ theme, setTheme }) {
             <p className="text-xs text-muted">Custom palette</p>
           ) : (
             <p className="text-xs text-muted">
-              Using {THEME_PRESETS.find((p) => p.id === activePreset)?.name} theme
+              Using {THEME_PRESETS.find((p) => p.id === activePreset)?.name}{" "}
+              theme
             </p>
           )}
           <button
@@ -624,14 +632,16 @@ function ThemeForm({ theme, setTheme }) {
         <div
           className="rounded-xl border overflow-hidden"
           style={{
-            backgroundColor: theme.background_color || DEFAULT_THEME.background_color,
+            backgroundColor:
+              theme.background_color || DEFAULT_THEME.background_color,
             borderColor: theme.border_color || DEFAULT_THEME.border_color,
           }}
         >
           <div
             className="px-4 py-2.5 flex items-center justify-between"
             style={{
-              backgroundColor: theme.surface_color || DEFAULT_THEME.surface_color,
+              backgroundColor:
+                theme.surface_color || DEFAULT_THEME.surface_color,
               borderBottom: `1px solid ${theme.border_color || DEFAULT_THEME.border_color}`,
             }}
           >
@@ -643,7 +653,10 @@ function ThemeForm({ theme, setTheme }) {
             </span>
             <span
               className="text-[10px] font-semibold px-2.5 py-1 rounded-full text-white"
-              style={{ backgroundColor: theme.accent_color || DEFAULT_THEME.accent_color }}
+              style={{
+                backgroundColor:
+                  theme.accent_color || DEFAULT_THEME.accent_color,
+              }}
             >
               Sale
             </span>
@@ -658,7 +671,10 @@ function ThemeForm({ theme, setTheme }) {
             <div className="flex gap-2">
               <span
                 className="inline-flex text-xs font-medium text-white px-3 py-1.5 rounded-full"
-                style={{ backgroundColor: theme.primary_color || DEFAULT_THEME.primary_color }}
+                style={{
+                  backgroundColor:
+                    theme.primary_color || DEFAULT_THEME.primary_color,
+                }}
               >
                 Shop now
               </span>
@@ -725,7 +741,7 @@ function ThemeForm({ theme, setTheme }) {
           />
           Show announcement bar
         </label>
-         <label className="flex items-center gap-2 text-sm text-ink">
+        <label className="flex items-center gap-2 text-sm text-ink">
           <input
             type="checkbox"
             checked={theme.show_header_categories !== false}
@@ -814,8 +830,8 @@ function SeoForm({ seo, setSeo }) {
           Google Search Console
         </h3>
         <p className="text-xs text-muted mb-4">
-          Paste the verification content token or the full meta tag. It is
-          added to every storefront page so Google can verify ownership.
+          Paste the verification content token or the full meta tag. It is added
+          to every storefront page so Google can verify ownership.
         </p>
         <div>
           <label className="label">Google Site Verification</label>
@@ -825,7 +841,6 @@ function SeoForm({ seo, setSeo }) {
             placeholder="Q3JuNXfnFKgNBH8M8uzf3ctObe58JuXVAC5_U2jMCKE"
             className="input"
           />
-          
         </div>
       </div>
 
@@ -1223,8 +1238,8 @@ function SectionsManager({ sections, setSections, site, setSite, showFlash }) {
   return (
     <Section title="Home Page Sections">
       <p className="text-xs text-muted -mt-2">
-        Toggle, reorder, and edit homepage blocks. Add multiple category
-        product sections to show products from any category.
+        Toggle, reorder, and edit homepage blocks. Add multiple category product
+        sections to show products from any category.
       </p>
       <div className="flex justify-end">
         <button
@@ -1795,8 +1810,16 @@ const EMPTY_LOCATION = {
 
 const CHARGE_FIELDS = [
   ["delivery_same_area_charge", "Same area", "Customer in the shop area"],
-  ["delivery_same_district_charge", "Same district", "Same district, different area"],
-  ["delivery_same_division_charge", "Same division", "Same division, different district"],
+  [
+    "delivery_same_district_charge",
+    "Same district",
+    "Same district, different area",
+  ],
+  [
+    "delivery_same_division_charge",
+    "Same division",
+    "Same division, different district",
+  ],
   ["delivery_outside_charge", "Outside division", "Other divisions"],
   ["delivery_remote_charge", "Remote / island", "Hill tracts, islands, remote"],
 ];
@@ -2187,9 +2210,7 @@ function ZonesManager({
             </li>
           ))}
           {deliveryLocations.length === 0 && (
-            <li className="py-3 text-xs text-muted">
-              No extra locations yet.
-            </li>
+            <li className="py-3 text-xs text-muted">No extra locations yet.</li>
           )}
         </ul>
         {locationPagination}
@@ -2806,9 +2827,7 @@ function SmsSettingsManager({ showFlash }) {
             onChange={(e) =>
               setForm((prev) => ({ ...prev, api_key: e.target.value }))
             }
-            placeholder={
-              settings?.api_key_masked || "Paste BulkSMSBD API key"
-            }
+            placeholder={settings?.api_key_masked || "Paste BulkSMSBD API key"}
           />
           <p className="text-xs text-muted mt-1">
             Leave blank to keep the current key.
