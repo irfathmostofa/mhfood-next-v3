@@ -18,17 +18,22 @@ function chatModel() {
   return (
     process.env.GEMINI_CHAT_MODEL ||
     process.env.GEMINI_MODEL ||
-    "gemini-2.5-flash"
+    "gemini-3.5-flash-lite"
   );
 }
 
 function thinkingConfig(model) {
   if (/^gemini-2\.5/.test(model)) return { thinkingBudget: 0 };
-  if (/^gemini-3/.test(model)) return { thinkingLevel: "low" };
+  // Gemini 3.x cannot fully disable thinking. "low" is the safe default;
+  // set GEMINI_CHAT_THINKING_LEVEL=minimal for even faster replies if your
+  // model accepts it.
+  if (/^gemini-3/.test(model)) {
+    return { thinkingLevel: process.env.GEMINI_CHAT_THINKING_LEVEL || "low" };
+  }
   return undefined;
 }
 
-async function generate({ system, contents, tools }) {
+async function generateStream({ system, contents, tools, onText }) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
     throw new AssistantError(
@@ -41,9 +46,16 @@ async function generate({ system, contents, tools }) {
   const model = chatModel();
   const tc = thinkingConfig(model);
 
+  const timeoutError = () =>
+    new AssistantError(
+      "The AI took too long to answer. Please try again.",
+      504,
+      "timeout",
+    );
+
   let res;
   try {
-    res = await fetch(`${API_BASE}/${model}:generateContent`, {
+    res = await fetch(`${API_BASE}/${model}:streamGenerateContent?alt=sse`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -56,20 +68,15 @@ async function generate({ system, contents, tools }) {
         toolConfig: { functionCallingConfig: { mode: "AUTO" } },
         generationConfig: {
           temperature: 0.3,
-          maxOutputTokens: 1500,
+          maxOutputTokens: 900,
           ...(tc ? { thinkingConfig: tc } : {}),
         },
       }),
       signal: AbortSignal.timeout(30_000),
     });
   } catch (err) {
-    if (err?.name === "TimeoutError" || err?.name === "AbortError") {
-      throw new AssistantError(
-        "The AI took too long to answer. Please try again.",
-        504,
-        "timeout",
-      );
-    }
+    if (err?.name === "TimeoutError" || err?.name === "AbortError")
+      throw timeoutError();
     console.error("[assistant] network error:", err?.message || err);
     throw new AssistantError("Could not reach the AI service.", 502, "network");
   }
@@ -101,21 +108,62 @@ async function generate({ system, contents, tools }) {
     );
   }
 
-  const data = await res.json();
-  const candidate = data?.candidates?.[0];
-  if (!candidate?.content?.parts?.length) {
-    console.error(
-      "[assistant] empty candidate:",
-      candidate?.finishReason,
-      JSON.stringify(data?.promptFeedback || {}),
+  const parts = [];
+  let finishReason = null;
+
+  const handleLine = (line) => {
+    if (!line.startsWith("data:")) return;
+    let json;
+    try {
+      json = JSON.parse(line.slice(5).trim());
+    } catch {
+      return;
+    }
+    const cand = json?.candidates?.[0];
+    if (cand?.finishReason) finishReason = cand.finishReason;
+    for (const part of cand?.content?.parts || []) {
+      parts.push(part);
+      if (part.text && !part.thought && !part.functionCall) onText?.(part.text);
+    }
+  };
+
+  try {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let m;
+      while ((m = /\r?\n\r?\n/.exec(buf))) {
+        const raw = buf.slice(0, m.index);
+        buf = buf.slice(m.index + m[0].length);
+        raw.split(/\r?\n/).forEach(handleLine);
+      }
+    }
+    buf.split(/\r?\n/).forEach(handleLine);
+  } catch (err) {
+    if (err?.name === "TimeoutError" || err?.name === "AbortError")
+      throw timeoutError();
+    console.error("[assistant] stream read failed:", err?.message || err);
+    throw new AssistantError(
+      "The AI connection was interrupted.",
+      502,
+      "stream",
     );
+  }
+
+  if (!parts.length) {
+    console.error("[assistant] empty stream, finishReason:", finishReason);
     throw new AssistantError(
       "The AI could not produce an answer. Please rephrase.",
       502,
       "empty",
     );
   }
-  return candidate.content;
+  // Echo parts back unchanged later (keeps thought signatures intact).
+  return { role: "model", parts };
 }
 
 /**
@@ -129,6 +177,7 @@ export async function runAgent({
   history,
   tools,
   handlers,
+  onEvent = () => {},
   maxSteps = 6,
 }) {
   const contents = history.map((m) => ({
@@ -139,12 +188,18 @@ export async function runAgent({
   const toolsUsed = [];
 
   for (let step = 0; step < maxSteps; step++) {
-    const content = await generate({ system, contents, tools });
-    const parts = content.parts || [];
+    const content = await generateStream({
+      system,
+      contents,
+      tools,
+      onText: (delta) => onEvent({ type: "text", delta }),
+    });
+    const parts = content.parts;
     const calls = parts.filter((p) => p.functionCall);
 
     if (calls.length === 0) {
       const text = parts
+        .filter((p) => !p.thought)
         .map((p) => p.text || "")
         .join("")
         .trim();
@@ -158,28 +213,30 @@ export async function runAgent({
       return { text, artifacts, toolsUsed };
     }
 
-    // Push the model turn back unchanged (keeps thought signatures intact).
     contents.push(content);
 
-    const responses = [];
-    for (const { functionCall } of calls) {
-      const { name, args } = functionCall;
-      toolsUsed.push(name);
-      let out;
-      try {
-        const handler = handlers[name];
-        out = handler
-          ? await handler(args || {}, artifacts)
-          : { error: `Unknown tool: ${name}` };
-      } catch (err) {
-        console.error(
-          `[assistant] tool "${name}" failed:`,
-          err?.message || err,
-        );
-        out = { error: err?.message || "Tool failed." };
-      }
-      responses.push({ functionResponse: { name, response: { result: out } } });
-    }
+    // Run all requested tools in parallel.
+    const responses = await Promise.all(
+      calls.map(async ({ functionCall }) => {
+        const { name, args } = functionCall;
+        toolsUsed.push(name);
+        onEvent({ type: "status", tool: name });
+        let out;
+        try {
+          const handler = handlers[name];
+          out = handler
+            ? await handler(args || {}, artifacts)
+            : { error: `Unknown tool: ${name}` };
+        } catch (err) {
+          console.error(
+            `[assistant] tool "${name}" failed:`,
+            err?.message || err,
+          );
+          out = { error: err?.message || "Tool failed." };
+        }
+        return { functionResponse: { name, response: { result: out } } };
+      }),
+    );
     contents.push({ role: "user", parts: responses });
   }
 

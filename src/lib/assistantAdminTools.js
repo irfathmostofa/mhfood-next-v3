@@ -188,36 +188,46 @@ export function createAdminHandlers(sb) {
   async function sales_summary(args) {
     const r = resolveRange(args);
 
-    const orders = await fetchAll(() =>
-      sb
-        .from("orders")
-        .select("id, total_amount, status, order_type")
-        .gte("created_at", r.startISO)
-        .lte("created_at", r.endISO)
-        .order("created_at", { ascending: false })
-        .order("id"),
-    );
+    const [orders, items, products, expenseRows] = await Promise.all([
+      fetchAll(() =>
+        sb
+          .from("orders")
+          .select("id, total_amount, status, order_type")
+          .gte("created_at", r.startISO)
+          .lte("created_at", r.endISO)
+          .order("created_at", { ascending: false })
+          .order("id"),
+      ),
+      fetchAll(() =>
+        sb
+          .from("order_items")
+          .select("product_id, quantity, orders!inner(status, created_at)")
+          .gte("orders.created_at", r.startISO)
+          .lte("orders.created_at", r.endISO)
+          .neq("orders.status", "cancelled")
+          .order("id"),
+      ),
+      fetchAll(() => sb.from("products").select("id, cost").order("id")),
+      fetchAll(() =>
+        sb
+          .from("expenses")
+          .select("amount")
+          .gte("expense_date", r.startISO)
+          .lte("expense_date", r.endISO)
+          .order("id"),
+      ),
+    ]);
 
     const byStatus = {};
     for (const o of orders) {
-      const s = (byStatus[o.status] ||= { orders: 0, amount: 0 });
-      s.orders += 1;
-      s.amount += Number(o.total_amount || 0);
+      const st = (byStatus[o.status] ||= { orders: 0, amount: 0 });
+      st.orders += 1;
+      st.amount += Number(o.total_amount || 0);
     }
     const valid = orders.filter((o) => o.status !== "cancelled");
-    const revenue = valid.reduce((s, o) => s + Number(o.total_amount || 0), 0);
-
-    const items = await fetchAll(() =>
-      sb
-        .from("order_items")
-        .select("product_id, quantity, orders!inner(status, created_at)")
-        .gte("orders.created_at", r.startISO)
-        .lte("orders.created_at", r.endISO)
-        .neq("orders.status", "cancelled")
-        .order("id"),
-    );
-    const products = await fetchAll(() =>
-      sb.from("products").select("id, cost").order("id"),
+    const revenue = valid.reduce(
+      (sum, o) => sum + Number(o.total_amount || 0),
+      0,
     );
     const costMap = Object.fromEntries(
       products.map((p) => [p.id, Number(p.cost) || 0]),
@@ -231,14 +241,6 @@ export function createAdminHandlers(sb) {
       productCost += c * Number(i.quantity || 0);
     }
 
-    const expenseRows = await fetchAll(() =>
-      sb
-        .from("expenses")
-        .select("amount")
-        .gte("expense_date", r.startISO)
-        .lte("expense_date", r.endISO)
-        .order("id"),
-    );
     const expenses = expenseRows.reduce((s, e) => s + Number(e.amount || 0), 0);
 
     const grossProfit = revenue - productCost;

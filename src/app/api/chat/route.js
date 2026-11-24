@@ -2,12 +2,8 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { clientIp, rateLimit, tooManyRequests } from "@/lib/rateLimit";
 import { getTheme } from "@/lib/site";
-import {
-  AssistantError,
-  logChat,
-  runAgent,
-  sanitizeHistory,
-} from "@/lib/gemini";
+import { logChat, runAgent, sanitizeHistory } from "@/lib/gemini";
+import { streamResponse } from "@/lib/assistantStream";
 import { customerSystemPrompt } from "@/lib/assistantPrompts";
 import {
   CUSTOMER_TOOLS,
@@ -25,65 +21,60 @@ export async function POST(req) {
   });
   if (!limited.ok) return tooManyRequests(limited.retryAfter);
 
-  let userMessage = "";
-  try {
-    const body = await req.json().catch(() => ({}));
-    const history = sanitizeHistory(body.messages);
-    if (history.length === 0 || history[history.length - 1].role !== "user") {
-      return NextResponse.json(
-        { error: "Send a message first." },
-        { status: 400 },
-      );
-    }
-    userMessage = history[history.length - 1].text;
+  const body = await req.json().catch(() => ({}));
+  const history = sanitizeHistory(body.messages);
+  if (history.length === 0 || history[history.length - 1].role !== "user") {
+    return NextResponse.json(
+      { error: "Send a message first." },
+      { status: 400 },
+    );
+  }
+  const userMessage = history[history.length - 1].text;
 
-    const { data: settings } = await supabase
+  // Settings check + theme in parallel (both are quick / cached).
+  const [{ data: settings }, theme] = await Promise.all([
+    supabase
       .from("site_settings")
       .select("ai_assistant_enabled")
       .eq("id", 1)
-      .maybeSingle();
-    if (settings && settings.ai_assistant_enabled === false) {
-      return NextResponse.json(
-        { error: "The assistant is currently turned off." },
-        { status: 403 },
-      );
-    }
-
-    const theme = await getTheme();
-    const { text, artifacts, toolsUsed } = await runAgent({
-      system: customerSystemPrompt(theme?.store_name || "our store"),
-      history,
-      tools: CUSTOMER_TOOLS,
-      handlers: createCustomerHandlers(),
-    });
-
-    await logChat(supabase, {
-      mode: "customer",
-      userMessage,
-      reply: text,
-      tools: toolsUsed,
-    });
-
-    return NextResponse.json({
-      ok: true,
-      reply: text,
-      products: artifacts.products,
-      orderDraft: artifacts.orderDraft,
-    });
-  } catch (err) {
-    const known = err instanceof AssistantError;
-    if (!known) console.error("[api/chat] unexpected error:", err);
-    await logChat(supabase, {
-      mode: "customer",
-      userMessage,
-      error: err?.message || "unknown",
-    });
+      .maybeSingle(),
+    getTheme(),
+  ]);
+  if (settings && settings.ai_assistant_enabled === false) {
     return NextResponse.json(
-      {
-        error: known ? err.message : "Something went wrong. Please try again.",
-        code: known ? err.code : "unexpected",
-      },
-      { status: known ? err.status : 500 },
+      { error: "The assistant is currently turned off." },
+      { status: 403 },
     );
   }
+
+  return streamResponse(async (send) => {
+    try {
+      const { text, artifacts, toolsUsed } = await runAgent({
+        system: customerSystemPrompt(theme?.store_name || "our store"),
+        history,
+        tools: CUSTOMER_TOOLS,
+        handlers: createCustomerHandlers(),
+        onEvent: send,
+      });
+      send({
+        type: "done",
+        reply: text,
+        products: artifacts.products,
+        orderDraft: artifacts.orderDraft,
+      });
+      await logChat(supabase, {
+        mode: "customer",
+        userMessage,
+        reply: text,
+        tools: toolsUsed,
+      });
+    } catch (err) {
+      await logChat(supabase, {
+        mode: "customer",
+        userMessage,
+        error: err?.message,
+      });
+      throw err;
+    }
+  });
 }
