@@ -232,9 +232,26 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
         type="button"
         onClick={() => setSearchOpen((value) => !value)}
         aria-label="Search"
-        className="lg:hidden inline-flex items-center justify-center h-9 w-9 rounded-full text-muted hover:text-ink hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+        className="lg:hidden p-2.5 rounded-full text-muted hover:text-ink hover:bg-primary/5 transition-colors"
       >
-        <Search size={19} />
+        <Search size={20} />
+      </button>
+
+      {/* Cart */}
+      <button
+        type="button"
+        onClick={openCart}
+        aria-label="Open cart"
+        className="relative p-2.5 rounded-full text-muted hover:text-ink hover:bg-primary/5 transition-colors"
+      >
+        <ShoppingBag size={20} />
+
+        {/* Hydration-safe cart count - shows unique items */}
+        {mounted && uniqueItemCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full bg-accent text-white">
+            {uniqueItemCount > 99 ? "99+" : uniqueItemCount}
+          </span>
+        )}
       </button>
     </div>
   );
@@ -304,52 +321,39 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
         ======================================================= */}
 
           <div className="col-start-3 flex items-center gap-1 justify-end shrink-0">
-            <div className="hidden lg:flex items-center gap-1">
-              {/* Live sale badges */}
+            <div className="hidden lg:flex items-center">
               {liveSessions.map((session) => (
                 <Link
                   key={session.id}
                   href={`/sale/${session.slug}`}
-                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[13px] font-semibold text-accent bg-accent/10 hover:bg-accent/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                  className="px-3 py-2 rounded-full text-[13px] font-semibold text-accent hover:text-ink transition-colors"
                 >
-                  <Zap size={13} className="shrink-0" />
-                  <span className="max-w-[120px] truncate">{session.name}</span>
+                  {session.name}
                 </Link>
               ))}
-
-              {liveSessions.length > 0 && (
-                <span className="w-px h-5 bg-line mx-1" aria-hidden="true" />
-              )}
-
-              {/* Primary nav links */}
-              {[
-                { href: "/shop", label: "Shop" },
-                { href: "/faq", label: "FAQ" },
-                { href: "/track", label: "Track Order" },
-              ].map(({ href, label }) => {
-                const active =
-                  pathname === href || pathname.startsWith(href + "/");
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    className={`inline-flex items-center h-9 px-3 rounded-full text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-                      active
-                        ? "text-accent bg-primary/5"
-                        : "text-muted hover:text-ink hover:bg-primary/5"
-                    }`}
-                  >
-                    {label}
-                  </Link>
-                );
-              })}
-
-              {/* Custom Order — accent CTA */}
               <Link
+                href="/shop"
+                className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
+              >
+                Shop
+              </Link>
+              {/* <Link
                 href="/custom-order"
-                className="inline-flex items-center h-9 px-4 ml-1 rounded-full text-[13px] font-semibold bg-accent text-white hover:bg-accent/90 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                className="px-3.5 py-1.5 mx-1 rounded-full text-[13px] font-semibold border border-accent text-accent hover:bg-accent hover:text-white transition-colors"
               >
                 Custom Order
+              </Link> */}
+              <Link
+                href="/faq"
+                className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
+              >
+                FAQ
+              </Link>
+              <Link
+                href="/track"
+                className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
+              >
+                Track Order
               </Link>
             </div>
 
@@ -359,7 +363,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
               type="button"
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
-              className="lg:hidden inline-flex items-center justify-center h-9 w-9 ml-1 rounded-full text-muted hover:text-ink hover:bg-primary/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="lg:hidden pl-2.5 pt-2.5 pb-2.5 pr-0 rounded-full text-muted hover:text-ink transition-colors"
             >
               <Menu size={20} />
             </button>
