@@ -14,14 +14,41 @@ import {
   Zap,
 } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
+import { useReadableText } from "@/hooks/useReadableText";
 
 const NAV_LINKS = [
   { to: "/", label: "Home" },
   { to: "/shop", label: "Shop" },
-  { to: "/custom-order", label: "Custom Order" },
+  // { to: "/custom-order", label: "Custom Order" },
   { to: "/faq", label: "FAQ" },
   { to: "/track", label: "Track Order" },
 ];
+
+/**
+ * Renders any element on a background colour class and automatically sets
+ * the text colour (white / near-black) with the best contrast against the
+ * REAL rendered background. Children inherit that colour.
+ */
+function ReadableBg({
+  as: Tag = "div",
+  className = "",
+  style,
+  children,
+  ...rest
+}) {
+  const ref = useRef(null);
+  const { fg } = useReadableText(ref);
+  return (
+    <Tag
+      ref={ref}
+      className={className}
+      style={{ ...style, color: fg }}
+      {...rest}
+    >
+      {children}
+    </Tag>
+  );
+}
 
 export default function Header({ theme, categories = [], liveSessions = [] }) {
   const router = useRouter();
@@ -59,13 +86,11 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
     const el = navScrollRef.current;
     if (!el) return;
 
-    // Run once on mount / whenever categories change
     checkNavOverflow();
 
     el.addEventListener("scroll", checkNavOverflow, { passive: true });
     window.addEventListener("resize", checkNavOverflow);
 
-    // Catch cases where fonts/images load late and change width
     const resizeObserver = new ResizeObserver(checkNavOverflow);
     resizeObserver.observe(el);
 
@@ -201,7 +226,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
   const storeName = theme?.store_name || "Your Store";
 
   /* ============================================================
-     LOGO
+     LOGO  (no fixed text colour: it inherits the readable colour)
   ============================================================ */
 
   const logo = (
@@ -214,7 +239,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
           className="h-9 sm:h-10 w-auto"
         />
       ) : (
-        <span className="text-lg sm:text-xl font-semibold tracking-tight text-ink">
+        <span className="text-lg sm:text-xl font-semibold tracking-tight">
           {storeName}
         </span>
       )}
@@ -232,7 +257,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
         type="button"
         onClick={() => setSearchOpen((value) => !value)}
         aria-label="Search"
-        className="lg:hidden p-2.5 rounded-full text-muted hover:text-ink hover:bg-primary/5 transition-colors"
+        className="lg:hidden p-2.5 rounded-full opacity-80 hover:opacity-100 hover:bg-current/10 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
       >
         <Search size={20} />
       </button>
@@ -242,58 +267,64 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
         type="button"
         onClick={openCart}
         aria-label="Open cart"
-        className="relative p-2.5 rounded-full text-muted hover:text-ink hover:bg-primary/5 transition-colors"
+        className="relative p-2.5 rounded-full opacity-90 hover:opacity-100 hover:bg-current/10 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
       >
         <ShoppingBag size={20} />
 
-        {/* Hydration-safe cart count - shows unique items */}
+        {/* Hydration-safe cart count; badge picks its own readable text colour */}
         {mounted && uniqueItemCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full bg-accent text-white">
+          <ReadableBg
+            as="span"
+            className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold rounded-full bg-accent ring-2 ring-primary"
+          >
             {uniqueItemCount > 99 ? "99+" : uniqueItemCount}
-          </span>
+          </ReadableBg>
         )}
       </button>
     </div>
   );
 
-  // Get parent categories (no parent_id)
   const parentCategories = categories.filter((c) => !c.parent_id);
 
-  // Get child categories for a parent
   const getChildCategories = (parentId) => {
     return categories.filter((c) => c.parent_id === parentId);
   };
 
-  // Toggle category expansion
   const toggleCategory = (categoryId) => {
     setExpandedCategory(expandedCategory === categoryId ? null : categoryId);
   };
 
   return (
     <>
-      <header className="bg-surface/90 backdrop-blur-md border-b border-line">
-        {/* ========================================================
-          ANNOUNCEMENT BAR
+      {/* ========================================================
+          HEADER — background is the base (primary) colour
       ========================================================= */}
-
+      <ReadableBg
+        as="header"
+        className="bg-primary border-b"
+        style={{
+          borderBottomColor:
+            "color-mix(in srgb, currentColor 15%, transparent)",
+        }}
+      >
+        {/* ANNOUNCEMENT BAR — subtle tint of the text colour, always readable */}
         {theme?.show_announcement_bar && theme?.announcement_text && (
-          <div className="bg-primary text-white text-center text-xs sm:text-sm font-medium px-4 py-2">
+          <div
+            className="text-center text-xs sm:text-sm font-medium px-4 py-2"
+            style={{
+              backgroundColor:
+                "color-mix(in srgb, currentColor 12%, transparent)",
+            }}
+          >
             {theme.announcement_text}
           </div>
         )}
 
-        {/* ========================================================
-          MAIN HEADER
-      ========================================================= */}
-
+        {/* MAIN HEADER */}
         <div className="max-w-[97%] mx-auto px-3 sm:px-5 lg:px-8 h-16 lg:h-20 grid grid-cols-[auto_1fr_auto] items-center gap-3 sm:gap-6">
-          {/* Logo */}
           {logo}
 
-          {/* ======================================================
-            DESKTOP SEARCH (center, always visible)
-        ======================================================= */}
-
+          {/* DESKTOP SEARCH — keeps its own light surface so text stays visible */}
           <form
             onSubmit={submitSearch}
             className="hidden lg:flex items-center w-full overflow-hidden rounded-full border border-line bg-surface focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25 transition-shadow"
@@ -307,54 +338,68 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
               placeholder="Search for food..."
               className="w-full px-3 py-2.5 bg-transparent text-sm outline-none text-ink placeholder-muted"
             />
-            <button
+            <ReadableBg
+              as="button"
               type="submit"
               aria-label="Submit search"
-              className="shrink-0 m-1 px-4 py-2 rounded-full bg-primary text-white text-xs font-semibold hover:opacity-90 transition-opacity"
+              className="shrink-0 m-1 px-4 py-2 rounded-full bg-primary text-xs font-semibold hover:opacity-90 transition-opacity"
             >
               Search
-            </button>
+            </ReadableBg>
           </form>
 
-          {/* ======================================================
-            RIGHT SIDE BUTTONS
-        ======================================================= */}
-
+          {/* RIGHT SIDE */}
           <div className="col-start-3 flex items-center gap-1 justify-end shrink-0">
-            <div className="hidden lg:flex items-center">
+            <div className="hidden lg:flex items-center gap-1">
+              {/* Live sale badges — outlined in the text colour */}
               {liveSessions.map((session) => (
                 <Link
                   key={session.id}
                   href={`/sale/${session.slug}`}
-                  className="px-3 py-2 rounded-full text-[13px] font-semibold text-accent hover:text-ink transition-colors"
+                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full text-[13px] font-semibold border border-current/40 hover:bg-current/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
                 >
-                  {session.name}
+                  <Zap size={13} className="shrink-0" />
+                  <span className="max-w-[120px] truncate">{session.name}</span>
                 </Link>
               ))}
-              <Link
-                href="/shop"
-                className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
-              >
-                Shop
-              </Link>
-              {/* <Link
+
+              {liveSessions.length > 0 && (
+                <span
+                  className="w-px h-5 mx-1 bg-current opacity-20"
+                  aria-hidden="true"
+                />
+              )}
+
+              {[
+                { href: "/shop", label: "Shop" },
+                { href: "/faq", label: "FAQ" },
+                { href: "/track", label: "Track Order" },
+              ].map(({ href, label }) => {
+                const active =
+                  pathname === href || pathname.startsWith(href + "/");
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`inline-flex items-center h-9 px-3 rounded-full text-[13px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current ${
+                      active
+                        ? "bg-current/15"
+                        : "opacity-80 hover:opacity-100 hover:bg-current/10"
+                    }`}
+                  >
+                    {label}
+                  </Link>
+                );
+              })}
+
+              {/* Custom Order — accent CTA with its own readable text */}
+              {/* <ReadableBg
+                as={Link}
                 href="/custom-order"
-                className="px-3.5 py-1.5 mx-1 rounded-full text-[13px] font-semibold border border-accent text-accent hover:bg-accent hover:text-white transition-colors"
+                className="inline-flex items-center h-9 px-4 ml-1 rounded-full text-[13px] font-semibold bg-accent hover:bg-accent/90 transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
               >
                 Custom Order
-              </Link> */}
-              <Link
-                href="/faq"
-                className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
-              >
-                FAQ
-              </Link>
-              <Link
-                href="/track"
-                className="px-3 py-2 rounded-full text-[13px] font-medium text-muted hover:text-ink hover:bg-primary/5 transition-colors"
-              >
-                Track Order
-              </Link>
+              </ReadableBg> */}
             </div>
 
             {actions}
@@ -363,7 +408,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
               type="button"
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
-              className="lg:hidden pl-2.5 pt-2.5 pb-2.5 pr-0 rounded-full text-muted hover:text-ink transition-colors"
+              className="lg:hidden inline-flex items-center justify-center h-9 w-9 ml-1 rounded-full opacity-80 hover:opacity-100 hover:bg-current/10 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current"
             >
               <Menu size={20} />
             </button>
@@ -378,13 +423,15 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
                 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
               />
 
+              {/* text-ink is required here: the input would otherwise
+                  inherit the header's text colour on a light background */}
               <input
                 autoFocus
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search for food..."
-                className="w-full pl-10 pr-10 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/30 border border-line bg-background"
+                className="w-full pl-10 pr-10 py-3 rounded-xl text-sm outline-none focus:ring-2 focus:ring-accent/30 border border-line bg-surface text-ink placeholder-muted"
               />
 
               <button
@@ -398,25 +445,27 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
             </form>
           </div>
         )}
-      </header>
+      </ReadableBg>
 
       {/* ========================================================
-          BOTTOM NAV - CATEGORY MENU (Desktop only, sticky)
+          CATEGORY MENU (Desktop only, sticky) — also base colour
       ========================================================= */}
 
       {theme?.show_header_categories !== false &&
         parentCategories.length > 0 && (
-          <div className="hidden lg:block sticky top-0 z-40 border-b border-line bg-primary shadow-sm">
+          <ReadableBg
+            as="div"
+            className="hidden lg:block sticky top-0 z-40 border-b border-line bg-primary shadow-sm"
+          >
             <div className="max-w-[97%] mx-auto px-3 sm:px-5 lg:px-8 relative">
-              {/* Left scroll button */}
               {canScrollLeft && (
                 <button
                   type="button"
                   onClick={() => scrollNav("left")}
                   aria-label="Scroll categories left"
-                  className="absolute left-0 top-0 h-12 w-10 z-10 flex items-center justify-center bg-gradient-to-r from-primary via-primary/95 to-transparent text-white"
+                  className="absolute left-0 top-0 h-12 w-10 z-10 flex items-center justify-center bg-gradient-to-r from-primary via-primary/95 to-transparent"
                 >
-                  <span className="flex items-center justify-center h-7 w-7 rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+                  <span className="flex items-center justify-center h-7 w-7 rounded-full bg-current/15 hover:bg-current/25 transition-colors">
                     <ChevronLeft size={16} />
                   </span>
                 </button>
@@ -453,17 +502,17 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
                     >
                       <Link
                         href={`/shop?category=${cat.slug || cat.id}`}
-                        className={`flex items-center gap-1 pr-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
+                        className={`flex items-center gap-1 pr-4 py-2 text-sm font-medium whitespace-nowrap transition-opacity ${
                           isOpen
-                            ? "text-accent"
-                            : "text-white hover:text-accent"
+                            ? "opacity-100 underline underline-offset-4"
+                            : "opacity-90 hover:opacity-100"
                         }`}
                       >
                         {cat.name}
                         {hasChildren && (
                           <ChevronDown
                             size={14}
-                            className={`transition-transform ${isOpen ? "rotate-180 text-accent" : "text-white/70"}`}
+                            className={`transition-transform opacity-70 ${isOpen ? "rotate-180" : ""}`}
                           />
                         )}
                       </Link>
@@ -472,21 +521,20 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
                 })}
               </nav>
 
-              {/* Right scroll button */}
               {canScrollRight && (
                 <button
                   type="button"
                   onClick={() => scrollNav("right")}
                   aria-label="Scroll categories right"
-                  className="absolute right-0 top-0 h-12 w-10 z-10 flex items-center justify-center bg-gradient-to-l from-primary via-primary/95 to-transparent text-white"
+                  className="absolute right-0 top-0 h-12 w-10 z-10 flex items-center justify-center bg-gradient-to-l from-primary via-primary/95 to-transparent"
                 >
-                  <span className="flex items-center justify-center h-7 w-7 rounded-full bg-white/15 hover:bg-white/25 transition-colors">
+                  <span className="flex items-center justify-center h-7 w-7 rounded-full bg-current/15 hover:bg-current/25 transition-colors">
                     <ChevronRight size={16} />
                   </span>
                 </button>
               )}
             </div>
-          </div>
+          </ReadableBg>
         )}
 
       {hoverMenu &&
@@ -530,7 +578,7 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
       />
 
       {/* ========================================================
-          MOBILE / TABLET DRAWER
+          MOBILE / TABLET DRAWER (own light surface, unchanged)
       ========================================================= */}
 
       {menuOpen && (
@@ -538,7 +586,6 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
           className="fixed top-0 right-0 h-[100dvh] w-72 max-w-[85vw] bg-surface z-[70] shadow-2xl flex flex-col lg:hidden"
           aria-label="Mobile navigation"
         >
-          {/* Drawer Header */}
           <div className="flex items-center justify-between px-5 h-16 border-b border-line shrink-0">
             <span className="font-display text-lg text-ink truncate pr-3">
               {storeName}
@@ -554,7 +601,6 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
             </button>
           </div>
 
-          {/* Navigation */}
           <nav className="flex-1 px-4 py-5 overflow-y-auto space-y-1">
             {liveSessions.length > 0 && (
               <>
@@ -606,7 +652,6 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
               );
             })}
 
-            {/* Categories in Hamburger Menu */}
             {categories.length > 0 && (
               <>
                 <p className="px-1 pt-3 text-[11px] font-semibold text-muted uppercase tracking-wider mb-2">
@@ -641,7 +686,6 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
                         )}
                       </button>
 
-                      {/* Sub-categories */}
                       {hasChildren && isExpanded && (
                         <div className="ml-3 mt-1 space-y-0.5 border-l-2 border-line pl-3">
                           {childCategories.map((child) => (
@@ -663,9 +707,9 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
             )}
           </nav>
 
-          {/* Cart - Shows total quantity in button */}
           <div className="border-t border-line px-5 py-4 shrink-0">
-            <button
+            <ReadableBg
+              as="button"
               type="button"
               onClick={() => {
                 setMenuOpen(false);
@@ -676,11 +720,11 @@ export default function Header({ theme, categories = [], liveSessions = [] }) {
               <ShoppingBag size={16} />
               View Cart
               {mounted && totalQuantity > 0 && (
-                <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+                <span className="bg-current/20 px-2 py-0.5 rounded-full text-xs">
                   {totalQuantity}
                 </span>
               )}
-            </button>
+            </ReadableBg>
           </div>
         </aside>
       )}
